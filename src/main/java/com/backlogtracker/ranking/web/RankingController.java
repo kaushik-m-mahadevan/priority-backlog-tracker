@@ -28,6 +28,15 @@ public class RankingController {
         return rankingService.topShared(limit);
     }
 
+    /** The N fastest items to knock out now — effort asc (design §23). Shared scope only. */
+    @GetMapping("/quick-wins")
+    public List<RankedItemView> quickWins(
+            @RequestParam(defaultValue = "shared") String scope,
+            @RequestParam(defaultValue = "10") int limit) {
+        requireShared(scope);
+        return rankingService.quickWinsShared(limit);
+    }
+
     static void requireShared(String scope) {
         if (!"shared".equalsIgnoreCase(scope)) {
             throw new IllegalArgumentException(

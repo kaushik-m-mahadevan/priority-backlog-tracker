@@ -27,7 +27,17 @@ public class RankingService {
     /** Top {@code limit} live shared items by sortScore (design §3). */
     public List<RankedItemView> topShared(int limit) {
         var cfg = configService.getConfig();
-        return scoringService.rank(itemService.listShared(), cfg).stream()
+        return scoringService.rankBy(itemService.listShared(), cfg, ScoringService.ORDER).stream()
+                .limit(Math.max(0, limit))
+                .map(RankedItemView::of)
+                .toList();
+    }
+
+    /** Fastest {@code limit} live shared items — effort asc, sortScore desc tiebreak (§23). */
+    public List<RankedItemView> quickWinsShared(int limit) {
+        var cfg = configService.getConfig();
+        return scoringService.rankBy(itemService.listShared(), cfg, ScoringService.QUICK_WINS_ORDER)
+                .stream()
                 .limit(Math.max(0, limit))
                 .map(RankedItemView::of)
                 .toList();

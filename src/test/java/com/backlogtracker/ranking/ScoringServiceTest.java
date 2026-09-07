@@ -125,6 +125,21 @@ class ScoringServiceTest {
                 .isGreaterThan(ranked.get(2).score().sortScore());
     }
 
+    @Test
+    void quickWinsOrderIsEffortAscThenSortScoreDesc() {
+        Item tinyLowValue = item("Low", min(15), inDays(200), NOW);      // 15 min
+        Item tinyHighValue = item("Critical", min(15), inDays(0), NOW);  // 15 min, higher score
+        Item small = item("Critical", min(30), inDays(0), NOW);          // 30 min
+        Item big = item("Critical", hours(4), inDays(0), NOW);           // 240 min
+
+        List<ScoringService.Scored> qw =
+                scoring.rankBy(List.of(big, small, tinyLowValue, tinyHighValue),
+                        cfg, ScoringService.QUICK_WINS_ORDER);
+
+        assertThat(qw).extracting(ScoringService.Scored::item)
+                .containsExactly(tinyHighValue, tinyLowValue, small, big);
+    }
+
     private static EffortEstimate min(int v) {
         return new EffortEstimate(v, EffortUnit.MINUTES);
     }

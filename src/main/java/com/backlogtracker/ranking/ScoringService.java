@@ -40,10 +40,18 @@ public class ScoringService {
     public record Scored(Item item, Score score) {
     }
 
-    /** Comparator over pre-scored items implementing the §3 tie-break chain. */
+    /** Top 10 / main ranking: sortScore desc, then effortMinutes asc, then createdAt asc (§3). */
     public static final Comparator<Scored> ORDER =
             Comparator.comparingDouble((Scored s) -> s.score().sortScore()).reversed()
                     .thenComparingLong(s -> effortMinutes(s.item()))
+                    .thenComparing(s -> s.item().getCreatedAt(),
+                            Comparator.nullsLast(Comparator.naturalOrder()));
+
+    /** Quick Wins: effortMinutes asc, then sortScore desc as tiebreak (design §23). */
+    public static final Comparator<Scored> QUICK_WINS_ORDER =
+            Comparator.comparingLong((Scored s) -> effortMinutes(s.item()))
+                    .thenComparing(Comparator.comparingDouble(
+                            (Scored s) -> s.score().sortScore()).reversed())
                     .thenComparing(s -> s.item().getCreatedAt(),
                             Comparator.nullsLast(Comparator.naturalOrder()));
 
@@ -57,12 +65,17 @@ public class ScoringService {
         return new Score(priorityFactor, urgencyFactor, effortFactor, sortScore);
     }
 
-    /** Scores every item and returns them ranked best-first. */
-    public List<Scored> rank(List<Item> items, AppConfig cfg) {
+    /** Scores every item and returns them ordered by the given comparator. */
+    public List<Scored> rankBy(List<Item> items, AppConfig cfg, Comparator<Scored> order) {
         return items.stream()
                 .map(i -> new Scored(i, score(i, cfg)))
-                .sorted(ORDER)
+                .sorted(order)
                 .toList();
+    }
+
+    /** Scores every item and returns them ranked best-first (§3 ORDER). */
+    public List<Scored> rank(List<Item> items, AppConfig cfg) {
+        return rankBy(items, cfg, ORDER);
     }
 
     // --- factors (package-private for focused unit tests) ------------------------------
