@@ -28,12 +28,26 @@
         <maven.compiler.source>21</maven.compiler.source>
         <maven.compiler.target>21</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <flapdoodle.spring.version>4.18.0</flapdoodle.spring.version>
     </properties>
 
     <dependencies>
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-mongodb</artifactId>
+        </dependency>
+
+        <!-- Embedded MongoDB. Runs an in-process mongod for local dev and tests so no
+             external database is needed yet; production sets MONGODB_URI to Atlas M0.
+             Moves to <scope>test</scope> at the deploy step (see docs/design.md §10). -->
+        <dependency>
+            <groupId>de.flapdoodle.embed</groupId>
+            <artifactId>de.flapdoodle.embed.mongo.spring3x</artifactId>
+            <version>${flapdoodle.spring.version}</version>
         </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>

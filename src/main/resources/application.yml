@@ -1,9 +1,22 @@
 spring:
   application:
     name: priority-backlog-tracker
+  data:
+    mongodb:
+      database: backlog
+      # No host/uri set: the embedded MongoDB (flapdoodle) is used for local dev and
+      # tests. Production overrides this by setting MONGODB_URI (wired at the deploy step).
 
 server:
   port: ${PORT:8080}
+
+# Embedded MongoDB version for local dev and tests (flapdoodle). Ignored in production
+# once MONGODB_URI points at Atlas and the embedded auto-config is disabled.
+de:
+  flapdoodle:
+    mongodb:
+      embedded:
+        version: 7.0.12
 
 management:
   endpoints:
@@ -15,8 +28,6 @@ management:
       probes:
         enabled: true
 
-# Placeholder for later steps. Local dev will use an embedded MongoDB (step 1);
-# production points MONGODB_URI at Atlas M0.
 app:
   jwt:
     secret: ${JWT_SECRET:test123}
