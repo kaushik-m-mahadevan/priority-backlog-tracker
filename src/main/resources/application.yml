@@ -31,3 +31,11 @@ management:
 app:
   jwt:
     secret: ${JWT_SECRET:test123}
+    expiration-minutes: ${JWT_EXPIRATION_MINUTES:1440}
+  # Dev seed account (design has no real founder data yet). Override in production.
+  seed-user:
+    enabled: ${SEED_USER_ENABLED:true}
+    email: ${SEED_USER_EMAIL:test123}
+    password: ${SEED_USER_PASSWORD:test123}
+    name: ${SEED_USER_NAME:Test User}
+    user-code: ${SEED_USER_CODE:TST}
