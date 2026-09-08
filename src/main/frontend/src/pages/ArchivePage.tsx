@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { api } from "../api/client";
-import { PriorityBadge, TerminalBadge } from "../components/Badge";
-import { formatDateTime, formatEffort } from "../lib/format";
+import { TerminalBadge } from "../components/Badge";
+import { PriorityMark } from "../components/PriorityMark";
+import { formatDateTime, effortSpan } from "../lib/format";
 import type { ArchivedItem } from "../types";
 
 export default function ArchivePage() {
@@ -30,10 +31,9 @@ export default function ArchivePage() {
           <table>
             <thead>
               <tr>
-                <th>ID</th>
+                <th style={{ width: 28 }}></th>
                 <th>Title</th>
                 <th>Category</th>
-                <th>Priority</th>
                 <th>Effort</th>
                 <th>Outcome</th>
                 <th>Completed</th>
@@ -42,27 +42,26 @@ export default function ArchivePage() {
             <tbody>
               {loading && (
                 <tr>
-                  <td colSpan={7} className="empty">
+                  <td colSpan={6} className="empty">
                     Loading…
                   </td>
                 </tr>
               )}
               {!loading && rows.length === 0 && (
                 <tr>
-                  <td colSpan={7} className="empty">
+                  <td colSpan={6} className="empty">
                     Nothing completed yet.
                   </td>
                 </tr>
               )}
               {rows.map((a) => (
                 <tr key={a.id}>
-                  <td className="mono">{a.itemId}</td>
+                  <td>
+                    <PriorityMark priority={a.priority} />
+                  </td>
                   <td>{a.title}</td>
                   <td>{a.category}</td>
-                  <td>
-                    <PriorityBadge priority={a.priority} />
-                  </td>
-                  <td>{formatEffort(a.effort)}</td>
+                  <td className="muted">{effortSpan(a.effort)}</td>
                   <td>
                     <TerminalBadge status={a.terminalStatus} />
                   </td>

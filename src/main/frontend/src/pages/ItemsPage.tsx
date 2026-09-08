@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { api } from "../api/client";
-import { PriorityBadge, StatusBadge } from "../components/Badge";
+import { StatusBadge } from "../components/Badge";
+import { PriorityMark } from "../components/PriorityMark";
 import ItemFormModal from "../components/ItemFormModal";
 import { useConfig } from "../config/ConfigContext";
-import { dueLabel, formatDate, formatEffort } from "../lib/format";
+import { dueChip, effortSpan, formatDate } from "../lib/format";
 import type { Item } from "../types";
 
 export default function ItemsPage() {
@@ -87,10 +88,9 @@ export default function ItemsPage() {
           <table>
             <thead>
               <tr>
-                <th>ID</th>
+                <th style={{ width: 28 }}></th>
                 <th>Title</th>
                 <th>Category</th>
-                <th>Priority</th>
                 <th>Effort</th>
                 <th>Due</th>
                 <th>Status</th>
@@ -100,31 +100,36 @@ export default function ItemsPage() {
             <tbody>
               {loading && (
                 <tr>
-                  <td colSpan={8} className="empty">
+                  <td colSpan={7} className="empty">
                     Loading…
                   </td>
                 </tr>
               )}
               {!loading && filtered.length === 0 && (
                 <tr>
-                  <td colSpan={8} className="empty">
+                  <td colSpan={7} className="empty">
                     No items match.
                   </td>
                 </tr>
               )}
-              {filtered.map((i) => (
+              {filtered.map((i) => {
+                const due = dueChip(i.dueDate);
+                return (
                 <tr key={i.id}>
-                  <td className="mono">{i.itemId}</td>
+                  <td>
+                    <PriorityMark priority={i.priority} />
+                  </td>
                   <td>{i.title}</td>
                   <td>{i.category}</td>
+                  <td className="muted">{effortSpan(i.effort)}</td>
                   <td>
-                    <PriorityBadge priority={i.priority} />
-                  </td>
-                  <td>{formatEffort(i.effort)}</td>
-                  <td>
-                    {formatDate(i.dueDate)}
-                    <div className="muted" style={{ fontSize: 12 }}>
-                      {dueLabel(i.dueDate)}
+                    <span
+                      className={`chip ${due.tone === "late" ? "late" : due.tone === "soon" ? "soon" : ""}`}
+                    >
+                      {due.text}
+                    </span>
+                    <div className="muted" style={{ fontSize: 11, marginTop: 2 }}>
+                      {formatDate(i.dueDate)}
                     </div>
                   </td>
                   <td>
@@ -177,7 +182,8 @@ export default function ItemsPage() {
                     </div>
                   </td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
         </div>
