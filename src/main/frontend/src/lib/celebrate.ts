@@ -18,10 +18,17 @@ function reducedMotion(): boolean {
   }
 }
 
+/** The first grove svg that is actually on screen (the header copy is display:none
+    on desktop and would report a 0,0 rect — sending leaves to the corner). */
 function findGrove(): SVGElement | null {
-  return document.querySelector<SVGElement>(
+  const all = document.querySelectorAll<SVGElement>(
     ".dash-aside .grove.solo svg, .head-grove .grove svg, .grove svg",
   );
+  for (const el of all) {
+    const r = el.getBoundingClientRect();
+    if (r.width > 4 && r.height > 4) return el;
+  }
+  return null;
 }
 
 function leafSpan(x: number, y: number, size = 16): HTMLElement {
