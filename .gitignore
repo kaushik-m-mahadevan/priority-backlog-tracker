@@ -6,9 +6,12 @@ target/
 *.iml
 .vscode/
 
-# Node / frontend build (added in a later step)
+# Node / frontend build
 node_modules/
+src/main/frontend/node_modules/
 src/main/frontend/dist/
+# frontend-maven-plugin installs Node under target/ (already ignored) but be explicit
+node/
 
 # Local env / secrets
 application-local.yml
