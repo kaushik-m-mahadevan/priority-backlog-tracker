@@ -1,0 +1,117 @@
+package com.backlogtracker.insights;
+
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
+
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.data.mongodb.core.MongoOperations;
+import org.springframework.data.mongodb.core.query.Criteria;
+import org.springframework.data.mongodb.core.query.Query;
+import org.springframework.data.mongodb.core.query.Update;
+import org.springframework.http.MediaType;
+import org.springframework.test.web.servlet.MockMvc;
+
+import com.backlogtracker.item.domain.EffortEstimate;
+import com.backlogtracker.item.domain.EffortUnit;
+import com.backlogtracker.item.domain.Item;
+import com.backlogtracker.item.domain.ItemScope;
+import com.backlogtracker.item.domain.ItemStatus;
+import com.backlogtracker.item.repository.ItemRepository;
+import com.backlogtracker.support.AuthTestSupport;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
+@SpringBootTest
+@AutoConfigureMockMvc
+class InsightsApiTest {
+
+    @Autowired MockMvc mvc;
+    @Autowired ObjectMapper mapper;
+    @Autowired ItemRepository items;
+    @Autowired MongoOperations mongo;
+
+    private String token;
+
+    @BeforeEach
+    void setUp() throws Exception {
+        items.deleteAll();
+        token = AuthTestSupport.devToken(mvc, mapper);
+    }
+
+    /** Saves an item then back-dates createdAt/dueDate past the auditing callbacks. */
+    private void seed(String itemId, String priority, ItemStatus status,
+                      int createdDaysAgo, int dueDaysFromNow) {
+        Item i = items.save(Item.builder()
+                .itemId(itemId).title(itemId).category("Project").priority(priority)
+                .effortEstimate(new EffortEstimate(30, EffortUnit.MINUTES))
+                .status(status).scope(ItemScope.SHARED)
+                .createdBy("seed").lastUpdatedBy("seed")
+                .dueDate(Instant.now())
+                .build());
+        mongo.updateFirst(new Query(Criteria.where("_id").is(i.getId())),
+                new Update()
+                        .set("createdAt", Instant.now().minus(createdDaysAgo, ChronoUnit.DAYS))
+                        .set("dueDate", Instant.now().plus(dueDaysFromNow, ChronoUnit.DAYS)),
+                Item.class);
+    }
+
+    @Test
+    void needsAttentionFlagsStaleOverdueAndBuriedLowPriority() throws Exception {
+        // staleThresholdDays = 14, buriedThresholdDays = 30, buriedPriorityLevels = [Low]
+        seed("ITM-STALE", "High", ItemStatus.BACKLOG, 5, -20);      // 20 days overdue -> stale
+        seed("ITM-FRESH", "High", ItemStatus.IN_PROGRESS, 5, -5);   // only 5 days overdue -> not
+        seed("ITM-BURIED", "Low", ItemStatus.BACKLOG, 40, 60);      // 40 days old, Low -> buried
+        seed("ITM-YOUNGLOW", "Low", ItemStatus.BACKLOG, 10, 60);    // 10 days old -> not buried
+        seed("ITM-OLDHIGH", "High", ItemStatus.BACKLOG, 40, 60);    // old but not Low -> not buried
+
+        mvc.perform(get("/api/insights/needs-attention").header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.staleAndOverdue.length()").value(1))
+                .andExpect(jsonPath("$.staleAndOverdue[0].item.itemId").value("ITM-STALE"))
+                .andExpect(jsonPath("$.staleAndOverdue[0].days").value(20))
+                .andExpect(jsonPath("$.buriedLowPriority.length()").value(1))
+                .andExpect(jsonPath("$.buriedLowPriority[0].item.itemId").value("ITM-BURIED"));
+    }
+
+    @Test
+    void workloadGroupsByOwnerWithUnassignedBucket() throws Exception {
+        String uid = mapper.readTree(mvc.perform(get("/api/auth/me")
+                        .header("Authorization", "Bearer " + token))
+                .andReturn().getResponse().getContentAsString()).get("id").asText();
+
+        createViaApi("owned-critical", "Critical", uid);
+        createViaApi("owned-project", "Medium", uid);
+        createViaApi("nobody-1", "Low", null);
+
+        mvc.perform(get("/api/insights/workload").header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.owners[?(@.ownerName=='Unassigned')].openCount").value(1))
+                .andExpect(jsonPath("$.owners[?(@.ownerId=='" + uid + "')].openCount").value(2))
+                .andExpect(jsonPath("$.owners[?(@.ownerId=='" + uid + "')].criticalHighCount").value(1));
+    }
+
+    @Test
+    void requiresAuth() throws Exception {
+        mvc.perform(get("/api/insights/needs-attention")).andExpect(status().isUnauthorized());
+        mvc.perform(get("/api/insights/workload")).andExpect(status().isUnauthorized());
+    }
+
+    private void createViaApi(String title, String priority, String ownerId) throws Exception {
+        String owner = ownerId == null ? "" : ",\"ownerId\":\"" + ownerId + "\"";
+        mvc.perform(post("/api/items").header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"title":"%s","category":"Project","priority":"%s",
+                                 "effortEstimate":{"value":30,"unit":"MINUTES"}%s}"""
+                                .formatted(title, priority, owner)))
+                .andExpect(status().isCreated());
+    }
+}
