@@ -13,14 +13,14 @@ export function QuickWinsBody({ rows }: { rows: RankedItem[] | null }) {
       <div className="rp-pick">
         <div className="lead">got 15 minutes?</div>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <EffortIcon effort={pick.item.effort} size={16} />
+          <EffortIcon effort={pick.item.effort} size={22} />
           {pick.item.title}
         </div>
       </div>
       {rest.map((r) => (
         <div className="rp-item" key={r.item.id}>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <EffortIcon effort={r.item.effort} size={15} />
+            <EffortIcon effort={r.item.effort} size={18} />
             {r.item.title}
           </div>
           <div className="sub">{effortLabel(r.item.effort)}</div>

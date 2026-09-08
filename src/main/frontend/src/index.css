@@ -370,7 +370,7 @@ tr:last-child td {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 14px 18px;
+  padding: 17px 18px;
   border-top: 1px solid var(--border-soft);
   cursor: pointer;
   animation: settle 0.35s ease both;
@@ -456,7 +456,9 @@ tr:last-child td {
   color: var(--growth);
   display: flex;
   flex-shrink: 0;
-  opacity: 0.85;
+}
+.prow .eff {
+  filter: brightness(1.08);
 }
 
 /* due */
