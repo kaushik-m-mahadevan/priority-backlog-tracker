@@ -10,6 +10,8 @@ interface Props {
   existing?: Item | null;
   onClose: () => void;
   onSaved: () => void;
+  /** when provided, shows Mark-as controls; the parent runs the completion + animation */
+  onComplete?: (terminalStatus: string) => void;
 }
 
 type Unit = "MINUTES" | "HOURS" | "DAYS";
@@ -20,7 +22,7 @@ const EFFORT_OPTIONS: Record<Unit, number[]> = {
   DAYS: Array.from({ length: 30 }, (_, i) => i + 1),
 };
 
-export default function ItemFormModal({ existing, onClose, onSaved }: Props) {
+export default function ItemFormModal({ existing, onClose, onSaved, onComplete }: Props) {
   const config = useConfig();
   const { users, nameOf } = useUsers();
   const editing = !!existing;
@@ -195,6 +197,17 @@ export default function ItemFormModal({ existing, onClose, onSaved }: Props) {
                 {formatDateTime(existing!.updatedAt)}
                 {existing!.lastUpdatedBy && ` · ${nameOf(existing!.lastUpdatedBy)}`}
               </span>
+            </div>
+          )}
+
+          {editing && onComplete && (
+            <div className="mark-as">
+              <span>Mark as</span>
+              {(["RESOLVED", "REJECTED", "ARCHIVED"] as const).map((t) => (
+                <button key={t} type="button" onClick={() => onComplete(t)} disabled={busy}>
+                  {t[0] + t.slice(1).toLowerCase()}
+                </button>
+              ))}
             </div>
           )}
 

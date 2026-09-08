@@ -15,9 +15,11 @@ function stageFor(n: number): number {
 export default function Grove({
   compact = false,
   solo = false,
+  refreshKey = 0,
 }: {
   compact?: boolean;
   solo?: boolean;
+  refreshKey?: number;
 }) {
   const [rows, setRows] = useState<ArchivedItem[] | null>(null);
 
@@ -26,7 +28,7 @@ export default function Grove({
       .get<ArchivedItem[]>("/archived")
       .then(setRows)
       .catch(() => setRows([]));
-  }, []);
+  }, [refreshKey]);
 
   const { stage, count, resting } = useMemo(() => {
     const done = (rows ?? []).filter(
