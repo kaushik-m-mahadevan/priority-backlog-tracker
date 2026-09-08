@@ -1,13 +1,14 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { api } from "../api/client";
 import ItemFormModal from "../components/ItemFormModal";
-import Rail from "../components/Rail";
+import LeftDock from "../components/LeftDock";
 import Grove from "../components/Grove";
 import { Creature } from "../components/Creature";
 import { useUsers } from "../users/UsersContext";
 import { PriorityMark } from "../components/PriorityMark";
 import { EffortIcon } from "../components/EffortIcon";
 import { DueMark } from "../components/DueMark";
+import { useDock } from "../dock/DockContext";
 import type { Item, NeedsAttention, RankedItem, WorkloadOverview } from "../types";
 
 export default function DashboardPage() {
@@ -18,6 +19,7 @@ export default function DashboardPage() {
   const [error, setError] = useState<string | null>(null);
   const [editing, setEditing] = useState<Item | null>(null);
   const { nameOf } = useUsers();
+  const { shown } = useDock();
 
   const listRef = useRef<HTMLDivElement>(null);
   const [railMax, setRailMax] = useState<number | undefined>();
@@ -41,10 +43,7 @@ export default function DashboardPage() {
 
   useLayoutEffect(() => {
     function measure() {
-      if (listRef.current) {
-        // rail + grove together should not exceed the priority list's height
-        setRailMax(Math.max(200, listRef.current.offsetHeight - 200));
-      }
+      if (listRef.current) setRailMax(listRef.current.offsetHeight);
     }
     measure();
     window.addEventListener("resize", measure);
@@ -53,11 +52,21 @@ export default function DashboardPage() {
 
   return (
     <div>
-      <h1 className="page-title">Priority</h1>
-      <p className="page-sub">The ten things that matter most right now.</p>
+      <div className="dash-head">
+        <div>
+          <h1 className="page-title">Priority</h1>
+          <p className="page-sub" style={{ margin: 0 }}>
+            The ten things that matter most right now.
+          </p>
+        </div>
+        <Grove compact />
+      </div>
+
       {error && <div className="error">{error}</div>}
 
-      <div className="dash">
+      <div className={`dash${shown ? " with-dock" : ""}`}>
+        <LeftDock maxHeight={railMax} quick={quick} attention={attention} team={team} />
+
         <div className="plist" ref={listRef}>
           {top && top.length === 0 && (
             <div className="empty" style={{ padding: 18 }}>Nothing in the backlog yet.</div>
@@ -77,12 +86,6 @@ export default function DashboardPage() {
               </span>
             </div>
           ))}
-        </div>
-
-        <div className="rail-wrap">
-          <Grove />
-          <div style={{ height: 16 }} />
-          <Rail maxHeight={railMax} quick={quick} attention={attention} team={team} />
         </div>
       </div>
 

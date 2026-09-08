@@ -1,8 +1,36 @@
 import { useConfig } from "../config/ConfigContext";
+import { useTheme } from "../theme/ThemeContext";
 
 export default function SettingsPage() {
   const config = useConfig();
-  if (!config) return <p className="empty">Loading configuration…</p>;
+  const { theme, setTheme } = useTheme();
+
+  const themeCard = (
+    <div className="card">
+      <h2>Theme</h2>
+      <div className="seg" style={{ display: "flex", gap: 8 }}>
+        <button className={theme === "dusk" ? "primary" : ""} onClick={() => setTheme("dusk")}>
+          Dusk
+        </button>
+        <button className={theme === "tide" ? "primary" : ""} onClick={() => setTheme("tide")}>
+          Tide
+        </button>
+      </div>
+      <p className="muted" style={{ fontSize: 12, marginTop: 10 }}>
+        Both are calm, nature-toned dark themes. Remembered on this device.
+      </p>
+    </div>
+  );
+
+  if (!config) {
+    return (
+      <div>
+        <h1 className="page-title">Settings</h1>
+        <p className="page-sub">Theme now; ranking config below once it loads.</p>
+        {themeCard}
+      </div>
+    );
+  }
 
   const weights: [string, number][] = [
     ["Priority weight", config.priorityWeight],
@@ -22,10 +50,12 @@ export default function SettingsPage() {
     <div>
       <h1 className="page-title">Settings</h1>
       <p className="page-sub">
-        Current ranking configuration (§7). Editing lands in a later step — read-only for now.
+        Theme, and the current ranking configuration (§7). Config editing lands later —
+        read-only for now.
       </p>
 
       <div className="grid cols-2">
+        {themeCard}
         <div className="card">
           <h2>Ranking weights</h2>
           <table>

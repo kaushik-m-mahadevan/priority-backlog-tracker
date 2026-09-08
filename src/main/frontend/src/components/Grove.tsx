@@ -12,7 +12,7 @@ function stageFor(n: number): number {
   return 0;
 }
 
-export default function Grove() {
+export default function Grove({ compact = false }: { compact?: boolean }) {
   const [rows, setRows] = useState<ArchivedItem[] | null>(null);
 
   useEffect(() => {
@@ -46,6 +46,32 @@ export default function Grove() {
         : stage >= 5
           ? `in full bloom · ${count} finished this month`
           : `${count} done this month · coming along nicely`;
+
+  if (compact) {
+    return (
+      <div className="grove compact" title={say}>
+        <svg width="52" height="46" viewBox="35 58 80 48" aria-hidden="true">
+          <path d="M18 104 H132" stroke="var(--border)" strokeWidth="2" strokeLinecap="round" />
+          <path
+            d={`M75 104 V${104 - 18 - stage * 6}`}
+            stroke="var(--text-dim)"
+            strokeWidth={2 + stage * 0.6}
+            strokeLinecap="round"
+          />
+          {stage === 0 ? (
+            <path d="M75 86 C68 84 65 78 65 78 C72 78 75 84 75 86Z" fill="var(--growth)" />
+          ) : (
+            <g fill="var(--growth)" opacity={resting ? 0.4 : 0.9}>
+              <circle cx="75" cy={78 - stage * 5} r={10 + stage * 5} />
+              {stage >= 2 && <circle cx={62 - stage} cy={84 - stage * 3} r={7 + stage * 3} />}
+              {stage >= 2 && <circle cx={88 + stage} cy={84 - stage * 3} r={7 + stage * 3} />}
+            </g>
+          )}
+        </svg>
+        <span className="say">{say}</span>
+      </div>
+    );
+  }
 
   return (
     <div className="grove">

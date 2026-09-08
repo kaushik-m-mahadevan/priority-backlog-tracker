@@ -1,100 +1,96 @@
 /* A small family of friendly creatures for owner avatars.
-   Same face; the top feature (ears / tufts / beak) is what differs. */
+   Same face; the top feature (ears / tufts / antlers) is what differs.
+   Known team members get a distinct creature by their position in the team list;
+   anyone else is hashed from their name. */
+import { useUsers } from "../users/UsersContext";
 
 const INK = "#40374b";
 
 const PASTELS = [
-  "#f3d9c6", // apricot
-  "#d8e6cf", // sage
-  "#dcd7ef", // lilac
-  "#cfe6e4", // seafoam
-  "#f1d7df", // rose
-  "#e6ddc9", // sand
-  "#d2e0ef", // sky
-  "#e9dcef", // orchid
+  "#f4d7c4", // apricot
+  "#d6e7cb", // sage
+  "#ded6f0", // lilac
+  "#c9e6e3", // seafoam
+  "#f2d5df", // rose
+  "#e8dcc4", // sand
+  "#cfe0f0", // sky
+  "#ecd9e6", // orchid
+  "#dbe8d0", // moss
+  "#f0dcc9", // peach
 ];
 
-function hash(s: string): number {
-  let h = 0;
-  for (let i = 0; i < s.length; i++) h = (Math.imul(31, h) + s.charCodeAt(i)) | 0;
-  return Math.abs(h);
+/* FNV-1a 32-bit — spreads even near-identical inputs. */
+function fnv(s: string): number {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 0x01000193);
+  }
+  return h >>> 0;
 }
 
-function Face() {
+function Face({ scale = 1 }: { scale?: number }) {
   return (
     <>
-      <circle cx="12" cy="13" r="7.5" fill="#fff" fillOpacity="0.55" />
-      <circle cx="12" cy="13" r="7.5" fill="none" stroke={INK} strokeWidth="1.4" />
-      <circle cx="9.6" cy="12.4" r="1" fill={INK} />
-      <circle cx="14.4" cy="12.4" r="1" fill={INK} />
-      <path d="M10.3 15.4c.9.7 2.5.7 3.4 0" fill="none" stroke={INK} strokeWidth="1.2" strokeLinecap="round" />
+      <circle cx="12" cy="13.5" r="7.6" fill="#fff" fillOpacity="0.6" />
+      <circle cx="12" cy="13.5" r="7.6" fill="none" stroke={INK} strokeWidth={1.6 / scale} />
+      <circle cx="9.5" cy="13" r="1.1" fill={INK} />
+      <circle cx="14.5" cy="13" r="1.1" fill={INK} />
+      <path d="M10 16c1 .9 3 .9 4 0" fill="none" stroke={INK} strokeWidth={1.3 / scale} strokeLinecap="round" />
     </>
   );
 }
 
-const TOPS: ((k: string) => JSX.Element)[] = [
-  // cat
-  (k) => <path key={k} d="M6 8 L7.5 4 L10 7 M18 8 L16.5 4 L14 7" fill="none" stroke={INK} strokeWidth="1.4" strokeLinejoin="round" />,
-  // bear
-  (k) => (
-    <g key={k} fill="#fff" fillOpacity="0.55" stroke={INK} strokeWidth="1.4">
-      <circle cx="6.5" cy="7" r="2.2" />
-      <circle cx="17.5" cy="7" r="2.2" />
+const S = { fill: "#fff", fillOpacity: 0.6, stroke: INK, strokeWidth: 1.6 };
+const L = { fill: "none", stroke: INK, strokeWidth: 1.5, strokeLinecap: "round" as const, strokeLinejoin: "round" as const };
+
+const TOPS: (() => JSX.Element)[] = [
+  () => <path d="M5.5 8 L7 3 L10.5 7 M18.5 8 L17 3 L13.5 7" {...S} strokeLinejoin="round" />, // cat
+  () => (
+    <g {...S}>
+      <circle cx="6" cy="6.5" r="2.6" />
+      <circle cx="18" cy="6.5" r="2.6" />
     </g>
-  ),
-  // rabbit
-  (k) => (
-    <g key={k} fill="#fff" fillOpacity="0.55" stroke={INK} strokeWidth="1.4">
-      <ellipse cx="9" cy="5.5" rx="1.6" ry="4" />
-      <ellipse cx="15" cy="5.5" rx="1.6" ry="4" />
+  ), // bear
+  () => (
+    <g {...S}>
+      <ellipse cx="8.5" cy="5" rx="1.8" ry="4.3" />
+      <ellipse cx="15.5" cy="5" rx="1.8" ry="4.3" />
     </g>
-  ),
-  // fox
-  (k) => <path key={k} d="M6 9 L6.5 4 L10.5 7.5 M18 9 L17.5 4 L13.5 7.5" fill="#fff" fillOpacity="0.4" stroke={INK} strokeWidth="1.4" strokeLinejoin="round" />,
-  // owl
-  (k) => <path key={k} d="M7 7 Q8 3 10.5 6 M17 7 Q16 3 13.5 6" fill="none" stroke={INK} strokeWidth="1.4" strokeLinecap="round" />,
-  // bird (tuft + beak)
-  (k) => (
-    <g key={k} fill="none" stroke={INK} strokeWidth="1.4" strokeLinecap="round">
-      <path d="M12 3 L12 6.5" />
-      <path d="M10.5 4.5 L12 3 L13.5 4.5" fill="none" />
+  ), // rabbit
+  () => <path d="M5 9 L5.5 3 L10.5 7.5 M19 9 L18.5 3 L13.5 7.5" fill="#fff" fillOpacity={0.4} stroke={INK} strokeWidth={1.6} strokeLinejoin="round" />, // fox
+  () => <path d="M6.5 7 Q8 2 11 6 M17.5 7 Q16 2 13 6" {...L} />, // owl
+  () => (
+    <g {...L}>
+      <path d="M12 2 L12 6" />
+      <path d="M9.5 3.8 L12 2 L14.5 3.8" />
     </g>
-  ),
-  // mouse
-  (k) => (
-    <g key={k} fill="#fff" fillOpacity="0.55" stroke={INK} strokeWidth="1.4">
-      <circle cx="6" cy="7.5" r="2.6" />
-      <circle cx="18" cy="7.5" r="2.6" />
+  ), // bird
+  () => (
+    <g {...S}>
+      <circle cx="5.5" cy="7" r="3" />
+      <circle cx="18.5" cy="7" r="3" />
     </g>
-  ),
-  // deer (antlers)
-  (k) => (
-    <g key={k} fill="none" stroke={INK} strokeWidth="1.3" strokeLinecap="round">
-      <path d="M9 6 L7.5 2.5 M9 6 L6 4.5 M9 6 L8.5 3" />
-      <path d="M15 6 L16.5 2.5 M15 6 L18 4.5 M15 6 L15.5 3" />
+  ), // mouse
+  () => (
+    <g {...L} strokeWidth={1.3}>
+      <path d="M8.5 6 L6.5 2 M8.5 6 L5 4 M8.5 6 L8 2.5" />
+      <path d="M15.5 6 L17.5 2 M15.5 6 L19 4 M15.5 6 L16 2.5" />
     </g>
-  ),
-  // frog (top eyes)
-  (k) => (
-    <g key={k} fill="#fff" fillOpacity="0.55" stroke={INK} strokeWidth="1.4">
-      <circle cx="8.5" cy="6" r="2" />
-      <circle cx="15.5" cy="6" r="2" />
+  ), // deer
+  () => (
+    <g {...S}>
+      <circle cx="8" cy="5.5" r="2.3" />
+      <circle cx="16" cy="5.5" r="2.3" />
     </g>
-  ),
-  // penguin (plain, small crown)
-  (k) => <path key={k} d="M9 6 Q12 3.5 15 6" fill="none" stroke={INK} strokeWidth="1.4" strokeLinecap="round" />,
-  // hedgehog (spikes)
-  (k) => (
-    <g key={k} fill="none" stroke={INK} strokeWidth="1.2" strokeLinecap="round">
-      <path d="M7 7 L5.5 4 M10 5.5 L9.5 2.5 M12 5 L12 2 M14 5.5 L14.5 2.5 M17 7 L18.5 4" />
+  ), // frog
+  () => <path d="M8.5 6 Q12 2.5 15.5 6" {...L} />, // penguin
+  () => (
+    <g {...L} strokeWidth={1.3}>
+      <path d="M6.5 7 L4.5 3 M9.5 5.5 L9 1.5 M12 5 L12 1 M14.5 5.5 L15 1.5 M17.5 7 L19.5 3" />
     </g>
-  ),
-  // bee (antennae)
-  (k) => (
-    <g key={k} fill="none" stroke={INK} strokeWidth="1.3" strokeLinecap="round">
-      <path d="M9.5 6 Q8 3 6.5 3.5 M14.5 6 Q16 3 17.5 3.5" />
-    </g>
-  ),
+  ), // hedgehog
+  () => <path d="M9 6 Q7 2 5 3 M15 6 Q17 2 19 3" {...L} strokeWidth={1.3} />, // bee
 ];
 
 export function Creature({
@@ -108,6 +104,8 @@ export function Creature({
   inProgress?: boolean;
   size?: number;
 }) {
+  const idx = useUsers().indexOf(seed);
+
   if (!seed) {
     return (
       <span className="crt dashed" style={{ width: size, height: size }} title={label || "Unassigned"}>
@@ -118,14 +116,24 @@ export function Creature({
       </span>
     );
   }
-  const h = hash(seed);
-  const top = TOPS[h % TOPS.length];
-  const bg = PASTELS[Math.floor(h / TOPS.length) % PASTELS.length];
+  let topI: number;
+  let colI: number;
+  if (idx >= 0) {
+    topI = idx % TOPS.length;
+    colI = (idx * 3 + 1) % PASTELS.length; // spread colour away from creature order
+  } else {
+    const key = (label || seed).toLowerCase();
+    topI = fnv(key) % TOPS.length;
+    colI = fnv(key + "~") % PASTELS.length;
+  }
+  const Top = TOPS[topI];
+  const bg = PASTELS[colI];
+  const scale = (size * 0.78) / 24;
   return (
     <span className="crt" style={{ width: size, height: size, background: bg }} title={label || seed}>
-      <svg width={size * 0.72} height={size * 0.72} viewBox="0 0 24 24" aria-hidden="true">
-        {top("t")}
-        <Face />
+      <svg width={size * 0.78} height={size * 0.78} viewBox="0 0 24 24" aria-hidden="true">
+        <Top />
+        <Face scale={scale} />
       </svg>
       {inProgress && <span className="wip" title="in progress" />}
     </span>

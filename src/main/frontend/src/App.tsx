@@ -2,6 +2,7 @@ import { Navigate, Route, Routes } from "react-router-dom";
 import { useAuth } from "./auth/AuthContext";
 import { ConfigProvider } from "./config/ConfigContext";
 import { UsersProvider } from "./users/UsersContext";
+import { DockProvider } from "./dock/DockContext";
 import Layout from "./components/Layout";
 import LoginPage from "./pages/LoginPage";
 import DashboardPage from "./pages/DashboardPage";
@@ -33,6 +34,7 @@ export default function App() {
   return (
     <ConfigProvider>
       <UsersProvider>
+      <DockProvider>
       <Routes>
         <Route element={<Layout />}>
           <Route path="/" element={<DashboardPage />} />
@@ -45,6 +47,7 @@ export default function App() {
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
+      </DockProvider>
       </UsersProvider>
     </ConfigProvider>
   );

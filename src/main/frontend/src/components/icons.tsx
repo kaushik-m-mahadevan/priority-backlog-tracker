@@ -34,6 +34,13 @@ export const ChevronIcon = ({ size = 16, open = false }: P & { open?: boolean })
   </svg>
 );
 
+export const SidebarIcon = ({ size = 18 }: P) => (
+  <svg {...base(size)}>
+    <rect x="3" y="4" width="18" height="16" rx="2" />
+    <path d="M9 4v16" />
+  </svg>
+);
+
 /* rail section icons */
 export const PriorityGlyph = ({ size = 17 }: P) => (
   <svg {...base(size)}>
