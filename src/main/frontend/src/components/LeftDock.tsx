@@ -2,13 +2,14 @@ import { ReactNode } from "react";
 import { useDock, DockSection } from "../dock/DockContext";
 import { QuickGlyph, AttentionGlyph, TeamGlyph, ChevronIcon } from "./icons";
 import { QuickWinsBody, AttentionBody, TeamBody } from "./rail/panels";
-import type { NeedsAttention, RankedItem, WorkloadOverview } from "../types";
+import type { Item, NeedsAttention, RankedItem, WorkloadOverview } from "../types";
 
 interface Props {
   maxHeight?: number;
   quick: RankedItem[] | null;
   attention: NeedsAttention | null;
   team: WorkloadOverview | null;
+  onOpen?: (item: Item) => void;
 }
 
 const META: Record<DockSection, { label: string; icon: ReactNode }> = {
@@ -17,7 +18,7 @@ const META: Record<DockSection, { label: string; icon: ReactNode }> = {
   team: { label: "Team workload", icon: <TeamGlyph size={19} /> },
 };
 
-export default function LeftDock({ maxHeight, quick, attention, team }: Props) {
+export default function LeftDock({ maxHeight, quick, attention, team, onOpen }: Props) {
   const { shown, setShown, active, setActive } = useDock();
   if (!shown) return null;
 
@@ -29,8 +30,8 @@ export default function LeftDock({ maxHeight, quick, attention, team }: Props) {
   };
 
   function body(s: DockSection) {
-    if (s === "quick") return <QuickWinsBody rows={quick} />;
-    if (s === "attention") return <AttentionBody data={attention} />;
+    if (s === "quick") return <QuickWinsBody rows={quick} onOpen={onOpen} />;
+    if (s === "attention") return <AttentionBody data={attention} onOpen={onOpen} />;
     return <TeamBody data={team} />;
   }
 

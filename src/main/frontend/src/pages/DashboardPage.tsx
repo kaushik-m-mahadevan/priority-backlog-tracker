@@ -76,7 +76,13 @@ export default function DashboardPage() {
 
       <div className={`dash${shown ? " with-dock" : ""}`}>
         {shown ? (
-          <LeftDock maxHeight={railMax} quick={quick} attention={attention} team={team} />
+          <LeftDock
+            maxHeight={railMax}
+            quick={quick}
+            attention={attention}
+            team={team}
+            onOpen={setEditing}
+          />
         ) : (
           <div className="dash-gutter" aria-hidden="true" />
         )}

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { useLocation } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { api } from "../api/client";
 import { BellIcon, AgeIcon, OverdueIcon } from "./icons";
 import { ageShort } from "../lib/format";
@@ -14,6 +14,12 @@ export default function Bell() {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const loc = useLocation();
+  const nav = useNavigate();
+
+  function go(id: string) {
+    setOpen(false);
+    nav(`/attention?open=${id}`);
+  }
 
   useEffect(() => {
     api
@@ -45,7 +51,14 @@ export default function Bell() {
           <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 8 }}>Needs attention</div>
           {total === 0 && <p className="empty">Nothing slipping. Nice and calm.</p>}
           {stale.map((f) => (
-            <div className="rp-item" key={f.item.id}>
+            <div
+              className="rp-item clickable"
+              key={f.item.id}
+              role="button"
+              tabIndex={0}
+              onClick={() => go(f.item.id)}
+              onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && go(f.item.id)}
+            >
               {f.item.title}
               <div className="sub hot">
                 <OverdueIcon /> {ageShort(f.days)} past due
@@ -53,7 +66,14 @@ export default function Bell() {
             </div>
           ))}
           {buried.map((f) => (
-            <div className="rp-item" key={f.item.id}>
+            <div
+              className="rp-item clickable"
+              key={f.item.id}
+              role="button"
+              tabIndex={0}
+              onClick={() => go(f.item.id)}
+              onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && go(f.item.id)}
+            >
               {f.item.title}
               <div className="sub">
                 <AgeIcon /> {ageShort(f.days)} untouched

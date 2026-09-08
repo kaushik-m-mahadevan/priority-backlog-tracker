@@ -791,6 +791,25 @@ tr:last-child td {
 .rp-item:first-child {
   border-top: none;
 }
+.rp-item.clickable {
+  cursor: pointer;
+  margin: 0 -8px;
+  padding-left: 8px;
+  padding-right: 8px;
+  border-radius: 8px;
+  transition: background 0.12s;
+}
+.rp-item.clickable:hover,
+.rp-item.clickable:focus-visible {
+  background: var(--bg-elev-2);
+  outline: none;
+}
+.rp-pick.clickable {
+  cursor: pointer;
+}
+.rp-pick.clickable:hover {
+  background: color-mix(in srgb, var(--growth) 20%, transparent);
+}
 .rp-item .sub {
   font-size: 11px;
   color: var(--text-dim);

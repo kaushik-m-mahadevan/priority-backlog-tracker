@@ -2,15 +2,37 @@ import { AgeIcon, OverdueIcon } from "../icons";
 import { EffortIcon } from "../EffortIcon";
 import { Creature } from "../Creature";
 import { ageShort, effortLabel } from "../../lib/format";
-import type { NeedsAttention, RankedItem, WorkloadOverview } from "../../types";
+import type { Item, NeedsAttention, RankedItem, WorkloadOverview } from "../../types";
 
-export function QuickWinsBody({ rows }: { rows: RankedItem[] | null }) {
+type OpenFn = ((item: Item) => void) | undefined;
+
+function Row({ item, onOpen, children }: { item: Item; onOpen: OpenFn; children: React.ReactNode }) {
+  if (!onOpen) return <div className="rp-item">{children}</div>;
+  return (
+    <div
+      className="rp-item clickable"
+      role="button"
+      tabIndex={0}
+      onClick={() => onOpen(item)}
+      onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && onOpen(item)}
+    >
+      {children}
+    </div>
+  );
+}
+
+export function QuickWinsBody({ rows, onOpen }: { rows: RankedItem[] | null; onOpen?: OpenFn }) {
   if (!rows) return <p className="empty">Loading…</p>;
   if (rows.length === 0) return <p className="empty">Nothing quick right now — that's fine.</p>;
   const [pick, ...rest] = rows;
   return (
     <>
-      <div className="rp-pick">
+      <div
+        className={`rp-pick${onOpen ? " clickable" : ""}`}
+        role={onOpen ? "button" : undefined}
+        tabIndex={onOpen ? 0 : undefined}
+        onClick={onOpen ? () => onOpen(pick.item) : undefined}
+      >
         <div className="lead">got 15 minutes?</div>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <EffortIcon effort={pick.item.effort} size={22} />
@@ -18,19 +40,19 @@ export function QuickWinsBody({ rows }: { rows: RankedItem[] | null }) {
         </div>
       </div>
       {rest.map((r) => (
-        <div className="rp-item" key={r.item.id}>
+        <Row key={r.item.id} item={r.item} onOpen={onOpen}>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <EffortIcon effort={r.item.effort} size={18} />
             {r.item.title}
           </div>
           <div className="sub">{effortLabel(r.item.effort)}</div>
-        </div>
+        </Row>
       ))}
     </>
   );
 }
 
-export function AttentionBody({ data }: { data: NeedsAttention | null }) {
+export function AttentionBody({ data, onOpen }: { data: NeedsAttention | null; onOpen?: OpenFn }) {
   if (!data) return <p className="empty">Loading…</p>;
   const { staleAndOverdue: stale, buriedLowPriority: buried } = data;
   if (stale.length + buried.length === 0)
@@ -38,20 +60,20 @@ export function AttentionBody({ data }: { data: NeedsAttention | null }) {
   return (
     <>
       {stale.map((f) => (
-        <div className="rp-item" key={f.item.id}>
+        <Row key={f.item.id} item={f.item} onOpen={onOpen}>
           {f.item.title}
           <div className="sub hot">
             <OverdueIcon /> {ageShort(f.days)} past due
           </div>
-        </div>
+        </Row>
       ))}
       {buried.map((f) => (
-        <div className="rp-item" key={f.item.id}>
+        <Row key={f.item.id} item={f.item} onOpen={onOpen}>
           {f.item.title}
           <div className="sub">
             <AgeIcon /> {ageShort(f.days)} untouched
           </div>
-        </div>
+        </Row>
       ))}
     </>
   );
