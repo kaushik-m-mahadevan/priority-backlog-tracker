@@ -12,7 +12,13 @@ function stageFor(n: number): number {
   return 0;
 }
 
-export default function Grove({ compact = false }: { compact?: boolean }) {
+export default function Grove({
+  compact = false,
+  solo = false,
+}: {
+  compact?: boolean;
+  solo?: boolean;
+}) {
   const [rows, setRows] = useState<ArchivedItem[] | null>(null);
 
   useEffect(() => {
@@ -74,8 +80,13 @@ export default function Grove({ compact = false }: { compact?: boolean }) {
   }
 
   return (
-    <div className="grove">
-      <svg width="150" height="118" viewBox="0 0 150 118" aria-hidden="true">
+    <div className={solo ? "grove solo" : "grove"}>
+      <svg
+        width={solo ? 188 : 150}
+        height={solo ? 148 : 118}
+        viewBox="0 0 150 118"
+        aria-hidden="true"
+      >
         <path d="M18 104 H132" stroke="var(--border)" strokeWidth="2" strokeLinecap="round" />
         {/* trunk */}
         <path

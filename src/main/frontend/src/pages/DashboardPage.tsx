@@ -51,7 +51,7 @@ export default function DashboardPage() {
   }, [top]);
 
   return (
-    <div>
+    <div data-dock={shown ? "on" : "off"}>
       <div className="dash-head">
         <div>
           <h1 className="page-title">Priority</h1>
@@ -59,13 +59,21 @@ export default function DashboardPage() {
             The ten things that matter most right now.
           </p>
         </div>
-        <Grove compact />
+        <div className="head-grove">
+          <Grove compact />
+        </div>
       </div>
 
       {error && <div className="error">{error}</div>}
 
       <div className={`dash${shown ? " with-dock" : ""}`}>
-        <LeftDock maxHeight={railMax} quick={quick} attention={attention} team={team} />
+        {shown ? (
+          <LeftDock maxHeight={railMax} quick={quick} attention={attention} team={team} />
+        ) : (
+          <aside className="dash-aside">
+            <Grove solo />
+          </aside>
+        )}
 
         <div className="plist" ref={listRef}>
           {top && top.length === 0 && (

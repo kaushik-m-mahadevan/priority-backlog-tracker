@@ -332,15 +332,25 @@ tr:last-child td {
   display: grid;
   gap: 0;
   align-items: start;
-  grid-template-columns: minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr) minmax(0, 680px) minmax(0, 1fr);
 }
 .dash.with-dock {
   grid-template-columns: auto minmax(0, 1fr);
   gap: 18px;
 }
-.dash:not(.with-dock) .plist {
-  max-width: 780px;
-  margin: 0 auto;
+.dash-aside {
+  align-self: stretch;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 8px;
+  min-height: 320px;
+}
+.head-grove {
+  display: none;
+}
+[data-dock="on"] .head-grove {
+  display: block;
 }
 .plist {
   background: var(--bg-elev);
@@ -677,6 +687,16 @@ tr:last-child td {
   color: var(--text-dim);
   margin-top: 6px;
 }
+.grove.solo {
+  background: none;
+  border: none;
+  padding: 0;
+  max-width: 210px;
+}
+.grove.solo .say {
+  font-size: 13px;
+  margin-top: 10px;
+}
 .grove.compact {
   display: flex;
   align-items: center;
@@ -702,6 +722,17 @@ tr:last-child td {
 /* ---------- mobile bottom bar ---------- */
 .tabbar {
   display: none;
+}
+@media (max-width: 980px) {
+  .dash {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .dash-aside {
+    display: none;
+  }
+  .head-grove {
+    display: block !important;
+  }
 }
 @media (max-width: 760px) {
   .dock,
