@@ -70,9 +70,7 @@ export default function DashboardPage() {
         {shown ? (
           <LeftDock maxHeight={railMax} quick={quick} attention={attention} team={team} />
         ) : (
-          <aside className="dash-aside">
-            <Grove solo />
-          </aside>
+          <div className="dash-gutter" aria-hidden="true" />
         )}
 
         <div className="plist" ref={listRef}>
@@ -95,6 +93,12 @@ export default function DashboardPage() {
             </div>
           ))}
         </div>
+
+        {!shown && (
+          <aside className="dash-aside">
+            <Grove solo />
+          </aside>
+        )}
       </div>
 
       {editing && (

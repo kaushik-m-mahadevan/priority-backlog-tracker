@@ -82,8 +82,8 @@ export default function Grove({
   return (
     <div className={solo ? "grove solo" : "grove"}>
       <svg
-        width={solo ? 188 : 150}
-        height={solo ? 148 : 118}
+        width={solo ? 224 : 150}
+        height={solo ? 176 : 118}
         viewBox="0 0 150 118"
         aria-hidden="true"
       >
