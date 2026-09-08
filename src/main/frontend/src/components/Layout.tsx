@@ -1,6 +1,7 @@
 import { Link, NavLink, Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 import { useDock } from "../dock/DockContext";
+import { useKeepAlive } from "../lib/useKeepAlive";
 import Bell from "./Bell";
 import {
   GearIcon,
@@ -16,6 +17,7 @@ export default function Layout() {
   const { user, logout } = useAuth();
   const { shown, setShown } = useDock();
   const onDashboard = useLocation().pathname === "/";
+  useKeepAlive();
 
   return (
     <div className="app">

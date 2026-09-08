@@ -7,6 +7,7 @@ import { useUsers } from "../users/UsersContext";
 import { EffortIcon } from "../components/EffortIcon";
 import { DueMark } from "../components/DueMark";
 import ItemFormModal from "../components/ItemFormModal";
+import EmptyLeaf from "../components/EmptyLeaf";
 import { useConfig } from "../config/ConfigContext";
 import { useItemsChanged, notifyItemsChanged } from "../lib/events";
 import { effortLabel, formatDate } from "../lib/format";
@@ -132,8 +133,14 @@ export default function ItemsPage() {
               )}
               {!loading && items.length === 0 && (
                 <tr>
-                  <td colSpan={8} className="empty">
-                    No items match.
+                  <td colSpan={8}>
+                    <EmptyLeaf
+                      message={
+                        q || fCat || fPrio
+                          ? "No items match those filters."
+                          : "No open items yet."
+                      }
+                    />
                   </td>
                 </tr>
               )}

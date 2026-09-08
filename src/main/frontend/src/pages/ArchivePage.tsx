@@ -5,6 +5,7 @@ import { PriorityMark } from "../components/PriorityMark";
 import { EffortIcon } from "../components/EffortIcon";
 import { formatDateTime, effortLabel } from "../lib/format";
 import { useItemsChanged } from "../lib/events";
+import EmptyLeaf from "../components/EmptyLeaf";
 import type { ArchivedItem, Page } from "../types";
 
 const SIZE = 25;
@@ -67,8 +68,8 @@ export default function ArchivePage() {
               )}
               {!loading && rows.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="empty">
-                    Nothing completed yet.
+                  <td colSpan={6}>
+                    <EmptyLeaf message="Nothing completed yet — the tree is still a seed." />
                   </td>
                 </tr>
               )}

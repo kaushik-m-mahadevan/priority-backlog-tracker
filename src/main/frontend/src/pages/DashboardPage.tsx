@@ -5,6 +5,7 @@ import { useItemsChanged, notifyItemsChanged } from "../lib/events";
 import ItemFormModal from "../components/ItemFormModal";
 import LeftDock from "../components/LeftDock";
 import Grove from "../components/Grove";
+import EmptyLeaf from "../components/EmptyLeaf";
 import { Creature } from "../components/Creature";
 import { useUsers } from "../users/UsersContext";
 import { PriorityMark } from "../components/PriorityMark";
@@ -105,7 +106,7 @@ export default function DashboardPage() {
 
           <div className="plist" ref={listRef}>
             {top && top.length === 0 && (
-              <div className="empty" style={{ padding: 18 }}>Nothing in the backlog yet.</div>
+              <EmptyLeaf message="Nothing in the backlog yet — add the first item." />
             )}
             {top?.map((r) => (
               <div
