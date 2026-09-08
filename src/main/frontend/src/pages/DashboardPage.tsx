@@ -52,18 +52,6 @@ export default function DashboardPage() {
 
   return (
     <div data-dock={shown ? "on" : "off"}>
-      <div className="dash-head">
-        <div>
-          <h1 className="page-title">Priority</h1>
-          <p className="page-sub" style={{ margin: 0 }}>
-            The ten things that matter most right now.
-          </p>
-        </div>
-        <div className="head-grove">
-          <Grove compact />
-        </div>
-      </div>
-
       {error && <div className="error">{error}</div>}
 
       <div className={`dash${shown ? " with-dock" : ""}`}>
@@ -73,25 +61,36 @@ export default function DashboardPage() {
           <div className="dash-gutter" aria-hidden="true" />
         )}
 
-        <div className="plist" ref={listRef}>
-          {top && top.length === 0 && (
-            <div className="empty" style={{ padding: 18 }}>Nothing in the backlog yet.</div>
-          )}
-          {top?.map((r) => (
-            <div key={r.item.id} className="prow" role="button" onClick={() => setEditing(r.item)}>
-              <Creature
-                seed={r.item.ownerId}
-                label={nameOf(r.item.ownerId)}
-                inProgress={r.item.status === "IN_PROGRESS"}
-              />
-              <PriorityMark priority={r.item.priority} />
-              <span className="title">{r.item.title}</span>
-              <span className="meta">
-                <EffortIcon effort={r.item.effort} />
-                <DueMark iso={r.item.dueDate} />
-              </span>
+        <div className="dash-center">
+          <div className="dash-head">
+            <h1 className="page-title" style={{ margin: 0 }}>
+              The Pecking Order
+            </h1>
+            <div className="head-grove">
+              <Grove compact />
             </div>
-          ))}
+          </div>
+
+          <div className="plist" ref={listRef}>
+            {top && top.length === 0 && (
+              <div className="empty" style={{ padding: 18 }}>Nothing in the backlog yet.</div>
+            )}
+            {top?.map((r) => (
+              <div key={r.item.id} className="prow" role="button" onClick={() => setEditing(r.item)}>
+                <Creature
+                  seed={r.item.ownerId}
+                  label={nameOf(r.item.ownerId)}
+                  inProgress={r.item.status === "IN_PROGRESS"}
+                />
+                <PriorityMark priority={r.item.priority} />
+                <span className="title">{r.item.title}</span>
+                <span className="meta">
+                  <EffortIcon effort={r.item.effort} />
+                  <DueMark iso={r.item.dueDate} />
+                </span>
+              </div>
+            ))}
+          </div>
         </div>
 
         {!shown && (

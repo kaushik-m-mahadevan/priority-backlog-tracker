@@ -1,6 +1,9 @@
 import { FormEvent, useState } from "react";
 import { api, ApiError } from "../api/client";
 import { useConfig } from "../config/ConfigContext";
+import { useUsers } from "../users/UsersContext";
+import { formatDateTime } from "../lib/format";
+import MarkdownField from "./MarkdownField";
 import type { Item } from "../types";
 
 interface Props {
@@ -19,6 +22,7 @@ const EFFORT_OPTIONS: Record<Unit, number[]> = {
 
 export default function ItemFormModal({ existing, onClose, onSaved }: Props) {
   const config = useConfig();
+  const { users, nameOf } = useUsers();
   const editing = !!existing;
 
   const [title, setTitle] = useState(existing?.title ?? "");
@@ -26,11 +30,27 @@ export default function ItemFormModal({ existing, onClose, onSaved }: Props) {
   const [priority, setPriority] = useState(existing?.priority ?? "");
   const [unit, setUnit] = useState<Unit>(existing?.effort?.unit ?? "MINUTES");
   const [value, setValue] = useState<number>(existing?.effort?.value ?? 30);
-  const [dueDate, setDueDate] = useState(
-    existing?.dueDate ? existing.dueDate.slice(0, 10) : "",
-  );
+  const [dueDate, setDueDate] = useState(existing?.dueDate ? existing.dueDate.slice(0, 10) : "");
+  const [ownerId, setOwnerId] = useState(existing?.ownerId ?? "");
+  const [notes, setNotes] = useState(existing?.notes?.content ?? "");
+  const [status, setStatus] = useState(existing?.status ?? "BACKLOG");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  async function toggleStatus() {
+    if (!existing) return;
+    const next = status === "BACKLOG" ? "IN_PROGRESS" : "BACKLOG";
+    setBusy(true);
+    setError(null);
+    try {
+      await api.patch(`/items/${existing.id}/status`, { status: next });
+      setStatus(next);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Could not change status");
+    } finally {
+      setBusy(false);
+    }
+  }
 
   async function submit(e: FormEvent) {
     e.preventDefault();
@@ -41,6 +61,8 @@ export default function ItemFormModal({ existing, onClose, onSaved }: Props) {
       category,
       priority,
       effortEstimate: { value: Number(value), unit },
+      ownerId: ownerId || null,
+      notes,
     };
     if (dueDate) body.dueDate = new Date(dueDate + "T00:00:00Z").toISOString();
     try {
@@ -59,13 +81,22 @@ export default function ItemFormModal({ existing, onClose, onSaved }: Props) {
   return (
     <div className="modal-backdrop" onClick={onClose}>
       <div className="modal" onClick={(e) => e.stopPropagation()}>
-        <h3>{editing ? `Edit ${existing!.itemId}` : "New item"}</h3>
+        <div className="modal-head">
+          <h3>{editing ? existing!.title || existing!.itemId : "New item"}</h3>
+          {editing && (
+            <button type="button" className="ghost" onClick={toggleStatus} disabled={busy}>
+              {status === "IN_PROGRESS" ? "Move to backlog" : "Start"}
+            </button>
+          )}
+        </div>
         {error && <div className="error">{error}</div>}
+
         <form onSubmit={submit}>
           <div className="form-row">
             <label>Title</label>
             <input value={title} onChange={(e) => setTitle(e.target.value)} required autoFocus />
           </div>
+
           <div className="form-grid">
             <div className="form-row">
               <label>Category</label>
@@ -94,6 +125,7 @@ export default function ItemFormModal({ existing, onClose, onSaved }: Props) {
               </select>
             </div>
           </div>
+
           <div className="form-grid">
             <div className="form-row">
               <label>Effort unit</label>
@@ -121,10 +153,51 @@ export default function ItemFormModal({ existing, onClose, onSaved }: Props) {
               </select>
             </div>
           </div>
-          <div className="form-row">
-            <label>Due date {editing ? "" : "(optional — defaults to +30 days)"}</label>
-            <input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
+
+          <div className="form-grid">
+            <div className="form-row">
+              <label>Due date {editing ? "" : "(optional — defaults to +30 days)"}</label>
+              <input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
+            </div>
+            <div className="form-row">
+              <label>Assignee</label>
+              <select value={ownerId} onChange={(e) => setOwnerId(e.target.value)}>
+                <option value="">Unassigned</option>
+                {users.map((u) => (
+                  <option key={u.id} value={u.id}>
+                    {u.name}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
+
+          <div className="form-row">
+            <label>Notes</label>
+            <MarkdownField
+              value={notes}
+              onChange={setNotes}
+              placeholder="Context, links, next step… **bold**, _italic_, ## heading, - list"
+            />
+          </div>
+
+          {editing && (
+            <div className="detail-facts">
+              <span>Status</span>
+              <span>{status === "IN_PROGRESS" ? "In progress" : "Backlog"}</span>
+              <span>Created</span>
+              <span>
+                {formatDateTime(existing!.createdAt)}
+                {existing!.createdBy && ` · ${nameOf(existing!.createdBy)}`}
+              </span>
+              <span>Updated</span>
+              <span>
+                {formatDateTime(existing!.updatedAt)}
+                {existing!.lastUpdatedBy && ` · ${nameOf(existing!.lastUpdatedBy)}`}
+              </span>
+            </div>
+          )}
+
           <div className="modal-actions">
             <button type="button" className="ghost" onClick={onClose} disabled={busy}>
               Cancel

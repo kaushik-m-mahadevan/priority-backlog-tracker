@@ -15,6 +15,7 @@ import com.backlogtracker.counter.CounterService;
 import com.backlogtracker.item.domain.Item;
 import com.backlogtracker.item.domain.ItemScope;
 import com.backlogtracker.item.domain.ItemStatus;
+import com.backlogtracker.item.domain.Notes;
 import com.backlogtracker.item.dto.CreateItemRequest;
 import com.backlogtracker.item.dto.UpdateItemRequest;
 import com.backlogtracker.item.repository.ItemRepository;
@@ -59,6 +60,9 @@ public class ItemService {
                 .lastUpdatedBy(actor.id())
                 .ownerId(blankToNull(r.ownerId()))
                 .build();
+        if (r.notes() != null && !r.notes().isBlank()) {
+            item.setNotes(Notes.markdown(r.notes().trim()));
+        }
         return items.save(item);
     }
 
@@ -74,8 +78,22 @@ public class ItemService {
         item.setEffortEstimate(r.effortEstimate());
         item.setDueDate(r.dueDate());
         item.setOwnerId(blankToNull(r.ownerId()));
+        applyNotes(item, r.notes());
         item.setLastUpdatedBy(actor.id());
         return items.save(item);
+    }
+
+    /** null = leave notes as-is; "" = clear; otherwise replace when the text changed. */
+    private static void applyNotes(Item item, String notes) {
+        if (notes == null) {
+            return;
+        }
+        String current = item.getNotes() == null ? "" : item.getNotes().getContent();
+        String next = notes.trim();
+        if (next.equals(current == null ? "" : current)) {
+            return;
+        }
+        item.setNotes(next.isEmpty() ? null : Notes.markdown(next));
     }
 
     public Item changeStatus(String id, ItemStatus status, AuthUser actor) {

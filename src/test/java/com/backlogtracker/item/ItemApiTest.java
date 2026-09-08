@@ -137,6 +137,33 @@ class ItemApiTest {
     }
 
     @Test
+    void setsAssigneeAndNotesThenClearsNotes() throws Exception {
+        String id = create(createBody("Notable", "Research", "Low", 15, "MINUTES")).get("id").asText();
+        String due = Instant.now().plus(Duration.ofDays(5)).toString();
+
+        mvc.perform(auth(put("/api/items/" + id)).contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"title":"Notable","category":"Research","priority":"Low",
+                                 "effortEstimate":{"value":15,"unit":"MINUTES"},"dueDate":"%s",
+                                 "ownerId":"u-42","notes":"call the vendor first"}"""
+                                .formatted(due)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.ownerId").value("u-42"))
+                .andExpect(jsonPath("$.notes.content").value("call the vendor first"))
+                .andExpect(jsonPath("$.notes.format").value("markdown"));
+
+        mvc.perform(auth(put("/api/items/" + id)).contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"title":"Notable","category":"Research","priority":"Low",
+                                 "effortEstimate":{"value":15,"unit":"MINUTES"},"dueDate":"%s",
+                                 "notes":""}"""
+                                .formatted(due)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.notes").doesNotExist())
+                .andExpect(jsonPath("$.ownerId").doesNotExist());
+    }
+
+    @Test
     void togglesStatusBetweenLiveStates() throws Exception {
         String id = create(createBody("Flow", "Project", "High", 1, "HOURS")).get("id").asText();
 

@@ -18,5 +18,6 @@ public record CreateItemRequest(
         @NotBlank String priority,
         @NotNull @Valid EffortEstimate effortEstimate,
         Instant dueDate,
-        String ownerId) {
+        String ownerId,
+        String notes) {
 }

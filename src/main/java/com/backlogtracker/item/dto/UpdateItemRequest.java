@@ -18,5 +18,7 @@ public record UpdateItemRequest(
         @NotBlank String priority,
         @NotNull @Valid EffortEstimate effortEstimate,
         @NotNull Instant dueDate,
-        String ownerId) {
+        String ownerId,
+        /** Markdown notes. null = leave unchanged; "" = clear. */
+        String notes) {
 }
