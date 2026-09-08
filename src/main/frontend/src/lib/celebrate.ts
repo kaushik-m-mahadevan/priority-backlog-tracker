@@ -10,12 +10,18 @@ function reducedMotion(): boolean {
   }
 }
 
+function findGrove(): SVGElement | null {
+  return document.querySelector<SVGElement>(
+    ".dash-aside .grove.solo svg, .head-grove .grove svg, .grove svg",
+  );
+}
+
 function makeLeaf(x: number, y: number): HTMLElement {
   const el = document.createElement("span");
   el.className = "celebrate-leaf";
   el.innerHTML =
-    '<svg viewBox="0 0 12 12" width="14" height="14" fill="currentColor" aria-hidden="true">' +
-    '<ellipse cx="6" cy="6" rx="5.4" ry="2.7" transform="rotate(-35 6 6)"/></svg>';
+    '<svg viewBox="0 0 12 12" width="16" height="16" fill="currentColor" aria-hidden="true">' +
+    '<ellipse cx="6" cy="6" rx="5.6" ry="2.8" transform="rotate(-35 6 6)"/></svg>';
   el.style.left = `${x}px`;
   el.style.top = `${y}px`;
   document.body.appendChild(el);
@@ -23,22 +29,37 @@ function makeLeaf(x: number, y: number): HTMLElement {
 }
 
 function flyLeaf(el: HTMLElement, dx: number, dy: number, i: number) {
-  const lift = -70 - i * 22;
+  const lift = -80 - i * 20;
+  const jitter = (i - 2) * 14;
   const anim = el.animate(
     [
       { transform: "translate(0,0) rotate(0) scale(1)", opacity: 1 },
       {
-        transform: `translate(${dx * 0.5}px, ${dy * 0.5 + lift}px) rotate(160deg) scale(1.15)`,
+        transform: `translate(${dx * 0.5 + jitter}px, ${dy * 0.5 + lift}px) rotate(170deg) scale(1.2)`,
         opacity: 1,
         offset: 0.55,
       },
-      { transform: `translate(${dx}px, ${dy}px) rotate(340deg) scale(0.35)`, opacity: 0 },
+      { transform: `translate(${dx}px, ${dy}px) rotate(360deg) scale(0.3)`, opacity: 0 },
     ],
-    { duration: 720 + i * 90, delay: i * 80, easing: "cubic-bezier(.35,0,.4,1)" },
+    { duration: 760 + i * 80, delay: i * 70, easing: "cubic-bezier(.35,0,.4,1)" },
   );
   const done = () => el.remove();
   anim.onfinish = done;
   anim.oncancel = done;
+}
+
+function bumpGrove(grove: SVGElement) {
+  grove.style.transformBox = "fill-box";
+  grove.style.transformOrigin = "center bottom";
+  grove.animate(
+    [
+      { transform: "scale(1)" },
+      { transform: "scale(1.1) rotate(-2deg)", offset: 0.25 },
+      { transform: "scale(0.96)", offset: 0.55 },
+      { transform: "scale(1)" },
+    ],
+    { duration: 680, easing: "cubic-bezier(.3,0,.3,1)" },
+  );
 }
 
 /** Adds `.completing` to the row and launches the leaf flight + grove bump.
@@ -46,44 +67,29 @@ function flyLeaf(el: HTMLElement, dx: number, dy: number, i: number) {
 export async function runCelebration(rowEl: HTMLElement): Promise<void> {
   rowEl.classList.add("completing");
 
-  if (!reducedMotion()) {
-    const rr = rowEl.getBoundingClientRect();
-    const startX = rr.right - 52;
-    const startY = rr.top + rr.height / 2;
+  const grove = findGrove();
+  const soft = reducedMotion();
 
-    const groveSvg = document.querySelector<SVGElement>(
-      ".dash-aside .grove.solo svg, .head-grove .grove svg",
-    );
-    if (groveSvg) {
-      const gr = groveSvg.getBoundingClientRect();
+  if (grove) {
+    if (!soft) {
+      const rr = rowEl.getBoundingClientRect();
+      const startX = rr.right - 56;
+      const startY = rr.top + rr.height / 2;
+      const gr = grove.getBoundingClientRect();
       const ex = gr.left + gr.width / 2;
       const ey = gr.top + gr.height / 2;
       const leaves: HTMLElement[] = [];
-      for (let i = 0; i < 3; i++) {
+      for (let i = 0; i < 5; i++) {
         const leaf = makeLeaf(startX, startY);
         leaves.push(leaf);
         flyLeaf(leaf, ex - startX, ey - startY, i);
       }
-      // hard cleanup in case the environment stalls the animations
-      window.setTimeout(() => leaves.forEach((l) => l.remove()), 1600);
-
-      window.setTimeout(() => {
-        groveSvg.style.transformBox = "fill-box";
-        groveSvg.style.transformOrigin = "center bottom";
-        groveSvg.animate(
-          [
-            { transform: "scale(1)" },
-            { transform: "scale(1.08) rotate(-1.5deg)", offset: 0.25 },
-            { transform: "scale(0.97)", offset: 0.55 },
-            { transform: "scale(1)" },
-          ],
-          { duration: 640, easing: "cubic-bezier(.3,0,.3,1)" },
-        );
-      }, 500);
+      window.setTimeout(() => leaves.forEach((l) => l.remove()), 1700);
     }
+    window.setTimeout(() => bumpGrove(grove), soft ? 0 : 480);
   }
 
-  await new Promise((r) => setTimeout(r, 340));
+  await new Promise((r) => setTimeout(r, soft ? 120 : 360));
 }
 
 /** Collapses the row to nothing. Resolves when the transition is done. */
