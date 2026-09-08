@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { api } from "../api/client";
+import { useItemsChanged } from "../lib/events";
 import { BellIcon, AgeIcon, OverdueIcon } from "./icons";
 import { ageShort } from "../lib/format";
 import type { NeedsAttention } from "../types";
@@ -21,12 +22,14 @@ export default function Bell() {
     nav(`/attention?open=${id}`);
   }
 
-  useEffect(() => {
+  function load() {
     api
       .get<NeedsAttention>("/insights/needs-attention")
       .then(setData)
       .catch(() => setData(null));
-  }, [loc.pathname]);
+  }
+  useEffect(load, [loc.pathname]);
+  useItemsChanged(load);
 
   useEffect(() => {
     function onDoc(e: MouseEvent) {

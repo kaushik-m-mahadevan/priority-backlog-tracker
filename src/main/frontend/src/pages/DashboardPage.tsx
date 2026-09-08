@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { api, ApiError } from "../api/client";
 import { runCelebration, collapseRow } from "../lib/celebrate";
+import { useItemsChanged, notifyItemsChanged } from "../lib/events";
 import ItemFormModal from "../components/ItemFormModal";
 import LeftDock from "../components/LeftDock";
 import Grove from "../components/Grove";
@@ -42,6 +43,7 @@ export default function DashboardPage() {
       .catch((e) => setError(e.message));
   }
   useEffect(load, []);
+  useItemsChanged(load);
 
   async function handleComplete(item: Item, terminal: string = "RESOLVED") {
     setError(null);
@@ -58,7 +60,7 @@ export default function DashboardPage() {
       return;
     }
     setGroveKey((k) => k + 1);
-    load();
+    notifyItemsChanged(); // refreshes this list + the bell + the panels
   }
 
   useLayoutEffect(() => {

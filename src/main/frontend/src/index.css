@@ -315,6 +315,34 @@ tr:last-child td {
   resize: vertical;
   min-height: 72px;
 }
+.effort-input {
+  display: flex;
+  gap: 8px;
+}
+.effort-input input {
+  flex: 1;
+}
+.effort-input select {
+  width: 96px;
+  flex-shrink: 0;
+}
+.form-row .hint {
+  font-size: 11px;
+  color: var(--text-dim);
+  margin-top: 5px;
+}
+.form-row .hint.bad {
+  color: var(--urgent);
+}
+input[aria-invalid="true"] {
+  border-color: var(--urgent);
+}
+.unsaved {
+  font-size: 12px;
+  color: var(--accent);
+  margin-right: auto;
+  align-self: center;
+}
 .form-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;

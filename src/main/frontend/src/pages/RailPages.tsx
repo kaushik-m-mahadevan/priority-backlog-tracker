@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { api } from "../api/client";
+import { useItemsChanged } from "../lib/events";
 import { QuickWinsBody, AttentionBody, TeamBody } from "../components/rail/panels";
 import ItemFormModal from "../components/ItemFormModal";
 import type { Item, NeedsAttention, RankedItem, WorkloadOverview } from "../types";
@@ -22,6 +23,7 @@ export function QuickWinsPage() {
     api.get<RankedItem[]>("/items/quick-wins?limit=12").then(setRows).catch(() => setRows([]));
   }
   useEffect(load, []);
+  useItemsChanged(load);
   return (
     <Shell title="Quick wins" sub="Small things you can close out now.">
       <QuickWinsBody rows={rows} onOpen={setEditing} />
@@ -47,6 +49,7 @@ export function AttentionPage() {
     api.get<NeedsAttention>("/insights/needs-attention").then(setData).catch(() => setData(null));
   }
   useEffect(load, []);
+  useItemsChanged(load);
 
   // deep link from the bell: /attention?open=<id>
   useEffect(() => {

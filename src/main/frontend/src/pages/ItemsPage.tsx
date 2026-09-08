@@ -8,6 +8,7 @@ import { EffortIcon } from "../components/EffortIcon";
 import { DueMark } from "../components/DueMark";
 import ItemFormModal from "../components/ItemFormModal";
 import { useConfig } from "../config/ConfigContext";
+import { useItemsChanged, notifyItemsChanged } from "../lib/events";
 import { effortLabel, formatDate } from "../lib/format";
 import type { Item } from "../types";
 
@@ -34,6 +35,7 @@ export default function ItemsPage() {
       .finally(() => setLoading(false));
   }
   useEffect(load, []);
+  useItemsChanged(load);
 
   const filtered = useMemo(
     () =>
@@ -48,12 +50,12 @@ export default function ItemsPage() {
 
   async function setStatus(i: Item, status: "BACKLOG" | "IN_PROGRESS") {
     await api.patch(`/items/${i.id}/status`, { status });
-    load();
+    notifyItemsChanged();
   }
   async function complete(i: Item, terminalStatus: string) {
     await api.post(`/items/${i.id}/complete`, { terminalStatus });
     setMenuFor(null);
-    load();
+    notifyItemsChanged();
   }
 
   return (

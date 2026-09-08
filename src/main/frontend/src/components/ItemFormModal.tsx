@@ -2,6 +2,7 @@ import { FormEvent, useState } from "react";
 import { api, ApiError } from "../api/client";
 import { useConfig } from "../config/ConfigContext";
 import { useUsers } from "../users/UsersContext";
+import { notifyItemsChanged } from "../lib/events";
 import { formatDateTime } from "../lib/format";
 import MarkdownField from "./MarkdownField";
 import type { Item } from "../types";
@@ -16,10 +17,34 @@ interface Props {
 
 type Unit = "MINUTES" | "HOURS" | "DAYS";
 
-const EFFORT_OPTIONS: Record<Unit, number[]> = {
-  MINUTES: [15, 30, 45],
-  HOURS: Array.from({ length: 23 }, (_, i) => i + 1),
-  DAYS: Array.from({ length: 30 }, (_, i) => i + 1),
+const UNIT_RULES: Record<
+  Unit,
+  { min: number; max: number; step: number; hint: string; ok: (n: number) => boolean; err: string }
+> = {
+  MINUTES: {
+    min: 15,
+    max: 45,
+    step: 15,
+    hint: "15, 30 or 45",
+    ok: (n) => [15, 30, 45].includes(n),
+    err: "Minutes must be 15, 30, or 45",
+  },
+  HOURS: {
+    min: 1,
+    max: 23,
+    step: 1,
+    hint: "1–23 whole hours",
+    ok: (n) => Number.isInteger(n) && n >= 1 && n <= 23,
+    err: "Hours must be a whole number from 1 to 23",
+  },
+  DAYS: {
+    min: 1,
+    max: 30,
+    step: 1,
+    hint: "1–30 whole days",
+    ok: (n) => Number.isInteger(n) && n >= 1 && n <= 30,
+    err: "Days must be a whole number from 1 to 30",
+  },
 };
 
 export default function ItemFormModal({ existing, onClose, onSaved, onComplete }: Props) {
@@ -27,17 +52,50 @@ export default function ItemFormModal({ existing, onClose, onSaved, onComplete }
   const { users, nameOf } = useUsers();
   const editing = !!existing;
 
-  const [title, setTitle] = useState(existing?.title ?? "");
-  const [category, setCategory] = useState(existing?.category ?? "");
-  const [priority, setPriority] = useState(existing?.priority ?? "");
-  const [unit, setUnit] = useState<Unit>(existing?.effort?.unit ?? "MINUTES");
-  const [value, setValue] = useState<number>(existing?.effort?.value ?? 30);
-  const [dueDate, setDueDate] = useState(existing?.dueDate ? existing.dueDate.slice(0, 10) : "");
-  const [ownerId, setOwnerId] = useState(existing?.ownerId ?? "");
-  const [notes, setNotes] = useState(existing?.notes?.content ?? "");
+  const plus30 = () => {
+    const d = new Date();
+    d.setDate(d.getDate() + 30);
+    return d.toISOString().slice(0, 10);
+  };
+
+  const init = {
+    title: existing?.title ?? "",
+    category: existing?.category ?? "",
+    priority: existing?.priority ?? "",
+    unit: (existing?.effort?.unit ?? "MINUTES") as Unit,
+    value: String(existing?.effort?.value ?? 30),
+    dueDate: existing?.dueDate ? existing.dueDate.slice(0, 10) : plus30(),
+    ownerId: existing?.ownerId ?? "",
+    notes: existing?.notes?.content ?? "",
+  };
+
+  const [title, setTitle] = useState(init.title);
+  const [category, setCategory] = useState(init.category);
+  const [priority, setPriority] = useState(init.priority);
+  const [unit, setUnit] = useState<Unit>(init.unit);
+  const [value, setValue] = useState<string>(init.value);
+  const [dueDate, setDueDate] = useState(init.dueDate);
+  const [ownerId, setOwnerId] = useState(init.ownerId);
+  const [notes, setNotes] = useState(init.notes);
   const [status, setStatus] = useState(existing?.status ?? "BACKLOG");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [statusFlash, setStatusFlash] = useState(false);
+
+  const dirty =
+    title !== init.title ||
+    category !== init.category ||
+    priority !== init.priority ||
+    unit !== init.unit ||
+    value !== init.value ||
+    dueDate !== init.dueDate ||
+    ownerId !== init.ownerId ||
+    notes !== init.notes;
+
+  function requestClose() {
+    if (dirty && !window.confirm("Discard your unsaved changes?")) return;
+    onClose();
+  }
 
   async function toggleStatus() {
     if (!existing) return;
@@ -47,6 +105,9 @@ export default function ItemFormModal({ existing, onClose, onSaved, onComplete }
     try {
       await api.patch(`/items/${existing.id}/status`, { status: next });
       setStatus(next);
+      setStatusFlash(true);
+      setTimeout(() => setStatusFlash(false), 1400);
+      notifyItemsChanged();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Could not change status");
     } finally {
@@ -54,15 +115,22 @@ export default function ItemFormModal({ existing, onClose, onSaved, onComplete }
     }
   }
 
+  const effortNum = Number(value);
+  const effortInvalid = value.trim() === "" || !UNIT_RULES[unit].ok(effortNum);
+
   async function submit(e: FormEvent) {
     e.preventDefault();
+    if (effortInvalid) {
+      setError(UNIT_RULES[unit].err);
+      return;
+    }
     setBusy(true);
     setError(null);
     const body: Record<string, unknown> = {
       title,
       category,
       priority,
-      effortEstimate: { value: Number(value), unit },
+      effortEstimate: { value: effortNum, unit },
       ownerId: ownerId || null,
       notes,
     };
@@ -70,6 +138,7 @@ export default function ItemFormModal({ existing, onClose, onSaved, onComplete }
     try {
       if (editing) await api.put(`/items/${existing!.id}`, body);
       else await api.post("/items", body);
+      notifyItemsChanged();
       onSaved();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Save failed");
@@ -78,16 +147,18 @@ export default function ItemFormModal({ existing, onClose, onSaved, onComplete }
     }
   }
 
-  const options = EFFORT_OPTIONS[unit] ?? [];
-
   return (
-    <div className="modal-backdrop" onClick={onClose}>
+    <div className="modal-backdrop" onClick={requestClose}>
       <div className="modal" onClick={(e) => e.stopPropagation()}>
         <div className="modal-head">
           <h3>{editing ? existing!.title || existing!.itemId : "New item"}</h3>
           {editing && (
             <button type="button" className="ghost" onClick={toggleStatus} disabled={busy}>
-              {status === "IN_PROGRESS" ? "Move to backlog" : "Start"}
+              {statusFlash
+                ? "Saved ✓"
+                : status === "IN_PROGRESS"
+                  ? "Move to backlog"
+                  : "Start"}
             </button>
           )}
         </div>
@@ -128,37 +199,40 @@ export default function ItemFormModal({ existing, onClose, onSaved, onComplete }
             </div>
           </div>
 
-          <div className="form-grid">
-            <div className="form-row">
-              <label>Effort unit</label>
+          <div className="form-row">
+            <label>Effort</label>
+            <div className="effort-input">
+              <input
+                type="number"
+                inputMode="numeric"
+                value={value}
+                min={UNIT_RULES[unit].min}
+                max={UNIT_RULES[unit].max}
+                step={UNIT_RULES[unit].step}
+                aria-invalid={effortInvalid}
+                onChange={(e) => setValue(e.target.value)}
+              />
               <select
                 value={unit}
                 onChange={(e) => {
                   const u = e.target.value as Unit;
                   setUnit(u);
-                  setValue(EFFORT_OPTIONS[u][0]);
+                  if (!UNIT_RULES[u].ok(Number(value))) setValue(String(UNIT_RULES[u].min));
                 }}
               >
-                <option value="MINUTES">Minutes</option>
-                <option value="HOURS">Hours</option>
-                <option value="DAYS">Days</option>
+                <option value="MINUTES">min</option>
+                <option value="HOURS">hr</option>
+                <option value="DAYS">days</option>
               </select>
             </div>
-            <div className="form-row">
-              <label>Effort amount</label>
-              <select value={value} onChange={(e) => setValue(Number(e.target.value))}>
-                {options.map((o) => (
-                  <option key={o} value={o}>
-                    {o}
-                  </option>
-                ))}
-              </select>
+            <div className={`hint${effortInvalid ? " bad" : ""}`}>
+              {effortInvalid ? UNIT_RULES[unit].err : UNIT_RULES[unit].hint}
             </div>
           </div>
 
           <div className="form-grid">
             <div className="form-row">
-              <label>Due date {editing ? "" : "(optional — defaults to +30 days)"}</label>
+              <label>Due date</label>
               <input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
             </div>
             <div className="form-row">
@@ -212,10 +286,15 @@ export default function ItemFormModal({ existing, onClose, onSaved, onComplete }
           )}
 
           <div className="modal-actions">
-            <button type="button" className="ghost" onClick={onClose} disabled={busy}>
-              Cancel
+            {dirty && <span className="unsaved">Unsaved changes</span>}
+            <button type="button" className="ghost" onClick={requestClose} disabled={busy}>
+              {dirty ? "Discard" : "Close"}
             </button>
-            <button type="submit" className="primary" disabled={busy}>
+            <button
+              type="submit"
+              className="primary"
+              disabled={busy || effortInvalid || (editing && !dirty)}
+            >
               {busy ? "Saving…" : editing ? "Save changes" : "Create item"}
             </button>
           </div>
