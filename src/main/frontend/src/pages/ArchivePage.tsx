@@ -2,7 +2,8 @@ import { useEffect, useState } from "react";
 import { api } from "../api/client";
 import { TerminalBadge } from "../components/Badge";
 import { PriorityMark } from "../components/PriorityMark";
-import { formatDateTime, effortSpan } from "../lib/format";
+import { EffortIcon } from "../components/EffortIcon";
+import { formatDateTime, effortLabel } from "../lib/format";
 import type { ArchivedItem } from "../types";
 
 export default function ArchivePage() {
@@ -61,7 +62,10 @@ export default function ArchivePage() {
                   </td>
                   <td>{a.title}</td>
                   <td>{a.category}</td>
-                  <td className="muted">{effortSpan(a.effort)}</td>
+                  <td className="muted" style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    <EffortIcon effort={a.effort} size={16} />
+                    {effortLabel(a.effort)}
+                  </td>
                   <td>
                     <TerminalBadge status={a.terminalStatus} />
                   </td>

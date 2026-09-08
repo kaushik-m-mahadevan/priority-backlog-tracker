@@ -1,18 +1,26 @@
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { api } from "../api/client";
 import ItemFormModal from "../components/ItemFormModal";
-import RailPanel from "../components/RailPanel";
+import Rail from "../components/Rail";
+import Grove from "../components/Grove";
+import { Creature } from "../components/Creature";
+import { useUsers } from "../users/UsersContext";
 import { PriorityMark } from "../components/PriorityMark";
-import { dueChip, effortSpan, effortWeight } from "../lib/format";
+import { EffortIcon } from "../components/EffortIcon";
+import { DueMark } from "../components/DueMark";
 import type { Item, NeedsAttention, RankedItem, WorkloadOverview } from "../types";
 
 export default function DashboardPage() {
   const [top, setTop] = useState<RankedItem[] | null>(null);
   const [quick, setQuick] = useState<RankedItem[] | null>(null);
   const [attention, setAttention] = useState<NeedsAttention | null>(null);
-  const [workload, setWorkload] = useState<WorkloadOverview | null>(null);
+  const [team, setTeam] = useState<WorkloadOverview | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [editing, setEditing] = useState<Item | null>(null);
+  const { nameOf } = useUsers();
+
+  const listRef = useRef<HTMLDivElement>(null);
+  const [railMax, setRailMax] = useState<number | undefined>();
 
   function load() {
     Promise.all([
@@ -25,14 +33,23 @@ export default function DashboardPage() {
         setTop(t);
         setQuick(q);
         setAttention(a);
-        setWorkload(w);
+        setTeam(w);
       })
       .catch((e) => setError(e.message));
   }
   useEffect(load, []);
 
-  const attnCount =
-    (attention?.staleAndOverdue.length ?? 0) + (attention?.buriedLowPriority.length ?? 0);
+  useLayoutEffect(() => {
+    function measure() {
+      if (listRef.current) {
+        // rail + grove together should not exceed the priority list's height
+        setRailMax(Math.max(200, listRef.current.offsetHeight - 200));
+      }
+    }
+    measure();
+    window.addEventListener("resize", measure);
+    return () => window.removeEventListener("resize", measure);
+  }, [top]);
 
   return (
     <div>
@@ -41,76 +58,32 @@ export default function DashboardPage() {
       {error && <div className="error">{error}</div>}
 
       <div className="dash">
-        <div className="plist">
-          {top && top.length === 0 && <div className="empty" style={{ padding: 16 }}>Nothing in the backlog yet.</div>}
-          {top?.map((r) => {
-            const due = dueChip(r.item.dueDate);
-            return (
-              <div
-                key={r.item.id}
-                className="prow"
-                onClick={() => setEditing(r.item)}
-                role="button"
-              >
-                <PriorityMark priority={r.item.priority} />
-                <span className="title">{r.item.title}</span>
-                {r.item.status === "IN_PROGRESS" && <span className="in-progress">in progress</span>}
-                <span className="meta">
-                  <span
-                    className="wbar"
-                    title={effortSpan(r.item.effort)}
-                    aria-label={effortSpan(r.item.effort)}
-                  >
-                    <span style={{ width: `${Math.max(6, effortWeight(r.item.effort) * 100)}%` }} />
-                  </span>
-                  <span className={`chip ${due.tone === "late" ? "late" : due.tone === "soon" ? "soon" : ""}`}>
-                    {due.text}
-                  </span>
-                </span>
-              </div>
-            );
-          })}
+        <div className="plist" ref={listRef}>
+          {top && top.length === 0 && (
+            <div className="empty" style={{ padding: 18 }}>Nothing in the backlog yet.</div>
+          )}
+          {top?.map((r) => (
+            <div key={r.item.id} className="prow" role="button" onClick={() => setEditing(r.item)}>
+              <Creature
+                seed={r.item.ownerId}
+                label={nameOf(r.item.ownerId)}
+                inProgress={r.item.status === "IN_PROGRESS"}
+              />
+              <PriorityMark priority={r.item.priority} />
+              <span className="title">{r.item.title}</span>
+              <span className="meta">
+                <EffortIcon effort={r.item.effort} />
+                <DueMark iso={r.item.dueDate} />
+              </span>
+            </div>
+          ))}
         </div>
 
-        <aside className="rail">
-          <RailPanel id="quickwins" title="Quick wins" count={quick?.length ?? 0}>
-            {quick && quick.length === 0 && <p className="empty">Nothing quick right now.</p>}
-            {quick?.map((r) => (
-              <div className="rp-item" key={r.item.id}>
-                {r.item.title}
-                <div className="sub">{effortSpan(r.item.effort)}</div>
-              </div>
-            ))}
-          </RailPanel>
-
-          <RailPanel id="attention" title="Needs attention" count={attnCount}>
-            {attnCount === 0 && <p className="empty">Nothing slipping.</p>}
-            {attention?.staleAndOverdue.map((f) => (
-              <div className="rp-item" key={f.item.id}>
-                {f.item.title}
-                <div className="sub overdue">{f.days}d overdue</div>
-              </div>
-            ))}
-            {attention?.buriedLowPriority.map((f) => (
-              <div className="rp-item" key={f.item.id}>
-                {f.item.title}
-                <div className="sub">buried · {f.days}d old</div>
-              </div>
-            ))}
-          </RailPanel>
-
-          <RailPanel id="workload" title="Team workload" count={workload?.owners.length ?? 0}>
-            {workload?.owners.map((o) => (
-              <div className="rp-item" key={o.ownerId ?? "unassigned"}>
-                {o.ownerName}
-                <div className="sub">
-                  {o.openCount} open
-                  {o.criticalHighCount > 0 && ` · ${o.criticalHighCount} hot`}
-                </div>
-              </div>
-            ))}
-          </RailPanel>
-        </aside>
+        <div className="rail-wrap">
+          <Grove />
+          <div style={{ height: 16 }} />
+          <Rail maxHeight={railMax} quick={quick} attention={attention} team={team} />
+        </div>
       </div>
 
       {editing && (

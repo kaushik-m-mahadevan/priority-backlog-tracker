@@ -2,13 +2,18 @@ import { useEffect, useMemo, useState } from "react";
 import { api } from "../api/client";
 import { StatusBadge } from "../components/Badge";
 import { PriorityMark } from "../components/PriorityMark";
+import { Creature } from "../components/Creature";
+import { useUsers } from "../users/UsersContext";
+import { EffortIcon } from "../components/EffortIcon";
+import { DueMark } from "../components/DueMark";
 import ItemFormModal from "../components/ItemFormModal";
 import { useConfig } from "../config/ConfigContext";
-import { dueChip, effortSpan, formatDate } from "../lib/format";
+import { effortLabel, formatDate } from "../lib/format";
 import type { Item } from "../types";
 
 export default function ItemsPage() {
   const config = useConfig();
+  const { nameOf } = useUsers();
   const [items, setItems] = useState<Item[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -88,7 +93,8 @@ export default function ItemsPage() {
           <table>
             <thead>
               <tr>
-                <th style={{ width: 28 }}></th>
+                <th style={{ width: 30 }}></th>
+                <th style={{ width: 18 }}></th>
                 <th>Title</th>
                 <th>Category</th>
                 <th>Effort</th>
@@ -100,34 +106,39 @@ export default function ItemsPage() {
             <tbody>
               {loading && (
                 <tr>
-                  <td colSpan={7} className="empty">
+                  <td colSpan={8} className="empty">
                     Loading…
                   </td>
                 </tr>
               )}
               {!loading && filtered.length === 0 && (
                 <tr>
-                  <td colSpan={7} className="empty">
+                  <td colSpan={8} className="empty">
                     No items match.
                   </td>
                 </tr>
               )}
-              {filtered.map((i) => {
-                const due = dueChip(i.dueDate);
-                return (
+              {filtered.map((i) => (
                 <tr key={i.id}>
+                  <td>
+                    <Creature
+                      seed={i.ownerId}
+                      label={nameOf(i.ownerId)}
+                      inProgress={i.status === "IN_PROGRESS"}
+                      size={24}
+                    />
+                  </td>
                   <td>
                     <PriorityMark priority={i.priority} />
                   </td>
                   <td>{i.title}</td>
                   <td>{i.category}</td>
-                  <td className="muted">{effortSpan(i.effort)}</td>
+                  <td className="muted" style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    <EffortIcon effort={i.effort} size={16} />
+                    {effortLabel(i.effort)}
+                  </td>
                   <td>
-                    <span
-                      className={`chip ${due.tone === "late" ? "late" : due.tone === "soon" ? "soon" : ""}`}
-                    >
-                      {due.text}
-                    </span>
+                    <DueMark iso={i.dueDate} />
                     <div className="muted" style={{ fontSize: 11, marginTop: 2 }}>
                       {formatDate(i.dueDate)}
                     </div>
@@ -182,8 +193,7 @@ export default function ItemsPage() {
                     </div>
                   </td>
                 </tr>
-                );
-              })}
+              ))}
             </tbody>
           </table>
         </div>

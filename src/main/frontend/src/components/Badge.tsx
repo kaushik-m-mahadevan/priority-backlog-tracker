@@ -1,9 +1,5 @@
-export function PriorityBadge({ priority }: { priority: string }) {
-  return <span className={`badge p-${priority}`}>{priority}</span>;
-}
-
 export function StatusBadge({ status }: { status: string }) {
-  const label = status === "IN_PROGRESS" ? "In Progress" : "Backlog";
+  const label = status === "IN_PROGRESS" ? "In progress" : "Backlog";
   return <span className={`badge s-${status}`}>{label}</span>;
 }
 

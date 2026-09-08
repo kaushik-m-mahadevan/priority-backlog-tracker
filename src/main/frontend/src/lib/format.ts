@@ -1,29 +1,35 @@
 import type { Effort } from "../types";
 
-/* ---- effort ------------------------------------------------------------------ */
+/* ---- effort ---------------------------------------------------------------- */
 
-/** A human span rather than a measurement (design §14 allows 15/30/45m, 1-23h, 1-30d). */
-export function effortSpan(e: Effort | null): string {
-  if (!e) return "unsized";
-  const m = e.minutes;
-  if (m <= 45) return "quick fix";
-  if (m <= 180) return "an hour or two";
-  if (m <= 480) return "an afternoon";
-  if (m <= 1440) return "a full day";
-  if (m <= 2880) return "a couple of days";
-  if (m <= 7200) return "a few days";
-  if (m <= 14400) return "about a week";
-  return "a big one";
-}
+export type GrowthStage = 0 | 1 | 2 | 3 | 4 | 5;
 
-/** 0..1 fill for the weight bar. Soft-capped at ~10 working days so the bar has range. */
-export function effortWeight(e: Effort | null): number {
+/** Map an effort estimate to a nature-growth stage (design §14). */
+export function growthStage(e: Effort | null): GrowthStage {
   if (!e) return 0;
-  const cap = 14400; // 10 days
-  return Math.min(e.minutes, cap) / cap;
+  const m = e.minutes;
+  if (m <= 45) return 0; // seedling
+  if (m <= 240) return 1; // sprout      (<= 4h)
+  if (m <= 480) return 2; // branch      (<= 8h)
+  if (m <= 1440) return 3; // young tree (<= 1d)
+  if (m <= 5760) return 4; // tree       (<= 4d)
+  return 5; // grove / hill
 }
 
-/* ---- dates ----------------------------------------------------------------- */
+const SPAN = [
+  "quick — under an hour",
+  "short — a few hours",
+  "half a day",
+  "about a day",
+  "a few days",
+  "a big one — a week or more",
+];
+
+export function effortLabel(e: Effort | null): string {
+  return e ? SPAN[growthStage(e)] : "unsized";
+}
+
+/* ---- dates -------------------------------------------------------------- */
 
 export function daysUntil(iso: string | null): number | null {
   if (!iso) return null;
@@ -34,27 +40,24 @@ export function daysUntil(iso: string | null): number | null {
   return Math.round((a.getTime() - b.getTime()) / 86_400_000);
 }
 
-export type DueTone = "late" | "soon" | "normal" | "far";
-
-export interface DueChip {
+export interface Due {
+  /** one compact unit, e.g. "3d", "6w", "2mo" — always present */
   text: string;
-  tone: DueTone;
+  /** overdue or due today */
+  urgent: boolean;
 }
 
-const WEEKDAY = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-const MONTH = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-
-/** Short, verbal up close; muted and coarse far away (Todoist / Things style). */
-export function dueChip(iso: string | null): DueChip {
+/** One unit only. Red "!" is driven by `urgent` (design: keep it simple). */
+export function due(iso: string | null): Due {
   const d = daysUntil(iso);
-  if (d === null) return { text: "no date", tone: "far" };
-  if (d < 0) return { text: d === -1 ? "yesterday" : `${-d}d late`, tone: "late" };
-  if (d === 0) return { text: "today", tone: "soon" };
-  if (d === 1) return { text: "tomorrow", tone: "soon" };
-  if (d <= 6) return { text: WEEKDAY[new Date(iso!).getDay()], tone: "normal" };
-  if (d <= 13) return { text: "1 wk", tone: "far" };
-  if (d <= 34) return { text: `${Math.round(d / 7)} wk`, tone: "far" };
-  return { text: MONTH[new Date(iso!).getMonth()], tone: "far" };
+  if (d === null) return { text: "—", urgent: false };
+  const mag = Math.abs(d);
+  let text: string;
+  if (mag === 0) text = "0d";
+  else if (mag < 7) text = `${mag}d`;
+  else if (mag < 60) text = `${Math.round(mag / 7)}w`;
+  else text = `${Math.round(mag / 30)}mo`;
+  return { text, urgent: d <= 0 };
 }
 
 export function formatDate(iso: string | null): string {
@@ -75,6 +78,13 @@ export function formatDateTime(iso: string | null): string {
     hour: "2-digit",
     minute: "2-digit",
   });
+}
+
+/** "5d", "3w", "2mo" — bare magnitude, for ages in Needs Attention. */
+export function ageShort(days: number): string {
+  if (days < 14) return `${days}d`;
+  if (days < 60) return `${Math.round(days / 7)}w`;
+  return `${Math.round(days / 30)}mo`;
 }
 
 export function score(n: number): string {
