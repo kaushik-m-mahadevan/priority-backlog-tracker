@@ -20,6 +20,7 @@ import com.backlogtracker.item.dto.CreateItemRequest;
 import com.backlogtracker.item.dto.UpdateItemRequest;
 import com.backlogtracker.item.repository.ItemRepository;
 import com.backlogtracker.security.AuthUser;
+import com.backlogtracker.user.repository.UserRepository;
 
 import lombok.RequiredArgsConstructor;
 
@@ -36,12 +37,14 @@ public class ItemService {
     private final ItemRepository items;
     private final ConfigService configService;
     private final CounterService counters;
+    private final UserRepository users;
     private final Clock clock;
 
     public Item create(CreateItemRequest r, AuthUser actor) {
         AppConfig cfg = configService.getConfig();
         validateCategory(cfg, r.category());
         validatePriority(cfg, r.priority());
+        validateOwner(r.ownerId());
 
         Instant due = r.dueDate() != null
                 ? r.dueDate()
@@ -71,6 +74,7 @@ public class ItemService {
         AppConfig cfg = configService.getConfig();
         validateCategory(cfg, r.category());
         validatePriority(cfg, r.priority());
+        validateOwner(r.ownerId());
 
         // carry the version the client saw so a concurrent edit is rejected (409)
         if (r.version() != null) {
@@ -132,6 +136,13 @@ public class ItemService {
         if (!cfg.getPriorities().contains(priority)) {
             throw new IllegalArgumentException(
                     "Unknown priority '" + priority + "'. Allowed: " + cfg.getPriorities());
+        }
+    }
+
+    private void validateOwner(String ownerId) {
+        String id = blankToNull(ownerId);
+        if (id != null && !users.existsById(id)) {
+            throw new IllegalArgumentException("Unknown owner '" + ownerId + "'");
         }
     }
 
