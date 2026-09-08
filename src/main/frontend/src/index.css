@@ -346,9 +346,13 @@ tr:last-child td {
   align-self: stretch;
   display: flex;
   justify-content: center;
-  align-items: center;
-  padding: 8px 12px;
+  align-items: flex-start;
+  padding: 12px;
   min-height: 320px;
+}
+.dash-aside .grove.solo {
+  position: sticky;
+  top: 96px;
 }
 .head-grove {
   display: none;
