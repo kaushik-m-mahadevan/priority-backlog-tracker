@@ -4,8 +4,12 @@ spring:
   data:
     mongodb:
       database: backlog
+      # Create the @Indexed / @CompoundIndex definitions on startup (unique email,
+      # userCode, itemId; the scope/status/owner compound indexes).
+      auto-index-creation: true
       # No host/uri set: the embedded MongoDB (flapdoodle) is used for local dev and
-      # tests. Production overrides this by setting MONGODB_URI (wired at the deploy step).
+      # tests. Production sets MONGODB_URI and runs with --spring.profiles.active=prod
+      # (application-prod.yml), which disables the embedded server.
 
 server:
   port: ${PORT:8080}

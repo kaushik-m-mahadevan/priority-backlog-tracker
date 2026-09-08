@@ -1,0 +1,26 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+
+      - name: Build, typecheck and test
+        run: ./mvnw -B clean verify
+
+      - name: Frontend typecheck
+        working-directory: src/main/frontend
+        run: ./node/node node_modules/typescript/lib/tsc.js -p tsconfig.json --noEmit

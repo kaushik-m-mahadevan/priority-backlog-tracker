@@ -1,0 +1,19 @@
+# Production profile — run with:  java -jar app.jar --spring.profiles.active=prod
+# Requires env vars: MONGODB_URI, JWT_SECRET
+spring:
+  data:
+    mongodb:
+      uri: ${MONGODB_URI}
+  autoconfigure:
+    # never start the embedded MongoDB in production, even though the jar bundles it
+    exclude:
+      - de.flapdoodle.embed.mongo.spring.autoconfigure.EmbeddedMongoAutoConfiguration
+
+app:
+  demo-data:
+    enabled: false
+  mongo:
+    transactions:
+      enabled: true # Atlas is a replica set — makes the archive move (§24) atomic
+  seed-user:
+    enabled: false

@@ -54,9 +54,17 @@ public class DemoDataSeeder implements ApplicationRunner {
     private final ArchivedItemRepository archived;
     private final CounterService counters;
     private final MongoOperations mongo;
+    private final org.springframework.core.env.Environment env;
 
     @Override
     public void run(ApplicationArguments args) {
+        String uri = env.getProperty("spring.data.mongodb.uri", "");
+        if (!uri.isBlank() && !uri.contains("localhost") && !uri.contains("127.0.0.1")) {
+            log.warn("Demo data: MONGODB_URI points at a non-local database ({}). This seeds "
+                    + "sample founders with the password 'test123'. Continuing because "
+                    + "app.demo-data.enabled=true — disable it for anything real.",
+                    uri.replaceAll(":[^:@/]+@", ":***@"));
+        }
         if (items.count() > 0) {
             log.info("Demo data: {} items already present — skipping seed", items.count());
             return;
