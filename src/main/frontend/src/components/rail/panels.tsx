@@ -32,6 +32,11 @@ export function QuickWinsBody({ rows, onOpen }: { rows: RankedItem[] | null; onO
         role={onOpen ? "button" : undefined}
         tabIndex={onOpen ? 0 : undefined}
         onClick={onOpen ? () => onOpen(pick.item) : undefined}
+        onKeyDown={
+          onOpen
+            ? (e) => (e.key === "Enter" || e.key === " ") && onOpen(pick.item)
+            : undefined
+        }
       >
         <div className="lead">got 15 minutes?</div>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -62,7 +67,10 @@ export function AttentionBody({ data, onOpen }: { data: NeedsAttention | null; o
       {stale.map((f) => (
         <Row key={f.item.id} item={f.item} onOpen={onOpen}>
           {f.item.title}
-          <div className="sub hot">
+          <div
+            className="sub hot"
+            title={`Flagged because it is ${ageShort(f.days)} past its due date and still open.`}
+          >
             <OverdueIcon /> {ageShort(f.days)} past due
           </div>
         </Row>
@@ -70,7 +78,12 @@ export function AttentionBody({ data, onOpen }: { data: NeedsAttention | null; o
       {buried.map((f) => (
         <Row key={f.item.id} item={f.item} onOpen={onOpen}>
           {f.item.title}
-          <div className="sub">
+          <div
+            className="sub"
+            title={`Flagged because it is low-priority and has sat untouched for ${ageShort(
+              f.days,
+            )} — long enough that it's likely being forgotten.`}
+          >
             <AgeIcon /> {ageShort(f.days)} untouched
           </div>
         </Row>

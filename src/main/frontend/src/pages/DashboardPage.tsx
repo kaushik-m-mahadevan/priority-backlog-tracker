@@ -20,6 +20,7 @@ export default function DashboardPage() {
   const [team, setTeam] = useState<WorkloadOverview | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [editing, setEditing] = useState<Item | null>(null);
+  const [adding, setAdding] = useState(false);
   const [groveKey, setGroveKey] = useState(0);
   const { nameOf } = useUsers();
   const { shown } = useDock();
@@ -94,6 +95,9 @@ export default function DashboardPage() {
             <h1 className="page-title" style={{ margin: 0 }}>
               The Pecking Order
             </h1>
+            <button className="primary add-peck" onClick={() => setAdding(true)}>
+              + New
+            </button>
             <div className="head-grove">
               <Grove compact refreshKey={groveKey} />
             </div>
@@ -109,7 +113,14 @@ export default function DashboardPage() {
                 data-id={r.item.id}
                 className="prow"
                 role="button"
+                tabIndex={0}
                 onClick={() => setEditing(r.item)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    setEditing(r.item);
+                  }
+                }}
               >
                 <Creature
                   seed={r.item.ownerId}
@@ -166,6 +177,17 @@ export default function DashboardPage() {
             setEditing(null);
             // let the modal-close render flush, then animate the row
             if (item) setTimeout(() => handleComplete(item, terminal), 0);
+          }}
+        />
+      )}
+
+      {adding && (
+        <ItemFormModal
+          existing={null}
+          onClose={() => setAdding(false)}
+          onSaved={() => {
+            setAdding(false);
+            load();
           }}
         />
       )}

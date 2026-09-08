@@ -1,4 +1,4 @@
-import { FormEvent, useState } from "react";
+import { FormEvent, KeyboardEvent as ReactKeyboardEvent, useEffect, useRef, useState } from "react";
 import { api, ApiError } from "../api/client";
 import { useConfig } from "../config/ConfigContext";
 import { useUsers } from "../users/UsersContext";
@@ -97,6 +97,36 @@ export default function ItemFormModal({ existing, onClose, onSaved, onComplete }
     onClose();
   }
 
+  const dialogRef = useRef<HTMLDivElement>(null);
+
+  // return focus to whatever was focused before the modal opened
+  useEffect(() => {
+    const opener = document.activeElement as HTMLElement | null;
+    return () => opener?.focus?.();
+  }, []);
+
+  function onDialogKeyDown(e: ReactKeyboardEvent<HTMLDivElement>) {
+    if (e.key === "Escape") {
+      e.stopPropagation();
+      requestClose();
+      return;
+    }
+    if (e.key !== "Tab" || !dialogRef.current) return;
+    const focusable = dialogRef.current.querySelectorAll<HTMLElement>(
+      'a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])',
+    );
+    if (focusable.length === 0) return;
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    if (e.shiftKey && document.activeElement === first) {
+      e.preventDefault();
+      last.focus();
+    } else if (!e.shiftKey && document.activeElement === last) {
+      e.preventDefault();
+      first.focus();
+    }
+  }
+
   async function toggleStatus() {
     if (!existing) return;
     const next = status === "BACKLOG" ? "IN_PROGRESS" : "BACKLOG";
@@ -157,9 +187,17 @@ export default function ItemFormModal({ existing, onClose, onSaved, onComplete }
 
   return (
     <div className="modal-backdrop" onClick={requestClose}>
-      <div className="modal" onClick={(e) => e.stopPropagation()}>
+      <div
+        className="modal"
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="item-modal-title"
+        onClick={(e) => e.stopPropagation()}
+        onKeyDown={onDialogKeyDown}
+      >
         <div className="modal-head">
-          <h3>{editing ? existing!.title || existing!.itemId : "New item"}</h3>
+          <h3 id="item-modal-title">{editing ? existing!.title || existing!.itemId : "New item"}</h3>
           {editing && (
             <button type="button" className="ghost" onClick={toggleStatus} disabled={busy}>
               {statusFlash
