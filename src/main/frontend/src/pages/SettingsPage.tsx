@@ -3,6 +3,7 @@ import { api, ApiError } from "../api/client";
 import { useConfigCtx } from "../config/ConfigContext";
 import { useTheme } from "../theme/ThemeContext";
 import { notifyItemsChanged } from "../lib/events";
+import { TZ_CHOICES, getTzPref, setTzPref } from "../lib/tz";
 import type { AppConfig } from "../types";
 
 type Draft = {
@@ -51,6 +52,7 @@ export default function SettingsPage() {
   const [newCat, setNewCat] = useState("");
   const [newPrio, setNewPrio] = useState("");
   const [newPrioVal, setNewPrioVal] = useState("2");
+  const [tz, setTz] = useState(getTzPref());
 
   useEffect(() => {
     if (config) {
@@ -129,6 +131,30 @@ export default function SettingsPage() {
               Tide
             </button>
           </div>
+        </div>
+
+        <div className="card">
+          <h2>Display timezone</h2>
+          <div className="form-row">
+            <label>Show dates in</label>
+            <select
+              value={tz}
+              onChange={(e) => {
+                setTz(e.target.value);
+                setTzPref(e.target.value);
+                notifyItemsChanged();
+              }}
+            >
+              {TZ_CHOICES.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.label}
+                </option>
+              ))}
+            </select>
+          </div>
+          <p className="hint" style={{ marginTop: 8 }}>
+            Instants are stored in UTC; this only changes how they read here (§22).
+          </p>
         </div>
 
         <div className="card">

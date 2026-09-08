@@ -1,4 +1,5 @@
 import type { Effort } from "../types";
+import { displayTz } from "./tz";
 
 /* ---- effort ---------------------------------------------------------------- */
 
@@ -31,13 +32,20 @@ export function effortLabel(e: Effort | null): string {
 
 /* ---- dates -------------------------------------------------------------- */
 
+/** Calendar date (YYYY-MM-DD) of an instant, read in the chosen display timezone. */
+function localDay(d: Date): number {
+  const s = new Intl.DateTimeFormat("en-CA", {
+    timeZone: displayTz(),
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(d);
+  return Date.parse(s + "T00:00:00Z");
+}
+
 export function daysUntil(iso: string | null): number | null {
   if (!iso) return null;
-  const a = new Date(iso);
-  a.setHours(0, 0, 0, 0);
-  const b = new Date();
-  b.setHours(0, 0, 0, 0);
-  return Math.round((a.getTime() - b.getTime()) / 86_400_000);
+  return Math.round((localDay(new Date(iso)) - localDay(new Date())) / 86_400_000);
 }
 
 export interface Due {
@@ -63,6 +71,7 @@ export function due(iso: string | null): Due {
 export function formatDate(iso: string | null): string {
   if (!iso) return "—";
   return new Date(iso).toLocaleDateString(undefined, {
+    timeZone: displayTz(),
     year: "numeric",
     month: "short",
     day: "numeric",
@@ -72,6 +81,7 @@ export function formatDate(iso: string | null): string {
 export function formatDateTime(iso: string | null): string {
   if (!iso) return "—";
   return new Date(iso).toLocaleString(undefined, {
+    timeZone: displayTz(),
     year: "numeric",
     month: "short",
     day: "numeric",
