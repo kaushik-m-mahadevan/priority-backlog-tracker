@@ -32,6 +32,14 @@ app:
   jwt:
     secret: ${JWT_SECRET:test123}
     expiration-minutes: ${JWT_EXPIRATION_MINUTES:1440}
+  # Seed a realistic sample backlog on startup. Off by default; the `demo` profile
+  # (application-demo.yml) turns it on. Idempotent — skips if items already exist.
+  demo-data:
+    enabled: ${DEMO_DATA_ENABLED:false}
+  mongo:
+    transactions:
+      # true only against a replica set / Atlas — makes the §24 archive move atomic
+      enabled: ${MONGO_TRANSACTIONS_ENABLED:false}
   # Dev seed account (design has no real founder data yet). Override in production.
   seed-user:
     enabled: ${SEED_USER_ENABLED:true}

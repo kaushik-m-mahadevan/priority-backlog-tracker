@@ -1,0 +1,6 @@
+# Activate with: --spring.profiles.active=demo
+# Seeds a realistic sample backlog (see DemoDataSeeder) on top of whatever MongoDB is
+# configured — the embedded one by default, or your own via MONGODB_URI.
+app:
+  demo-data:
+    enabled: true
