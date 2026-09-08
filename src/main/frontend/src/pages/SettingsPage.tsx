@@ -1,103 +1,158 @@
-import { useConfig } from "../config/ConfigContext";
+import { useEffect, useState } from "react";
+import { api, ApiError } from "../api/client";
+import { useConfigCtx } from "../config/ConfigContext";
 import { useTheme } from "../theme/ThemeContext";
+import { notifyItemsChanged } from "../lib/events";
+import type { AppConfig } from "../types";
+
+type Draft = {
+  priorityWeight: string;
+  urgencyWeight: string;
+  effortWeight: string;
+  urgencyWindowDays: string;
+  staleThresholdDays: string;
+  buriedThresholdDays: string;
+  defaultDueDateOffsetDays: string;
+  effortCapDays: string;
+};
+
+const NUMERIC: [keyof Draft, string][] = [
+  ["priorityWeight", "Priority weight"],
+  ["urgencyWeight", "Urgency weight"],
+  ["effortWeight", "Effort weight"],
+  ["urgencyWindowDays", "Urgency window (days)"],
+  ["staleThresholdDays", "Stale threshold (days)"],
+  ["buriedThresholdDays", "Buried threshold (days)"],
+  ["defaultDueDateOffsetDays", "Default due-date offset (days)"],
+  ["effortCapDays", "Effort cap (days)"],
+];
+
+function toDraft(c: AppConfig): Draft {
+  return {
+    priorityWeight: String(c.priorityWeight),
+    urgencyWeight: String(c.urgencyWeight),
+    effortWeight: String(c.effortWeight),
+    urgencyWindowDays: String(c.urgencyWindowDays),
+    staleThresholdDays: String(c.staleThresholdDays),
+    buriedThresholdDays: String(c.buriedThresholdDays),
+    defaultDueDateOffsetDays: String(c.defaultDueDateOffsetDays),
+    effortCapDays: String(c.effortCapDays),
+  };
+}
 
 export default function SettingsPage() {
-  const config = useConfig();
+  const { config, refresh } = useConfigCtx();
   const { theme, setTheme } = useTheme();
+  const [draft, setDraft] = useState<Draft | null>(null);
+  const [buried, setBuried] = useState<string[]>([]);
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<string | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+  const [newCat, setNewCat] = useState("");
+  const [newPrio, setNewPrio] = useState("");
+  const [newPrioVal, setNewPrioVal] = useState("2");
 
-  const themeCard = (
-    <div className="card">
-      <h2>Theme</h2>
-      <div className="seg" style={{ display: "flex", gap: 8 }}>
-        <button className={theme === "dusk" ? "primary" : ""} onClick={() => setTheme("dusk")}>
-          Dusk
-        </button>
-        <button className={theme === "tide" ? "primary" : ""} onClick={() => setTheme("tide")}>
-          Tide
-        </button>
-      </div>
-      <p className="muted" style={{ fontSize: 12, marginTop: 10 }}>
-        Both are calm, nature-toned dark themes. Remembered on this device.
-      </p>
-    </div>
-  );
+  useEffect(() => {
+    if (config) {
+      setDraft(toDraft(config));
+      setBuried(config.buriedPriorityLevels);
+    }
+  }, [config]);
 
-  if (!config) {
-    return (
-      <div>
-        <h1 className="page-title">Settings</h1>
-        <p className="page-sub">Theme now; ranking config below once it loads.</p>
-        {themeCard}
-      </div>
+  if (!config || !draft) return <p className="empty">Loading configuration…</p>;
+
+  const weightSum =
+    Number(draft.priorityWeight) + Number(draft.urgencyWeight) + Number(draft.effortWeight);
+  const weightsOk = Math.abs(weightSum - 1) < 1e-9;
+
+  async function call<T>(p: Promise<T>, ok: string) {
+    setBusy(true);
+    setErr(null);
+    setMsg(null);
+    try {
+      await p;
+      setMsg(ok);
+      refresh();
+      notifyItemsChanged();
+    } catch (e) {
+      setErr(e instanceof ApiError ? e.message : "Something went wrong");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function saveWeights() {
+    if (!weightsOk) return;
+    call(
+      api.put("/config", {
+        priorityWeight: Number(draft!.priorityWeight),
+        urgencyWeight: Number(draft!.urgencyWeight),
+        effortWeight: Number(draft!.effortWeight),
+        urgencyWindowDays: Number(draft!.urgencyWindowDays),
+        staleThresholdDays: Number(draft!.staleThresholdDays),
+        buriedThresholdDays: Number(draft!.buriedThresholdDays),
+        defaultDueDateOffsetDays: Number(draft!.defaultDueDateOffsetDays),
+        effortCapDays: Number(draft!.effortCapDays),
+        buriedPriorityLevels: buried,
+        priorityValues: config!.priorityValues,
+      }),
+      "Configuration saved.",
     );
   }
 
-  const weights: [string, number][] = [
-    ["Priority weight", config.priorityWeight],
-    ["Urgency weight", config.urgencyWeight],
-    ["Effort weight", config.effortWeight],
-  ];
-  const thresholds: [string, number | string][] = [
-    ["Urgency window (days)", config.urgencyWindowDays],
-    ["Stale threshold (days)", config.staleThresholdDays],
-    ["Buried threshold (days)", config.buriedThresholdDays],
-    ["Default due-date offset (days)", config.defaultDueDateOffsetDays],
-    ["Effort cap (days)", config.effortCapDays],
-    ["Buried priority levels", config.buriedPriorityLevels.join(", ")],
-  ];
+  function removeChip(kind: "categories" | "priorities", name: string, others: string[]) {
+    const reassignTo = window.prompt(
+      `If an item still uses "${name}", which ${kind === "categories" ? "category" : "priority"} should it move to?\n(${others.join(", ")})\nLeave blank if none use it.`,
+      "",
+    );
+    if (reassignTo === null) return;
+    const q = reassignTo ? `?reassignTo=${encodeURIComponent(reassignTo)}` : "";
+    call(api.delete(`/config/${kind}/${encodeURIComponent(name)}${q}`), `"${name}" removed.`);
+  }
 
   return (
     <div>
       <h1 className="page-title">Settings</h1>
-      <p className="page-sub">
-        Theme, and the current ranking configuration (§7). Config editing lands later —
-        read-only for now.
-      </p>
+      <p className="page-sub">Theme, and the ranking configuration (§7). Owner-only.</p>
+
+      {err && <div className="error">{err}</div>}
+      {msg && <div className="hint" style={{ color: "var(--growth)", marginBottom: 12 }}>{msg}</div>}
 
       <div className="grid cols-2">
-        {themeCard}
         <div className="card">
-          <h2>Ranking weights</h2>
-          <table>
-            <tbody>
-              {weights.map(([k, v]) => (
-                <tr key={k}>
-                  <td>{k}</td>
-                  <td className="mono">{v}</td>
-                </tr>
-              ))}
-              <tr>
-                <td className="muted">Sum</td>
-                <td className="mono">
-                  {(config.priorityWeight + config.urgencyWeight + config.effortWeight).toFixed(3)}
-                </td>
-              </tr>
-            </tbody>
-          </table>
+          <h2>Theme</h2>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button className={theme === "dusk" ? "primary" : ""} onClick={() => setTheme("dusk")}>
+              Dusk
+            </button>
+            <button className={theme === "tide" ? "primary" : ""} onClick={() => setTheme("tide")}>
+              Tide
+            </button>
+          </div>
         </div>
 
         <div className="card">
-          <h2>Thresholds</h2>
-          <table>
-            <tbody>
-              {thresholds.map(([k, v]) => (
-                <tr key={k}>
-                  <td>{k}</td>
-                  <td className="mono">{v}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-
-        <div className="card">
-          <h2>Priorities</h2>
-          <div className="kv">
-            {config.priorities.map((p) => (
-              <span className="chip" key={p}>
-                {p} = {config.priorityValues[p]}
-              </span>
+          <h2>Ranking weights &amp; thresholds</h2>
+          <div className="form-grid">
+            {NUMERIC.map(([k, label]) => (
+              <div className="form-row" key={k}>
+                <label>{label}</label>
+                <input
+                  type="number"
+                  step={k.includes("Weight") ? "0.001" : "1"}
+                  value={draft[k]}
+                  onChange={(e) => setDraft({ ...draft, [k]: e.target.value })}
+                />
+              </div>
             ))}
+          </div>
+          <div className={`hint${weightsOk ? "" : " bad"}`}>
+            weights sum to {weightSum.toFixed(3)} {weightsOk ? "✓" : "— must be exactly 1"}
+          </div>
+          <div className="modal-actions" style={{ marginTop: 12 }}>
+            <button className="primary" disabled={busy || !weightsOk} onClick={saveWeights}>
+              Save
+            </button>
           </div>
         </div>
 
@@ -107,9 +162,87 @@ export default function SettingsPage() {
             {config.categories.map((c) => (
               <span className="chip" key={c}>
                 {c}
+                <button
+                  className="chip-x"
+                  aria-label={`Remove ${c}`}
+                  onClick={() =>
+                    removeChip("categories", c, config.categories.filter((x) => x !== c))
+                  }
+                >
+                  ×
+                </button>
               </span>
             ))}
           </div>
+          <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+            <input
+              placeholder="New category"
+              value={newCat}
+              onChange={(e) => setNewCat(e.target.value)}
+            />
+            <button
+              disabled={busy || !newCat.trim()}
+              onClick={() =>
+                call(api.post("/config/categories", { name: newCat.trim() }), "Category added.").then(
+                  () => setNewCat(""),
+                )
+              }
+            >
+              Add
+            </button>
+          </div>
+        </div>
+
+        <div className="card">
+          <h2>Priorities</h2>
+          <div className="kv">
+            {config.priorities.map((p) => (
+              <span className="chip" key={p}>
+                {p} = {config.priorityValues[p]}
+                <button
+                  className="chip-x"
+                  aria-label={`Remove ${p}`}
+                  onClick={() =>
+                    removeChip("priorities", p, config.priorities.filter((x) => x !== p))
+                  }
+                >
+                  ×
+                </button>
+              </span>
+            ))}
+          </div>
+          <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+            <input
+              placeholder="New priority"
+              value={newPrio}
+              onChange={(e) => setNewPrio(e.target.value)}
+              style={{ flex: 1 }}
+            />
+            <input
+              type="number"
+              min="1"
+              value={newPrioVal}
+              onChange={(e) => setNewPrioVal(e.target.value)}
+              style={{ width: 70 }}
+            />
+            <button
+              disabled={busy || !newPrio.trim()}
+              onClick={() =>
+                call(
+                  api.post("/config/priorities", {
+                    name: newPrio.trim(),
+                    value: Number(newPrioVal),
+                  }),
+                  "Priority added.",
+                ).then(() => setNewPrio(""))
+              }
+            >
+              Add
+            </button>
+          </div>
+          <p className="hint" style={{ marginTop: 8 }}>
+            Higher weight = ranks higher. "Buried" levels: {buried.join(", ") || "none"}.
+          </p>
         </div>
       </div>
     </div>

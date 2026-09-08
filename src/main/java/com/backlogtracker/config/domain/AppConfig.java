@@ -1,5 +1,6 @@
 package com.backlogtracker.config.domain;
 
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -67,17 +68,17 @@ public class AppConfig {
         return AppConfig.builder()
                 .id(SINGLETON_ID)
                 .priorityValues(priorityValues)
-                .priorities(List.of("Critical", "High", "Medium", "Low"))
+                .priorities(new ArrayList<>(List.of("Critical", "High", "Medium", "Low")))
                 .priorityWeight(0.333)
                 .urgencyWeight(0.333)
                 .effortWeight(0.334)
                 .urgencyWindowDays(14)
                 .staleThresholdDays(14)
                 .buriedThresholdDays(30)
-                .buriedPriorityLevels(List.of("Low"))
-                .categories(List.of(
+                .buriedPriorityLevels(new ArrayList<>(List.of("Low")))
+                .categories(new ArrayList<>(List.of(
                         "Research", "Skill-Building", "Project",
-                        "Technical Discussion", "Admin-Ops", "Other"))
+                        "Technical Discussion", "Admin-Ops", "Other")))
                 .defaultDueDateOffsetDays(30)
                 .effortCapDays(30)
                 .build();

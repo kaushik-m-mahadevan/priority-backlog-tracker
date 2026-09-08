@@ -315,6 +315,36 @@ tr:last-child td {
   resize: vertical;
   min-height: 72px;
 }
+.kv {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.kv .chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--bg-elev-2);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 4px 6px 4px 12px;
+  font-size: 12px;
+}
+.chip-x {
+  border: none;
+  background: transparent;
+  color: var(--text-dim);
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  padding: 0;
+  line-height: 1;
+  font-size: 14px;
+}
+.chip-x:hover {
+  background: var(--urgent);
+  color: #2a1420;
+}
 .effort-input {
   display: flex;
   gap: 8px;
