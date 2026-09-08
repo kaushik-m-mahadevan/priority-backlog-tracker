@@ -21,6 +21,7 @@ import com.backlogtracker.item.dto.StatusChangeRequest;
 import com.backlogtracker.item.dto.UpdateItemRequest;
 import com.backlogtracker.item.service.ItemService;
 import com.backlogtracker.security.AuthUser;
+import com.backlogtracker.security.RequiresContributor;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -45,12 +46,14 @@ public class ItemController {
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
+    @RequiresContributor
     public ItemView create(@Valid @RequestBody CreateItemRequest request,
                            @AuthenticationPrincipal AuthUser actor) {
         return ItemView.of(itemService.create(request, actor));
     }
 
     @PutMapping("/{id}")
+    @RequiresContributor
     public ItemView update(@PathVariable String id,
                            @Valid @RequestBody UpdateItemRequest request,
                            @AuthenticationPrincipal AuthUser actor) {
@@ -58,6 +61,7 @@ public class ItemController {
     }
 
     @PatchMapping("/{id}/status")
+    @RequiresContributor
     public ItemView changeStatus(@PathVariable String id,
                                  @Valid @RequestBody StatusChangeRequest request,
                                  @AuthenticationPrincipal AuthUser actor) {
