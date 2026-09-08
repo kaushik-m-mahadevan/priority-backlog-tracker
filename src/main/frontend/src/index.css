@@ -270,6 +270,21 @@ tr:last-child td {
   color: var(--text-dim);
   padding: 18px 0;
 }
+.pager {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  padding: 12px 0 4px;
+  font-size: 13px;
+}
+.pager button {
+  padding: 5px 12px;
+}
+.pager button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
 
 /* ---------- modal ---------- */
 .modal-backdrop {

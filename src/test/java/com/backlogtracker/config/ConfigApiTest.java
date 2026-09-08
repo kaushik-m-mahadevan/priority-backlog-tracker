@@ -111,6 +111,6 @@ class ConfigApiTest {
         mvc.perform(auth(delete("/api/config/categories/Admin-Ops").param("reassignTo", "Project")))
                 .andExpect(status().isOk());
         mvc.perform(auth(get("/api/items")))
-                .andExpect(jsonPath("$[0].category").value("Project"));
+                .andExpect(jsonPath("$.content[0].category").value("Project"));
     }
 }

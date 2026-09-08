@@ -78,6 +78,20 @@ export interface ArchivedItem {
   createdAt: string | null;
 }
 
+export interface Page<T> {
+  content: T[];
+  page: number;
+  size: number;
+  total: number;
+  totalPages: number;
+}
+
+export interface CompletionStats {
+  count: number;
+  days: number;
+  lastCompletedAt: string | null;
+}
+
 export interface AppConfig {
   id: string;
   priorityValues: Record<string, number>;

@@ -116,8 +116,26 @@ class ItemApiTest {
         create(createBody("Listed", "Admin-Ops", "Medium", 2, "HOURS"));
         mvc.perform(auth(get("/api/items")))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.length()").value(1))
-                .andExpect(jsonPath("$[0].title").value("Listed"));
+                .andExpect(jsonPath("$.total").value(1))
+                .andExpect(jsonPath("$.content[0].title").value("Listed"));
+    }
+
+    @Test
+    void searchAndFiltersTheList() throws Exception {
+        create(createBody("Alpha report", "Research", "High", 30, "MINUTES"));
+        create(createBody("Beta report", "Project", "Low", 30, "MINUTES"));
+        create(createBody("Gamma memo", "Research", "Low", 30, "MINUTES"));
+
+        mvc.perform(auth(get("/api/items").param("q", "report")))
+                .andExpect(jsonPath("$.total").value(2));
+        mvc.perform(auth(get("/api/items").param("category", "Research")))
+                .andExpect(jsonPath("$.total").value(2));
+        mvc.perform(auth(get("/api/items").param("q", "report").param("priority", "Low")))
+                .andExpect(jsonPath("$.total").value(1))
+                .andExpect(jsonPath("$.content[0].title").value("Beta report"));
+        mvc.perform(auth(get("/api/items").param("size", "2")))
+                .andExpect(jsonPath("$.content.length()").value(2))
+                .andExpect(jsonPath("$.totalPages").value(2));
     }
 
     @Test

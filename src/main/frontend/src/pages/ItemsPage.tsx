@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "../api/client";
 import { StatusBadge } from "../components/Badge";
 import { PriorityMark } from "../components/PriorityMark";
@@ -10,12 +10,17 @@ import ItemFormModal from "../components/ItemFormModal";
 import { useConfig } from "../config/ConfigContext";
 import { useItemsChanged, notifyItemsChanged } from "../lib/events";
 import { effortLabel, formatDate } from "../lib/format";
-import type { Item } from "../types";
+import type { Item, Page } from "../types";
+
+const SIZE = 25;
 
 export default function ItemsPage() {
   const config = useConfig();
   const { nameOf } = useUsers();
   const [items, setItems] = useState<Item[]>([]);
+  const [total, setTotal] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
+  const [page, setPage] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
@@ -26,27 +31,39 @@ export default function ItemsPage() {
   const [fCat, setFCat] = useState("");
   const [fPrio, setFPrio] = useState("");
 
-  function load() {
+  const load = useCallback(() => {
     setLoading(true);
+    const p = new URLSearchParams({ page: String(page), size: String(SIZE) });
+    if (q.trim()) p.set("q", q.trim());
+    if (fCat) p.set("category", fCat);
+    if (fPrio) p.set("priority", fPrio);
     api
-      .get<Item[]>("/items")
-      .then(setItems)
+      .get<Page<Item>>(`/items?${p}`)
+      .then((res) => {
+        setItems(res.content);
+        setTotal(res.total);
+        setTotalPages(res.totalPages);
+      })
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
-  }
-  useEffect(load, []);
-  useItemsChanged(load);
+  }, [q, fCat, fPrio, page]);
 
-  const filtered = useMemo(
-    () =>
-      items.filter(
-        (i) =>
-          (!q || i.title.toLowerCase().includes(q.toLowerCase())) &&
-          (!fCat || i.category === fCat) &&
-          (!fPrio || i.priority === fPrio),
-      ),
-    [items, q, fCat, fPrio],
-  );
+  // reset to the first page whenever a filter changes
+  const filterKey = `${q}|${fCat}|${fPrio}`;
+  const prevKey = useRef(filterKey);
+  useEffect(() => {
+    if (prevKey.current !== filterKey) {
+      prevKey.current = filterKey;
+      if (page !== 0) setPage(0);
+    }
+  }, [filterKey, page]);
+
+  // debounce the fetch
+  useEffect(() => {
+    const t = setTimeout(load, 250);
+    return () => clearTimeout(t);
+  }, [load]);
+  useItemsChanged(load);
 
   async function setStatus(i: Item, status: "BACKLOG" | "IN_PROGRESS") {
     await api.patch(`/items/${i.id}/status`, { status });
@@ -61,7 +78,7 @@ export default function ItemsPage() {
   return (
     <div>
       <h1 className="page-title">Items</h1>
-      <p className="page-sub">Live backlog — {items.length} open.</p>
+      <p className="page-sub">Live backlog — {total} open.</p>
       {error && <div className="error">{error}</div>}
 
       <div className="toolbar">
@@ -113,14 +130,14 @@ export default function ItemsPage() {
                   </td>
                 </tr>
               )}
-              {!loading && filtered.length === 0 && (
+              {!loading && items.length === 0 && (
                 <tr>
                   <td colSpan={8} className="empty">
                     No items match.
                   </td>
                 </tr>
               )}
-              {filtered.map((i) => (
+              {items.map((i) => (
                 <tr key={i.id}>
                   <td>
                     <Creature
@@ -199,6 +216,19 @@ export default function ItemsPage() {
             </tbody>
           </table>
         </div>
+        {totalPages > 1 && (
+          <div className="pager">
+            <button disabled={page === 0} onClick={() => setPage((p) => p - 1)}>
+              ‹ Prev
+            </button>
+            <span className="muted">
+              Page {page + 1} of {totalPages}
+            </span>
+            <button disabled={page + 1 >= totalPages} onClick={() => setPage((p) => p + 1)}>
+              Next ›
+            </button>
+          </div>
+        )}
       </div>
 
       {showForm && (
@@ -208,6 +238,10 @@ export default function ItemsPage() {
           onSaved={() => {
             setShowForm(false);
             load();
+          }}
+          onComplete={(t) => {
+            if (editing) complete(editing, t);
+            setShowForm(false);
           }}
         />
       )}

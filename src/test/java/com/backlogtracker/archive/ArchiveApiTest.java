@@ -63,7 +63,7 @@ class ArchiveApiTest {
 
         // gone from live views
         mvc.perform(get("/api/items").header("Authorization", "Bearer " + token))
-                .andExpect(jsonPath("$.length()").value(0));
+                .andExpect(jsonPath("$.total").value(0));
         mvc.perform(get("/api/items/top").header("Authorization", "Bearer " + token))
                 .andExpect(jsonPath("$.length()").value(0));
         mvc.perform(get("/api/items/" + id).header("Authorization", "Bearer " + token))
@@ -72,9 +72,9 @@ class ArchiveApiTest {
         // present in the completed view
         mvc.perform(get("/api/archived").header("Authorization", "Bearer " + token))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.length()").value(1))
-                .andExpect(jsonPath("$[0].title").value("Ship v1"))
-                .andExpect(jsonPath("$[0].terminalStatus").value("RESOLVED"));
+                .andExpect(jsonPath("$.total").value(1))
+                .andExpect(jsonPath("$.content[0].title").value("Ship v1"))
+                .andExpect(jsonPath("$.content[0].terminalStatus").value("RESOLVED"));
     }
 
     @Test
@@ -85,8 +85,8 @@ class ArchiveApiTest {
         complete(b, "ARCHIVED");
 
         mvc.perform(get("/api/archived").header("Authorization", "Bearer " + token))
-                .andExpect(jsonPath("$[0].title").value("second"))
-                .andExpect(jsonPath("$[1].title").value("first"));
+                .andExpect(jsonPath("$.content[0].title").value("second"))
+                .andExpect(jsonPath("$.content[1].title").value("first"));
     }
 
     @Test

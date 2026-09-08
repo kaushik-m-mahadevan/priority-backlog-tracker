@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { api } from "../api/client";
 import { Creature } from "./Creature";
-import type { ArchivedItem } from "../types";
+import type { CompletionStats } from "../types";
 
 function stageFor(n: number): number {
   if (n >= 21) return 5;
@@ -21,30 +21,19 @@ export default function Grove({
   solo?: boolean;
   refreshKey?: number;
 }) {
-  const [rows, setRows] = useState<ArchivedItem[] | null>(null);
+  const [stats, setStats] = useState<CompletionStats | null>(null);
 
   useEffect(() => {
     api
-      .get<ArchivedItem[]>("/archived")
-      .then(setRows)
-      .catch(() => setRows([]));
+      .get<CompletionStats>("/insights/completions?days=30")
+      .then(setStats)
+      .catch(() => setStats({ count: 0, days: 30, lastCompletedAt: null }));
   }, [refreshKey]);
 
-  const { stage, count, resting } = useMemo(() => {
-    const done = (rows ?? []).filter(
-      (r) => r.terminalStatus === "RESOLVED" || r.terminalStatus === "ARCHIVED",
-    );
-    const now = Date.now();
-    const within30 = done.filter(
-      (r) => r.completionDate && now - Date.parse(r.completionDate) < 30 * 864e5,
-    ).length;
-    const last = done.reduce(
-      (m, r) => Math.max(m, r.completionDate ? Date.parse(r.completionDate) : 0),
-      0,
-    );
-    const resting = last === 0 || now - last > 7 * 864e5;
-    return { stage: stageFor(within30), count: within30, resting };
-  }, [rows]);
+  const count = stats?.count ?? 0;
+  const stage = stageFor(count);
+  const last = stats?.lastCompletedAt ? Date.parse(stats.lastCompletedAt) : 0;
+  const resting = last === 0 || Date.now() - last > 7 * 864e5;
 
   const say =
     stage === 0 && count === 0
