@@ -46,9 +46,11 @@ export default function DashboardPage() {
   async function handleComplete(item: Item, terminal: string = "RESOLVED") {
     setError(null);
     const rowEl = listRef.current?.querySelector<HTMLElement>(`[data-id="${item.id}"]`);
+    // let the request run under the ceremony so the longer animation never feels like lag
+    const apiCall = api.post(`/items/${item.id}/complete`, { terminalStatus: terminal });
     try {
       if (rowEl) await runCelebration(rowEl);
-      await api.post(`/items/${item.id}/complete`, { terminalStatus: terminal });
+      await apiCall;
       if (rowEl) await collapseRow(rowEl);
     } catch (e) {
       rowEl?.classList.remove("completing");
