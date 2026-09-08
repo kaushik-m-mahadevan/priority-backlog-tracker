@@ -406,7 +406,7 @@ tr:last-child td {
   width: 14px;
 }
 
-/* creature avatar */
+/* creature avatar — cartoon animal emoji on a pastel disc */
 .crt {
   width: 28px;
   height: 28px;
@@ -416,10 +416,22 @@ tr:last-child td {
   justify-content: center;
   flex-shrink: 0;
   position: relative;
+  line-height: 1;
+  font-family: "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif;
+}
+.crt > span[aria-hidden] {
+  display: block;
+  transform: translateY(-1px);
 }
 .crt.dashed {
   border: 1.5px dashed var(--border);
   background: transparent;
+}
+.crt .crt-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--text-dim);
 }
 .crt .wip {
   position: absolute;
