@@ -81,19 +81,38 @@ The script is safe to re-run — it replaces only the rows it created (`createdB
 | `POST` | `/api/auth/login` | `{email,password}` → `{token,user}` |
 | `GET` | `/api/auth/me` | current user |
 | `GET` | `/api/config` | ranking config |
-| `GET`/`POST` | `/api/items` | list live items / create |
-| `GET`/`PUT` | `/api/items/{id}` | fetch / full update |
+| `GET`/`POST` | `/api/items` | search / filter / paginate live items (`q`, `owner`, `category`, `priority`, `status`, `page`, `size`) → `PageResponse`; create |
+| `GET`/`PUT` | `/api/items/{id}` | fetch / full update (send the `version` you read for optimistic-concurrency; stale writes get `409`) |
 | `PATCH` | `/api/items/{id}/status` | `BACKLOG` ⇄ `IN_PROGRESS` |
 | `POST` | `/api/items/{id}/complete` | `{terminalStatus}` → moves to archive |
 | `GET` | `/api/items/top` | Top 10 by score |
 | `GET` | `/api/items/quick-wins` | fastest first |
-| `GET` | `/api/archived` | completed items |
+| `GET` | `/api/archived` | completed items, paginated (`page`, `size`) → `PageResponse` |
 | `GET` | `/api/insights/needs-attention` | stale & buried |
 | `GET` | `/api/insights/workload` | per-owner workload |
+| `GET` | `/api/insights/completions` | count finished in the last `days` (feeds the grove) |
+| `PUT` | `/api/config` | replace weights & thresholds (Owner only) |
+| `GET` | `/api/config/history` | last 30 config changes |
+| `POST`/`DELETE` | `/api/config/categories`, `/api/config/priorities` | add / safe-remove list values (Owner only) |
+
+Interactive API docs (springdoc) are served at `/swagger-ui.html` when the app is running.
 
 ## Deployment
 
-Render.com free tier, GitHub-connected auto-deploy from `main`:
-build `./mvnw clean package`, start `java -jar target/*.jar --server.port=$PORT`,
-with `MONGODB_URI`, `JWT_SECRET`, and `MONGO_TRANSACTIONS_ENABLED=true` set as
-environment variables.
+Render.com free tier, GitHub-connected auto-deploy from `main`.
+
+- **Build:** `./mvnw clean package` (the frontend is compiled into the jar).
+- **Start:** `java -jar target/*.jar --server.port=$PORT --spring.profiles.active=prod`
+- **Environment:**
+
+  | Var | Value |
+  |---|---|
+  | `MONGODB_URI` | Atlas connection string (a replica set, so transactions work) |
+  | `JWT_SECRET` | a long random string — **not** `test123`; the `prod` profile refuses to start otherwise |
+  | `MONGO_TRANSACTIONS_ENABLED` | `true` |
+
+The `prod` profile (`application-prod.yml`) excludes the embedded MongoDB, disables
+demo-data and the dev seed user, and runs a start-up sanity check (`ProdSanityCheck`)
+that fails fast on a default secret. To keep a sleepy free-tier dyno warm while
+someone has the app open, the SPA pings `/actuator/health` every few minutes; build
+with `VITE_KEEPALIVE=off` to disable that.
