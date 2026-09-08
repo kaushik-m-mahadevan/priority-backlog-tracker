@@ -164,6 +164,27 @@ class ItemApiTest {
     }
 
     @Test
+    void rejectsStaleUpdateWithConflict() throws Exception {
+        JsonNode created = create(createBody("Concurrent", "Project", "Low", 1, "HOURS"));
+        String id = created.get("id").asText();
+        long v0 = created.get("version").asLong();
+        String due = Instant.now().plus(Duration.ofDays(3)).toString();
+
+        String body = """
+                {"title":"edit %s","category":"Project","priority":"Low",
+                 "effortEstimate":{"value":1,"unit":"HOURS"},"dueDate":"%s","version":%d}""";
+
+        mvc.perform(auth(put("/api/items/" + id)).contentType(MediaType.APPLICATION_JSON)
+                        .content(body.formatted("one", due, v0)))
+                .andExpect(status().isOk());
+
+        // the version the client held (v0) is now stale
+        mvc.perform(auth(put("/api/items/" + id)).contentType(MediaType.APPLICATION_JSON)
+                        .content(body.formatted("two", due, v0)))
+                .andExpect(status().isConflict());
+    }
+
+    @Test
     void togglesStatusBetweenLiveStates() throws Exception {
         String id = create(createBody("Flow", "Project", "High", 1, "HOURS")).get("id").asText();
 

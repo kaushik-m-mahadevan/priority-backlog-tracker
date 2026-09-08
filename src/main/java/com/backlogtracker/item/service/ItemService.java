@@ -72,6 +72,10 @@ public class ItemService {
         validateCategory(cfg, r.category());
         validatePriority(cfg, r.priority());
 
+        // carry the version the client saw so a concurrent edit is rejected (409)
+        if (r.version() != null) {
+            item.setVersion(r.version());
+        }
         item.setTitle(r.title().trim());
         item.setCategory(r.category());
         item.setPriority(r.priority());

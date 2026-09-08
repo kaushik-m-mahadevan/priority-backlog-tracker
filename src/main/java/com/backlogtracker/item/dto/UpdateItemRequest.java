@@ -20,5 +20,7 @@ public record UpdateItemRequest(
         @NotNull Instant dueDate,
         String ownerId,
         /** Markdown notes. null = leave unchanged; "" = clear. */
-        String notes) {
+        String notes,
+        /** The version the client last saw; a stale value is rejected with 409 (§19). */
+        Long version) {
 }

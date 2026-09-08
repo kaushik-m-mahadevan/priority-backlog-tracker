@@ -29,6 +29,7 @@ export interface Item {
   notes: { content: string; format: string; updatedAt: string } | null;
   createdAt: string | null;
   updatedAt: string | null;
+  version: number | null;
 }
 
 export interface RankedItem {

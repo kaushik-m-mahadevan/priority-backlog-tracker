@@ -5,6 +5,7 @@ import java.time.Instant;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.annotation.LastModifiedDate;
+import org.springframework.data.annotation.Version;
 import org.springframework.data.mongodb.core.index.CompoundIndex;
 import org.springframework.data.mongodb.core.index.CompoundIndexes;
 import org.springframework.data.mongodb.core.index.Indexed;
@@ -66,4 +67,8 @@ public class Item {
 
     @LastModifiedDate
     private Instant updatedAt;
+
+    /** Optimistic-locking version — a stale save is rejected with 409 (design §19). */
+    @Version
+    private Long version;
 }

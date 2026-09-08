@@ -21,7 +21,8 @@ public record ItemView(
         String lastUpdatedBy,
         Notes notes,
         Instant createdAt,
-        Instant updatedAt) {
+        Instant updatedAt,
+        Long version) {
 
     public record EffortView(int value, String unit, long minutes) {
     }
@@ -38,6 +39,6 @@ public record ItemView(
                 i.getStatus() == null ? null : i.getStatus().name(),
                 i.getScope() == null ? null : i.getScope().name(),
                 i.getOwnerId(), i.getCreatedBy(), i.getLastUpdatedBy(), i.getNotes(),
-                i.getCreatedAt(), i.getUpdatedAt());
+                i.getCreatedAt(), i.getUpdatedAt(), i.getVersion());
     }
 }

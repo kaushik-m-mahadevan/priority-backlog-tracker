@@ -133,6 +133,7 @@ export default function ItemFormModal({ existing, onClose, onSaved, onComplete }
       effortEstimate: { value: effortNum, unit },
       ownerId: ownerId || null,
       notes,
+      version: existing?.version ?? null,
     };
     if (dueDate) body.dueDate = new Date(dueDate + "T00:00:00Z").toISOString();
     try {
@@ -141,7 +142,14 @@ export default function ItemFormModal({ existing, onClose, onSaved, onComplete }
       notifyItemsChanged();
       onSaved();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Save failed");
+      if (err instanceof ApiError && err.status === 409) {
+        setError(
+          "Someone else changed this item since you opened it — your edits weren't saved. " +
+            "Close and reopen to get the latest.",
+        );
+      } else {
+        setError(err instanceof ApiError ? err.message : "Save failed");
+      }
     } finally {
       setBusy(false);
     }

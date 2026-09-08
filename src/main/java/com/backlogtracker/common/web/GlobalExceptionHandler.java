@@ -5,6 +5,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
@@ -24,6 +25,12 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(AccessDeniedException.class)
     public ResponseEntity<Map<String, Object>> accessDenied(AccessDeniedException ex) {
         return problem(HttpStatus.FORBIDDEN, "Access denied");
+    }
+
+    @ExceptionHandler(OptimisticLockingFailureException.class)
+    public ResponseEntity<Map<String, Object>> stale(OptimisticLockingFailureException ex) {
+        return problem(HttpStatus.CONFLICT,
+                "This item was changed by someone else — reload to see the latest and try again");
     }
 
     @ExceptionHandler(IllegalArgumentException.class)
