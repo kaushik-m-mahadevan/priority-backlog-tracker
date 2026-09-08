@@ -24,3 +24,7 @@ jobs:
       - name: Frontend typecheck
         working-directory: src/main/frontend
         run: ./node/node node_modules/typescript/lib/tsc.js -p tsconfig.json --noEmit
+
+      - name: Frontend unit tests
+        working-directory: src/main/frontend
+        run: ./node/node node_modules/vitest/vitest.mjs run
