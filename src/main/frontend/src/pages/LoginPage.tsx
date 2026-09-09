@@ -1,13 +1,14 @@
 import { FormEvent, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 import { ApiError } from "../api/client";
+import PasswordInput from "../components/PasswordInput";
 
 export default function LoginPage() {
   const { login } = useAuth();
   const nav = useNavigate();
-  const [email, setEmail] = useState("test123");
-  const [password, setPassword] = useState("test123");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -43,14 +44,21 @@ export default function LoginPage() {
           <form onSubmit={submit}>
             <div className="form-row">
               <label>Email</label>
-              <input value={email} onChange={(e) => setEmail(e.target.value)} required autoFocus />
+              {/* plain text, not type=email: legacy accounts may have a non-email login id */}
+              <input
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                autoComplete="username"
+                required
+                autoFocus
+              />
             </div>
             <div className="form-row">
               <label>Password</label>
-              <input
-                type="password"
+              <PasswordInput
                 value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                onChange={setPassword}
+                autoComplete="current-password"
                 required
               />
             </div>
@@ -60,7 +68,7 @@ export default function LoginPage() {
           </form>
         </div>
         <p className="page-sub" style={{ textAlign: "center", marginTop: 12 }}>
-          Dev account is pre-filled.
+          New here? <Link to="/register">Create an account</Link>
         </p>
       </div>
     </div>

@@ -100,6 +100,36 @@ label {
   margin-bottom: 5px;
   letter-spacing: 0.03em;
 }
+.pw-input {
+  position: relative;
+  display: flex;
+}
+.pw-input input {
+  padding-right: 40px;
+}
+.pw-toggle {
+  position: absolute;
+  right: 4px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--text-dim);
+  border-radius: 8px;
+}
+.pw-toggle:hover {
+  color: var(--text);
+  background: var(--bg-elev-2);
+}
+.pw-toggle[aria-pressed="true"] {
+  color: var(--accent);
+}
 
 .app {
   min-height: 100vh;
