@@ -1,11 +1,15 @@
 package com.backlogtracker.user.dto;
 
+import com.backlogtracker.user.domain.AccountStatus;
 import com.backlogtracker.user.domain.User;
 
-/** Minimal user projection for pickers and owner labels. Never carries the hash. */
-public record UserSummary(String id, String name, String email, String role) {
+/** User projection for pickers, member lists and the admin roster. Never carries the hash. */
+public record UserSummary(String id, String name, String handle, String email,
+                          String role, String status) {
 
     public static UserSummary of(User u) {
-        return new UserSummary(u.getId(), u.getName(), u.getEmail(), u.getRole().name());
+        AccountStatus status = u.getStatus() == null ? AccountStatus.ACTIVE : u.getStatus();
+        return new UserSummary(u.getId(), u.getName(), u.getHandle(), u.getEmail(),
+                u.getRole().name(), status.name());
     }
 }

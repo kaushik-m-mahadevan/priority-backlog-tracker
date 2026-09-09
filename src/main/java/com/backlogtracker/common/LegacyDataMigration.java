@@ -44,14 +44,26 @@ public class LegacyDataMigration implements ApplicationRunner {
                 new Query(Criteria.where("status").exists(false)),
                 new Update().set("status", "ACTIVE"), "users").getModifiedCount();
 
+        // drop the old unique index FIRST — renaming userCode away would otherwise leave
+        // every document with userCode:null and blow up the (non-sparse) unique index.
+        try {
+            mongo.indexOps("users").dropIndex("userCode");
+        } catch (RuntimeException ignored) {
+            // never existed (fresh DB) — fine
+        }
+        long renamed = mongo.updateMulti(
+                new Query(Criteria.where("userCode").exists(true)),
+                new Update().rename("userCode", "handle"), "users").getModifiedCount();
+
         long capped = mongo.updateFirst(
                 new Query(Criteria.where("_id").is(AppConfig.SINGLETON_ID)
                         .and("maxGroupsPerUser").exists(false)),
                 new Update().set("maxGroupsPerUser", 5), "config").getModifiedCount();
 
-        if (admins + users + activated + capped > 0) {
-            log.info("LegacyDataMigration: role OWNER->ADMIN x{}, CONTRIBUTOR/VIEWER->USER x{}, "
-                    + "status->ACTIVE x{}, maxGroupsPerUser set x{}", admins, users, activated, capped);
+        if (admins + users + activated + renamed + capped > 0) {
+            log.info("LegacyDataMigration: OWNER->ADMIN x{}, CONTRIBUTOR/VIEWER->USER x{}, "
+                    + "status->ACTIVE x{}, userCode->handle x{}, maxGroupsPerUser set x{}",
+                    admins, users, activated, renamed, capped);
         }
 
         List<?> ids = mongo.findDistinct(new Query(), "_id", "users", Object.class);

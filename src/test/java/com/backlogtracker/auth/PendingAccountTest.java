@@ -34,7 +34,7 @@ class PendingAccountTest {
         User u = users.save(User.builder()
                 .name("Percy Pending").email("pending@demo.test")
                 .passwordHash("x").role(Role.USER).status(AccountStatus.PENDING)
-                .userCode("PCY").build());
+                .handle("pcy").build());
         token = jwt.issue(u);
     }
 

@@ -17,7 +17,7 @@ class JwtServiceTest {
     private static User user() {
         return User.builder()
                 .id("u-1").name("Test User").email("test123")
-                .role(Role.ADMIN).userCode("TST").build();
+                .role(Role.ADMIN).handle("tst").build();
     }
 
     @Test

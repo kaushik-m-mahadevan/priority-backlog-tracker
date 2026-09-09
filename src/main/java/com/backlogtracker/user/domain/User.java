@@ -43,9 +43,10 @@ public class User {
     /** null on legacy documents — treated as {@link AccountStatus#ACTIVE}. */
     private AccountStatus status;
 
-    /** Short, user-facing handle (invite target). Was {@code userCode}. */
-    @Indexed(unique = true)
-    private String userCode;
+    /** Short, unique, user-facing handle — the alternative invite target to email.
+     *  Sparse: legacy documents have none until {@code LegacyDataMigration} renames it. */
+    @Indexed(unique = true, sparse = true)
+    private String handle;
 
     @CreatedDate
     private Instant createdAt;

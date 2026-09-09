@@ -158,7 +158,7 @@ public class DemoDataSeeder implements ApplicationRunner {
         return users.findByEmailIgnoreCase(email).orElseGet(() -> users.save(User.builder()
                 .name(name).email(email)
                 .passwordHash(passwordEncoder.encode("test123"))
-                .role(Role.USER).status(AccountStatus.ACTIVE).userCode(code)
+                .role(Role.USER).status(AccountStatus.ACTIVE).handle(code.toLowerCase())
                 .build()));
     }
 

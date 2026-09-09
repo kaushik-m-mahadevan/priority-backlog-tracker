@@ -31,10 +31,11 @@ public class UserController {
     private final UserRepository users;
     private final UserService userService;
 
-    /** Everyone on the team — for owner labels and the assignee picker. */
+    /** Active accounts — for owner labels and the assignee picker. */
     @GetMapping
     public List<UserSummary> list() {
         return users.findAll().stream()
+                .filter(u -> u.getStatus() != com.backlogtracker.user.domain.AccountStatus.PENDING)
                 .map(UserSummary::of)
                 .sorted(Comparator.comparing(UserSummary::name, String.CASE_INSENSITIVE_ORDER))
                 .toList();

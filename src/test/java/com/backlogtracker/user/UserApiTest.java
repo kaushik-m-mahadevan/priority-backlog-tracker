@@ -96,7 +96,7 @@ class UserApiTest {
     void nonOwnerCannotCreateMembers() throws Exception {
         User viewer = users.save(User.builder()
                 .name("Vic Viewer").email("vic@founders.test")
-                .passwordHash("x").role(Role.USER).userCode("VIC2").build());
+                .passwordHash("x").role(Role.USER).handle("vic2").build());
         try {
             mvc.perform(post("/api/users").header("Authorization", "Bearer " + jwt.issue(viewer))
                             .contentType(MediaType.APPLICATION_JSON).content("""

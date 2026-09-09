@@ -38,7 +38,7 @@ class RoleAccessTest {
         User u = users.save(User.builder()
                 .name("Uma User").email("plainuser@demo.test")
                 .passwordHash("x").role(Role.USER).status(AccountStatus.ACTIVE)
-                .userCode("UMA").build());
+                .handle("uma").build());
         userToken = jwt.issue(u);
     }
 

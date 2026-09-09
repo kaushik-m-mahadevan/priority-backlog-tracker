@@ -37,6 +37,57 @@ public class UserService {
         return repository.findByRole(Role.ADMIN);
     }
 
+    public List<User> byStatus(AccountStatus status) {
+        return repository.findByStatus(status);
+    }
+
+    /** Admin approves a pending account. Idempotent for an already-active account. */
+    public User approve(String id, String adminId) {
+        User u = require(id);
+        if (u.getStatus() == AccountStatus.ACTIVE) {
+            return u;
+        }
+        u.setStatus(AccountStatus.ACTIVE);
+        u.setApprovedAt(java.time.Instant.now());
+        u.setApprovedByUserId(adminId);
+        return repository.save(u);
+    }
+
+    /** Admin rejects a pending account — the record is deleted, the email frees up. */
+    public void reject(String id) {
+        User u = require(id);
+        if (u.getStatus() != AccountStatus.PENDING) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "Only a pending account can be rejected");
+        }
+        repository.delete(u);
+    }
+
+    private User require(String id) {
+        return repository.findById(id).orElseThrow(
+                () -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found: " + id));
+    }
+
+    /** Self-registration: a USER account in PENDING state. */
+    public User register(com.backlogtracker.auth.dto.RegisterRequest r) {
+        String email = r.email().trim();
+        String handle = r.handle().trim().toLowerCase();
+        if (repository.existsByEmailIgnoreCase(email)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "That email is already registered");
+        }
+        if (repository.existsByHandleIgnoreCase(handle)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "That handle is taken");
+        }
+        return repository.save(User.builder()
+                .name(r.name().trim())
+                .email(email)
+                .handle(handle)
+                .passwordHash(passwordEncoder.encode(r.password()))
+                .role(Role.USER)
+                .status(AccountStatus.PENDING)
+                .build());
+    }
+
     /** Add a team member (admin-only endpoint). */
     public User create(CreateUserRequest r) {
         String email = r.email().trim();
@@ -44,14 +95,13 @@ public class UserService {
             throw new ResponseStatusException(HttpStatus.CONFLICT,
                     "A user with that email already exists");
         }
-        String code = has(r.userCode()) ? r.userCode().trim().toUpperCase() : deriveCode(r.name());
         return repository.save(User.builder()
                 .name(r.name().trim())
                 .email(email)
                 .passwordHash(passwordEncoder.encode(r.password()))
                 .role(parseRole(r.role()))
                 .status(AccountStatus.ACTIVE)
-                .userCode(uniqueCode(code))
+                .handle(uniqueHandle(deriveHandle(r.name())))
                 .build());
     }
 
@@ -79,23 +129,26 @@ public class UserService {
         }
     }
 
-    /** First 3 alphanumerics of the name, e.g. "Priya Shah" -> "PRI". */
-    private static String deriveCode(String name) {
-        String letters = name.toUpperCase().replaceAll("[^A-Z0-9]", "");
-        return letters.isEmpty() ? "USR" : letters.substring(0, Math.min(3, letters.length()));
+    /** A handle seed from the name, e.g. "Priya Shah" -> "priyashah" (clamped to 16). */
+    static String deriveHandle(String name) {
+        String slug = name.toLowerCase().replaceAll("[^a-z0-9]", "");
+        if (slug.length() < 3) {
+            slug = "user";
+        }
+        return slug.substring(0, Math.min(16, slug.length()));
     }
 
-    private String uniqueCode(String base) {
-        if (!repository.existsByUserCode(base)) {
+    /** Returns {@code base}, or {@code base2}..{@code base99}, or a random-suffixed form. */
+    public String uniqueHandle(String base) {
+        if (!repository.existsByHandleIgnoreCase(base)) {
             return base;
         }
         for (int n = 2; n <= 99; n++) {
-            String candidate = base + n;
-            if (!repository.existsByUserCode(candidate)) {
-                return candidate;
+            if (!repository.existsByHandleIgnoreCase(base + n)) {
+                return base + n;
             }
         }
-        return base + UUID.randomUUID().toString().substring(0, 4).toUpperCase();
+        return base + UUID.randomUUID().toString().substring(0, 4);
     }
 
     private static boolean has(String s) {

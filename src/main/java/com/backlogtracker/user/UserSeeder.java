@@ -47,7 +47,7 @@ public class UserSeeder implements ApplicationRunner {
                 .passwordHash(passwordEncoder.encode(PASSWORD))
                 .role(Role.ADMIN)
                 .status(AccountStatus.ACTIVE)
-                .userCode("TST")
+                .handle("admin")
                 .build());
         log.info("Local bootstrap: created ADMIN account '{}'", EMAIL);
     }

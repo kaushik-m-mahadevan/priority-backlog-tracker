@@ -19,9 +19,9 @@ class LegacyDataMigrationTest {
     @Test
     void rewritesLegacyRolesAndFillsStatus() {
         mongo.getCollection("users").insertOne(new Document("email", "legacy-owner@x.test")
-                .append("role", "OWNER").append("userCode", "LGO"));
+                .append("role", "OWNER").append("userCode", "lgo"));
         mongo.getCollection("users").insertOne(new Document("email", "legacy-viewer@x.test")
-                .append("role", "VIEWER").append("userCode", "LGV"));
+                .append("role", "VIEWER").append("userCode", "lgv"));
 
         migration.run(null);
 
