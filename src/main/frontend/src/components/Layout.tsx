@@ -1,10 +1,9 @@
 import { Link, NavLink, Outlet, useLocation } from "react-router-dom";
-import { useAuth } from "../auth/AuthContext";
 import { useDock } from "../dock/DockContext";
 import { useKeepAlive } from "../lib/useKeepAlive";
 import Bell from "./Bell";
+import NavMenu from "./NavMenu";
 import {
-  GearIcon,
   SidebarIcon,
   PriorityGlyph,
   QuickGlyph,
@@ -14,7 +13,6 @@ import {
 } from "./icons";
 
 export default function Layout() {
-  const { user, logout } = useAuth();
   const { shown, setShown } = useDock();
   const onDashboard = useLocation().pathname === "/";
   useKeepAlive();
@@ -35,17 +33,12 @@ export default function Layout() {
         <Link to="/" className="brand">
           ◆ Backlog Tracker
         </Link>
-        <NavLink to="/items">Items</NavLink>
-        <NavLink to="/archive">Completed</NavLink>
+        <div className="nav-links">
+          <NavLink to="/items">Items</NavLink>
+        </div>
         <span className="spacer" />
         <Bell />
-        <Link to="/settings" className="iconbtn" aria-label="Settings" title="Settings">
-          <GearIcon />
-        </Link>
-        {user && <span className="who">{user.name}</span>}
-        <button className="ghost" onClick={logout}>
-          Sign out
-        </button>
+        <NavMenu />
       </nav>
 
       <div className="container">
