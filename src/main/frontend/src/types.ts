@@ -1,10 +1,13 @@
-export type Role = "OWNER" | "CONTRIBUTOR" | "VIEWER";
+export type Role = "ADMIN" | "USER";
+export type AccountStatus = "PENDING" | "ACTIVE";
 
 export interface User {
   id: string;
   name: string;
+  handle?: string;
   email: string;
   role: Role;
+  status: AccountStatus;
 }
 
 export interface Effort {

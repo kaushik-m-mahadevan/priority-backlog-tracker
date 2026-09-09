@@ -42,8 +42,8 @@ function toDraft(c: AppConfig): Draft {
   };
 }
 
-const ROLES = ["OWNER", "CONTRIBUTOR", "VIEWER"];
-const BLANK_MEMBER = { name: "", email: "", password: "", role: "OWNER" };
+const ROLES = ["ADMIN", "USER"];
+const BLANK_MEMBER = { name: "", email: "", password: "", role: "USER" };
 
 export default function SettingsPage() {
   const { config, refresh } = useConfigCtx();

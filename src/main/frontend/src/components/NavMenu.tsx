@@ -46,10 +46,18 @@ export default function NavMenu() {
       </button>
       {open && (
         <div className="navmenu-pop" role="menu">
-          <div className="navmenu-head">{name}</div>
+          <div className="navmenu-head">
+            {name}
+            {user?.handle && <span className="muted"> · @{user.handle}</span>}
+          </div>
           <Link to="/archive" role="menuitem" onClick={() => setOpen(false)}>
             Completed
           </Link>
+          {user?.role === "ADMIN" && (
+            <Link to="/admin" role="menuitem" onClick={() => setOpen(false)}>
+              Admin console
+            </Link>
+          )}
           <Link to="/settings" role="menuitem" onClick={() => setOpen(false)}>
             Settings
           </Link>
