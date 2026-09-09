@@ -1,0 +1,12 @@
+.git/
+.github/
+.idea/
+*.iml
+target/
+src/main/frontend/node/
+src/main/frontend/node_modules/
+src/main/frontend/dist/
+config/*.properties
+docs/
+*.md
+.mvn/wrapper/maven-wrapper.jar

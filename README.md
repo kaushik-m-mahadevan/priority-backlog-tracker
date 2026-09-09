@@ -132,22 +132,30 @@ idempotent, unset afterwards), or insert a user document directly.
 
 Interactive API docs (springdoc) are served at `/swagger-ui.html` when the app is running.
 
-## Deployment
+## Deployment (Render, Docker)
 
-Render.com free tier, GitHub-connected auto-deploy from `main`.
+`Dockerfile` builds the jar (frontend included) and runs it under the `prod` profile;
+`render.yaml` is a blueprint for a free-tier web service.
 
-- **Build:** `./mvnw clean package` (the frontend is compiled into the jar).
-- **Start:** `java -jar target/*.jar --server.port=$PORT --spring.profiles.active=prod`
-- **Environment:**
+1. **Atlas:** create a DB user with readWrite on `prod`, allow Render's IPs (or
+   `0.0.0.0/0`) in Network Access. Copy the `mongodb+srv://…` string, **no trailing
+   `/database`**.
+2. **Render:** New → Blueprint → pick this repo. It reads `render.yaml` and creates
+   the service.
+3. **Set `MONGODB_URI`** (blueprint marks it `sync:false`) in the service's
+   Environment tab, then let the deploy run. `JWT_SECRET` is auto-generated;
+   `SPRING_PROFILES_ACTIVE=prod` and `MONGO_TRANSACTIONS_ENABLED=true` come from the
+   blueprint.
+4. **First login:** `prod` seeds no user. Uncomment the `SEED_USER_*` block in
+   `render.yaml` (or add the vars in the dashboard), set a real email + password,
+   redeploy, log in, then remove them and redeploy again.
 
-  | Var | Value |
-  |---|---|
-  | `MONGODB_URI` | Atlas connection string (a replica set, so transactions work) |
-  | `JWT_SECRET` | a long random string — **not** `test123`; the `prod` profile refuses to start otherwise |
-  | `MONGO_TRANSACTIONS_ENABLED` | `true` |
+Health check: `/actuator/health`. Without Docker you can still use Render's native
+Java runtime — build `./mvnw -DskipTests clean package`, start
+`java -jar target/*.jar --server.port=$PORT --spring.profiles.active=prod`, same env.
 
 The `prod` profile (`application-prod.yml`) excludes the embedded MongoDB, disables
-demo-data and the dev seed user, and runs a start-up sanity check (`ProdSanityCheck`)
-that fails fast on a default secret. To keep a sleepy free-tier dyno warm while
-someone has the app open, the SPA pings `/actuator/health` every few minutes; build
-with `VITE_KEEPALIVE=off` to disable that.
+demo-data and the dev seed user, and runs `ProdSanityCheck` which fails fast on a
+`test123` secret. Free instances sleep after ~15 min idle (≈1 min cold start); while
+someone has a tab open the SPA pings `/actuator/health` every few minutes to hold it
+awake (`VITE_KEEPALIVE=off` at build time disables that).
