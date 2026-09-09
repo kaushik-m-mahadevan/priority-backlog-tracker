@@ -29,7 +29,7 @@ app:
       enabled: true # Atlas is a replica set
   seed-user:
     enabled: ${SEED_USER_ENABLED:true}
-    email: ${SEED_USER_EMAIL:dev@backlog.local}
-    password: ${SEED_USER_PASSWORD:devpass123}
-    name: ${SEED_USER_NAME:Dev User}
-    user-code: ${SEED_USER_CODE:DEV}
+    email: ${SEED_USER_EMAIL:test123}
+    password: ${SEED_USER_PASSWORD:test123}
+    name: ${SEED_USER_NAME:Test User}
+    user-code: ${SEED_USER_CODE:TST}

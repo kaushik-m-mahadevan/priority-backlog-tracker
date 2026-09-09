@@ -68,7 +68,7 @@ The script is safe to re-run — it replaces only the rows it created (`createdB
 |---|---|---|---|---|
 | _(none)_ | embedded, in-memory | empty | `test123` / `test123` | quick local run |
 | `demo` | embedded, in-memory | sample backlog seeded, resets on restart | `test123` / `test123` | offline demo / manual UI testing |
-| `dev` | Atlas, `dev` database | sample backlog seeded (idempotent) | `dev@backlog.local` / `devpass123` (override via `SEED_USER_*`) | shared dev/testing against the real cluster |
+| `dev` | Atlas, `dev` database | sample backlog seeded (idempotent) | `test123` / `test123` (override via `SEED_USER_*`) | shared dev/testing against the real cluster |
 | `prod` | Atlas, `prod` database | real data only, no seeding | none — create a user (see below) | production |
 
 `dev` and `prod` share one cluster via **`MONGODB_URI`** and differ only by database
