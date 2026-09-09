@@ -15,9 +15,11 @@ them, and all work lives inside **groups** the users create and invite each othe
 | # | Decision |
 |---|---|
 | Item ↔ group | **One group at a time.** Every item belongs to exactly one group. The app has a *current group* switcher; The Pecking Order, Quick Wins, Needs Attention, Owner Workload and Completed all show only the selected group. |
-| Prod migration | **A solo group named after the admin.** Create `"<admin name>'s Backlog"` with the admin as the only member; move every existing item into it. Any other pre-existing users start with zero groups and wait for an invite. |
+| Prod migration | **Keep only the admin account.** Everything else in prod is disposable. Create `"<admin name>'s Backlog"` with the admin as the sole member. Any stray items get moved into it (harmless); stray users become `USER`/`ACTIVE`. |
 | Last member leaves | **Leaving deletes the group + its items**, behind a hard confirm dialog that names the item count. Nobody can remove anyone else. |
-| Invite identifier | **Email or a short @handle.** Users choose a unique handle at registration; invites accept either. |
+| Invite identifier | **Email or a short @handle.** Users choose a unique handle at registration; invites accept either. Handle is **fixed at signup** (display name stays editable). |
+| Rejected registration | **Silent delete.** The record is removed, the email frees up, login just returns "invalid email or password". |
+| Admin | **One admin, ever — no seeding, no config, no promote/demote.** The Kaushik account already exists in prod; the migration flips it (`role: OWNER → ADMIN`, `status → ACTIVE`). `SEED_USER_*` / `SeedUserProperties` / `UserSeeder` are deleted. There is no `ADMIN_EMAIL` / `app.admin.*` anything. Registration always produces `USER` / `PENDING`. A future fresh-DB admin bootstrap is out of scope. |
 
 ---
 
@@ -42,10 +44,22 @@ register ──▶ PENDING ──(admin approves)──▶ ACTIVE
   1. the onboarding approval console, and
   2. the ranking/formula settings page (hidden entirely from `USER`).
 
-The seed account (`SEED_USER_*`, i.e. the `Kaushik` user) becomes `ADMIN` / `ACTIVE`
-and is the initial approver. Admin can promote/demote another user's role from the
-console (keeps a bus factor); there must always be ≥1 admin (last-admin demotion is
-blocked).
+### The one admin
+
+There is exactly one admin, forever. It is **the account that already exists in prod**
+(the current `Kaushik` user). The `LegacyDataMigration` (§8) rewrites its
+`role` from `OWNER` to `ADMIN` and sets `status = ACTIVE`. That's the whole mechanism.
+
+- `SEED_USER_*`, `SeedUserProperties`, `UserSeeder`, the seed-user branch of
+  `ProdSanityCheck`, and all `app.seed-user.*` YAML — **deleted**. No `ADMIN_EMAIL`,
+  no `app.admin.*`.
+- `AuthService.register` **always** produces `USER` / `PENDING`. Nothing self-elevates.
+- `DemoDataSeeder` (demo profile only) creates its own accounts directly in Mongo,
+  including one `ADMIN`, so `--spring.profiles.active=demo` still works out of the box.
+- Bootstrapping an admin on a brand-new empty database is out of scope — prod already
+  has one, and the `dev` database's legacy `test123` account gets promoted by the same
+  migration.
+- No promote/demote, no second admin. Adding more admins later is a separate project.
 
 ### Enforcement
 
@@ -185,8 +199,7 @@ count. No endpoint removes another member.
 | GET | `/api/admin/pending-users` | ADMIN | |
 | POST | `/api/admin/users/{id}/approve` | ADMIN | |
 | POST | `/api/admin/users/{id}/reject` | ADMIN | deletes |
-| GET | `/api/admin/users` | ADMIN | full roster |
-| PATCH | `/api/admin/users/{id}/role` | ADMIN | promote/demote; can't remove last admin |
+| GET | `/api/admin/users` | ADMIN | full roster (read-only) |
 | GET | `/api/groups` | ACTIVE | caller's groups + members |
 | POST | `/api/groups` | ACTIVE | cap-checked |
 | GET | `/api/groups/{id}` | member | |
@@ -227,17 +240,22 @@ count. No endpoint removes another member.
 
 ---
 
-## 8. Prod migration — idempotent `ApplicationRunner`, `@Order` after the seeders
+## 8. Prod migration
 
-Guard: run only if any `Item` lacks a `groupId` / no `Group` exists.
+Two idempotent `ApplicationRunner`s.
 
-1. **Roles** — `OWNER → ADMIN`, `CONTRIBUTOR|VIEWER → USER` (runs regardless of guard).
-2. **Status** — every existing user with no `status` → `ACTIVE` (don't lock anyone out;
+**`LegacyDataMigration`** (`@Order` early — runs as raw `MongoTemplate` string updates so
+the changed `Role` enum never has to deserialize a legacy value):
+1. `role`: `"OWNER" → "ADMIN"`, `"CONTRIBUTOR"|"VIEWER" → "USER"`.
+2. `status`: set `"ACTIVE"` wherever the field is missing (existing users keep working;
    new `PENDING` accounts only ever come from `/register`).
-3. **Group** — create `"<admin.name>'s Backlog"`, members `[admin.id]`; set `groupId`
-   on every item lacking one to that group. (Prod today = just the `Kaushik` admin, so
-   this is a single group with a single member and all current items.)
-4. **Config** — `AppConfig.maxGroupsPerUser = 5` if absent.
+3. `AppConfig.maxGroupsPerUser = 5` if absent.
+
+**`GroupBackfill`** (Phase 3, after `AdminReconciler`; guard: no `Group` exists):
+4. Create `"<admin.name>'s Backlog"`, members `[admin.id]`; set `groupId` on every item
+   lacking one to that group. Prod today is just the `Kaushik` admin with an empty
+   backlog, so this is a single empty group — but the item-reassignment path is covered
+   by an integration test with a fixture.
 
 `DemoDataSeeder` is updated in Phase 3 to build a demo group containing all demo users
 and items so the `dev`/`demo` profiles still show a populated multi-member group.
@@ -249,8 +267,8 @@ and items so the `dev`/`demo` profiles still show a populated multi-member group
 | Phase | Scope | Risk |
 |---|---|---|
 | **0** | Login autofill removed · `<PasswordInput>` · mobile top-bar → single row | low, independent — lands first |
-| **1** | `Role`→ADMIN/USER · `AccountStatus` · JWT filter DB-load · PENDING 403 gate · `@RequiresAdmin` · migration steps 1–2 · `/me` carries role+status | medium |
-| **2** | `/api/auth/register` · admin approve/reject/roster/role · `RegisterPage` · `PendingApprovalPage` · `AdminPage` · route guards | medium |
+| **1** | `Role`→ADMIN/USER · `AccountStatus` · **delete `UserSeeder`/`SEED_USER_*`** · `LegacyDataMigration` · JWT filter DB-load · PENDING 403 gate · `@RequiresAdmin` · `/me` carries role+status | medium |
+| **2** | `/api/auth/register` · admin approve/reject/roster (read-only) · `RegisterPage` · `PendingApprovalPage` · `AdminPage` · route guards | medium |
 | **3** | `Group` model + service · `Item.groupId` + migration step 3 · group-scope every data endpoint + membership checks · `GroupContext` + switcher · `GroupsPage` · empty states · `DemoDataSeeder` update | **high** — watch the prod migration |
 | **4** | `Notification` model + service · `/api/groups/{id}/invites` · accept/decline · `Bell` → inbox | medium |
 | **5** | config writes `@RequiresAdmin` · Settings restructured (formula admin-only, Team card removed) · `maxGroupsPerUser` card | low |
