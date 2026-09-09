@@ -1,0 +1,37 @@
+# ─────────────────────────────────────────────────────────────────────────────
+#  prod profile — local config.  Copy this file to  config/prod.properties  and
+#  fill in the values.  config/prod.properties is gitignored; this .example is
+#  the checked-in reference.
+#
+#  On Render / any real host, set these as ENVIRONMENT VARIABLES instead of
+#  shipping this file (MONGODB_URI, JWT_SECRET, ...).
+#
+#  Used automatically when you run:
+#      java -jar target/*.jar --spring.profiles.active=prod
+#  (wired via spring.config.import in application-prod.yml). Launch from the
+#  project root so ./config/ resolves.
+#
+#  These are plain Spring property keys and OVERRIDE application-prod.yml.
+#  An empty value still overrides — leave a line commented (#) unless you
+#  actually want to set it.
+# ─────────────────────────────────────────────────────────────────────────────
+
+# REQUIRED. Atlas connection string. NO trailing /database.
+#   mongodb+srv://<user>:<password>@cluster0.xxxxx.mongodb.net/?retryWrites=true&w=majority
+spring.data.mongodb.uri=
+
+# REQUIRED. A long random string. The app REFUSES TO START if this is "test123".
+app.jwt.secret=
+
+# ── optional ──
+#spring.data.mongodb.database=prod
+#app.jwt.expiration-minutes=1440
+
+# ── first-boot admin account ──
+#  prod seeds no user. To create the first one: uncomment these, set them, boot
+#  once, then comment them back out (the seeder skips an email that already exists).
+#app.seed-user.enabled=true
+#app.seed-user.email=
+#app.seed-user.password=
+#app.seed-user.name=
+#app.seed-user.user-code=

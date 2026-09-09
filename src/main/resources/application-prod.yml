@@ -1,10 +1,18 @@
 # Production profile — run with:  java -jar app.jar --spring.profiles.active=prod
-# Requires env vars: MONGODB_URI, JWT_SECRET
+#
+# Config comes from ONE of:
+#   * env vars (MONGODB_URI, JWT_SECRET, ...)  — the way to do it on Render / any host
+#   * ./config/prod.properties                 — a gitignored local file you fill in
+#                                                (copy it from config/prod.properties.example)
+# The local file, when present, wins over the env-var defaults below. Run from the
+# project root so the relative path resolves.
 #
 # Uses the `prod` database on the cluster MONGODB_URI points at. The `dev` profile
 # points the same URI at the `dev` database instead, so one cluster holds both — see
 # application-dev.yml. Give MONGODB_URI no trailing /database; the name below wins.
 spring:
+  config:
+    import: "optional:file:./config/prod.properties"
   data:
     mongodb:
       uri: ${MONGODB_URI}

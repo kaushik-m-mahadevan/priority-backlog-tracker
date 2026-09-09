@@ -4,9 +4,15 @@
 # data: demo seeding on, a weak dev login allowed. Nothing here is guarded by
 # ProdSanityCheck (that only runs for the `prod` profile).
 #
-# Requires env var: MONGODB_URI  (connection string WITHOUT a trailing /database —
-# the database is chosen below so dev and prod can share one URI).
+# Connection string etc. come from ONE of:
+#   * env vars (MONGODB_URI, JWT_SECRET, ...)  — used on Render / any host, and
+#   * ./config/dev.properties                  — a gitignored local file you fill in
+#                                                (copy it from config/dev.properties.example).
+# The local file, when present, wins over the env-var defaults below. Run the app
+# from the project root so the relative path resolves.
 spring:
+  config:
+    import: "optional:file:./config/dev.properties"
   data:
     mongodb:
       uri: ${MONGODB_URI}

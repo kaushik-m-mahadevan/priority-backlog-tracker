@@ -18,6 +18,11 @@ application-local.yml
 *.env
 .env
 
+# Per-profile local config loaded via spring.config.import — real values live here,
+# never committed. The .example templates ARE committed as the scaffold.
+/config/*.properties
+!/config/*.properties.example
+
 # OS
 .DS_Store
 Thumbs.db
