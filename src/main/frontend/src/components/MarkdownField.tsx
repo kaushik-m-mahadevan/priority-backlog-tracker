@@ -7,10 +7,13 @@ interface Props {
   placeholder?: string;
 }
 
-/** Basic markdown editor: a textarea, a tiny formatting toolbar, and a preview toggle. */
+/**
+ * Notes field: rendered preview by default. "Edit" reveals the textarea + a small
+ * formatting toolbar; "Done" returns to preview. (Persisting is the modal's Save.)
+ */
 export default function MarkdownField({ value, onChange, placeholder }: Props) {
   const ref = useRef<HTMLTextAreaElement>(null);
-  const [preview, setPreview] = useState(false);
+  const [editing, setEditing] = useState(false);
 
   function wrap(before: string, after = before) {
     const el = ref.current;
@@ -40,6 +43,26 @@ export default function MarkdownField({ value, onChange, placeholder }: Props) {
     });
   }
 
+  if (!editing) {
+    return (
+      <div className="md-field">
+        <div className="md-toolbar">
+          <span style={{ flex: 1 }} />
+          <button type="button" onClick={() => setEditing(true)}>
+            Edit
+          </button>
+        </div>
+        <div className="md-preview">
+          {value.trim() ? (
+            <ReactMarkdown>{value}</ReactMarkdown>
+          ) : (
+            <span className="muted">No notes yet — click Edit to add.</span>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="md-field">
       <div className="md-toolbar">
@@ -56,31 +79,18 @@ export default function MarkdownField({ value, onChange, placeholder }: Props) {
           •
         </button>
         <span style={{ flex: 1 }} />
-        <button
-          type="button"
-          className={preview ? "on" : ""}
-          onClick={() => setPreview((p) => !p)}
-        >
-          {preview ? "Write" : "Preview"}
+        <button type="button" className="on" onClick={() => setEditing(false)}>
+          Done
         </button>
       </div>
-      {preview ? (
-        <div className="md-preview">
-          {value.trim() ? (
-            <ReactMarkdown>{value}</ReactMarkdown>
-          ) : (
-            <span className="muted">Nothing to preview.</span>
-          )}
-        </div>
-      ) : (
-        <textarea
-          ref={ref}
-          rows={5}
-          value={value}
-          placeholder={placeholder}
-          onChange={(e) => onChange(e.target.value)}
-        />
-      )}
+      <textarea
+        ref={ref}
+        rows={5}
+        value={value}
+        placeholder={placeholder}
+        autoFocus
+        onChange={(e) => onChange(e.target.value)}
+      />
     </div>
   );
 }
