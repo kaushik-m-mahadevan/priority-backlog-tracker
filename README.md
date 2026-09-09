@@ -62,17 +62,52 @@ mongosh "mongodb://localhost:27017/backlog" scripts/seed-demo.mongosh.js
 The script is safe to re-run — it replaces only the rows it created (`createdBy =
 "demo-script"`) and never touches items you added yourself.
 
+## Profiles
+
+| Profile | MongoDB | Data | Login | Use for |
+|---|---|---|---|---|
+| _(none)_ | embedded, in-memory | empty | `test123` / `test123` | quick local run |
+| `demo` | embedded, in-memory | sample backlog seeded, resets on restart | `test123` / `test123` | offline demo / manual UI testing |
+| `dev` | Atlas, `dev` database | sample backlog seeded (idempotent) | `dev@backlog.local` / `devpass123` (override via `SEED_USER_*`) | shared dev/testing against the real cluster |
+| `prod` | Atlas, `prod` database | real data only, no seeding | none — create a user (see below) | production |
+
+`dev` and `prod` share one cluster via **`MONGODB_URI`** and differ only by database
+name. Give `MONGODB_URI` **no trailing `/database`** — each profile picks its own
+(`MONGO_DB` overrides). `prod` refuses to boot with `JWT_SECRET=test123` or a
+`test123` seed password (`ProdSanityCheck`).
+
+```bash
+# dev  — throwaway data in the `dev` database
+MONGODB_URI='mongodb+srv://USER:PASS@cluster0.xxxxx.mongodb.net/?retryWrites=true&w=majority' \
+  java -jar target/*.jar --spring.profiles.active=dev
+
+# prod — real data in the `prod` database
+MONGODB_URI='mongodb+srv://USER:PASS@cluster0.xxxxx.mongodb.net/?retryWrites=true&w=majority' \
+JWT_SECRET='<long random string>' \
+  java -jar target/*.jar --spring.profiles.active=prod
+```
+
+The app creates the database and its collections (`items`, `archivedItems`, `users`,
+`config`, `configHistory`, `counters`) on first connect — nothing to pre-create in Atlas.
+
+### First prod login
+
+`prod` seeds no account. Either boot once with the seed user turned on and real
+credentials (`SEED_USER_ENABLED=true SEED_USER_EMAIL=… SEED_USER_PASSWORD=… SEED_USER_CODE=…`,
+idempotent, unset afterwards), or insert a user document directly.
+
 ## Configuration
 
-| Env var | Purpose | Local default |
+| Env var | Purpose | Default |
 |---|---|---|
 | `PORT` | HTTP port | `8080` |
-| `MONGODB_URI` | MongoDB connection string | embedded MongoDB |
-| `JWT_SECRET` | JWT signing secret | `test123` (dev only — override in production) |
+| `MONGODB_URI` | Atlas connection string, no trailing `/database` | embedded MongoDB (dev/demo) |
+| `MONGO_DB` | Database name within the cluster | `dev` (dev profile) / `prod` (prod profile) |
+| `JWT_SECRET` | JWT signing secret | `test123` (dev only — `prod` rejects this) |
 | `JWT_EXPIRATION_MINUTES` | Token lifetime | `1440` |
-| `DEMO_DATA_ENABLED` | Seed sample data on startup (the `demo` profile sets this) | `false` |
-| `MONGO_TRANSACTIONS_ENABLED` | Use real transactions for the archive move — set `true` only on a replica set / Atlas | `false` |
-| `SEED_USER_ENABLED` / `SEED_USER_EMAIL` / `SEED_USER_PASSWORD` | Dev login account | `true` / `test123` / `test123` |
+| `DEMO_DATA_ENABLED` | Seed sample data on startup (`demo` and `dev` set this) | `false` |
+| `MONGO_TRANSACTIONS_ENABLED` | Real transactions for the archive move — `true` only on a replica set / Atlas | `false` (`dev`/`prod` force `true`) |
+| `SEED_USER_ENABLED` / `SEED_USER_EMAIL` / `SEED_USER_PASSWORD` / `SEED_USER_NAME` / `SEED_USER_CODE` | Seeded login account | on in dev, off in prod |
 
 ## API surface (current)
 

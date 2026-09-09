@@ -1,0 +1,29 @@
+# Shared-cluster DEV profile — run with:  --spring.profiles.active=dev
+#
+# Same Atlas cluster as prod, a SEPARATE database (default: dev), and throwaway
+# data: demo seeding on, a weak dev login allowed. Nothing here is guarded by
+# ProdSanityCheck (that only runs for the `prod` profile).
+#
+# Requires env var: MONGODB_URI  (connection string WITHOUT a trailing /database —
+# the database is chosen below so dev and prod can share one URI).
+spring:
+  data:
+    mongodb:
+      uri: ${MONGODB_URI}
+      database: ${MONGO_DB:dev}
+  autoconfigure:
+    exclude:
+      - de.flapdoodle.embed.mongo.spring.autoconfigure.EmbeddedMongoAutoConfiguration
+
+app:
+  demo-data:
+    enabled: ${DEMO_DATA_ENABLED:true}
+  mongo:
+    transactions:
+      enabled: true # Atlas is a replica set
+  seed-user:
+    enabled: ${SEED_USER_ENABLED:true}
+    email: ${SEED_USER_EMAIL:dev@backlog.local}
+    password: ${SEED_USER_PASSWORD:devpass123}
+    name: ${SEED_USER_NAME:Dev User}
+    user-code: ${SEED_USER_CODE:DEV}

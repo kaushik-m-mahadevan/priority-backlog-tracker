@@ -1,6 +1,9 @@
 # Activate with: --spring.profiles.active=demo
-# Seeds a realistic sample backlog (see DemoDataSeeder) on top of whatever MongoDB is
-# configured — the embedded one by default, or your own via MONGODB_URI.
+#
+# Sample-data toggle only. Layers on top of whatever MongoDB is already configured:
+#   (no other profile) -> embedded MongoDB, offline, sample data      [demo]
+#   with `dev`         -> Atlas backlog_dev database, sample data     [dev,demo] (redundant: dev already seeds)
+# For a shared Atlas cluster with a real prod database, use the `dev` profile instead.
 app:
   demo-data:
     enabled: true

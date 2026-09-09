@@ -1,9 +1,14 @@
 # Production profile — run with:  java -jar app.jar --spring.profiles.active=prod
 # Requires env vars: MONGODB_URI, JWT_SECRET
+#
+# Uses the `prod` database on the cluster MONGODB_URI points at. The `dev` profile
+# points the same URI at the `dev` database instead, so one cluster holds both — see
+# application-dev.yml. Give MONGODB_URI no trailing /database; the name below wins.
 spring:
   data:
     mongodb:
       uri: ${MONGODB_URI}
+      database: ${MONGO_DB:prod}
   autoconfigure:
     # never start the embedded MongoDB in production, even though the jar bundles it
     exclude:
