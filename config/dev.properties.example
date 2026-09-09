@@ -1,19 +1,15 @@
 # ─────────────────────────────────────────────────────────────────────────────
-#  dev profile — local config.  Copy this file to  config/dev.properties  and
-#  fill in the values.  config/dev.properties is gitignored; this .example is
-#  the checked-in reference.
+#  dev profile — LOCAL config.  Copy to  config/dev.properties  (gitignored).
 #
-#  Used automatically when you run:
-#      java -jar target/*.jar --spring.profiles.active=dev
-#  (wired via spring.config.import in application-dev.yml). Launch from the
-#  project root so ./config/ resolves.
+#  Loaded when you run:  java -jar target/*.jar --spring.profiles.active=dev
+#  (via spring.config.import in application-dev.yml). Launch from the project root.
 #
 #  These are plain Spring property keys and OVERRIDE application-dev.yml.
-#  An empty value still overrides — so leave a line commented (#) unless you
-#  actually want to set it. Only the URI is required.
+#  ⚠️  An empty value STILL overrides — don't leave a bare `key=` line; either set
+#      it or keep it commented. You can also pass the env var instead (MONGODB_URI…).
 # ─────────────────────────────────────────────────────────────────────────────
 
-# REQUIRED. Atlas connection string for the shared cluster. NO trailing /database.
+# Atlas connection string for the shared cluster, NO trailing /database:
 #   mongodb+srv://<user>:<password>@cluster0.xxxxx.mongodb.net/?retryWrites=true&w=majority
 spring.data.mongodb.uri=
 

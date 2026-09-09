@@ -29,4 +29,8 @@ app:
     transactions:
       enabled: true # Atlas is a replica set — makes the archive move (§24) atomic
   seed-user:
-    enabled: false
+    # Off by default in prod. Flip on with SEED_USER_ENABLED=true (+ SEED_USER_EMAIL /
+    # SEED_USER_PASSWORD / SEED_USER_NAME / SEED_USER_CODE) for a one-time bootstrap of
+    # the first account, then set it back to false. ProdSanityCheck still blocks a
+    # 'test123' password.
+    enabled: ${SEED_USER_ENABLED:false}

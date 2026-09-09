@@ -1,34 +1,30 @@
 # ─────────────────────────────────────────────────────────────────────────────
-#  prod profile — local config.  Copy this file to  config/prod.properties  and
-#  fill in the values.  config/prod.properties is gitignored; this .example is
-#  the checked-in reference.
+#  prod profile — LOCAL config only.  Copy to  config/prod.properties  (gitignored).
 #
-#  On Render / any real host, set these as ENVIRONMENT VARIABLES instead of
-#  shipping this file (MONGODB_URI, JWT_SECRET, ...).
-#
-#  Used automatically when you run:
-#      java -jar target/*.jar --spring.profiles.active=prod
-#  (wired via spring.config.import in application-prod.yml). Launch from the
-#  project root so ./config/ resolves.
+#  On Render / any real host: DON'T use this file — set the values as environment
+#  variables (MONGODB_URI, JWT_SECRET, ...). The .dockerignore keeps this file out
+#  of the image, so `spring.config.import` finds nothing and the env vars win.
 #
 #  These are plain Spring property keys and OVERRIDE application-prod.yml.
-#  An empty value still overrides — leave a line commented (#) unless you
-#  actually want to set it.
+#  ⚠️  An empty value STILL overrides — a blank `app.jwt.secret=` here beats the
+#      JWT_SECRET env var and the app won't start. So every line is commented:
+#      uncomment ONLY the ones you actually want this file to set.
 # ─────────────────────────────────────────────────────────────────────────────
 
-# REQUIRED. Atlas connection string. NO trailing /database.
+# Atlas connection string, NO trailing /database:
 #   mongodb+srv://<user>:<password>@cluster0.xxxxx.mongodb.net/?retryWrites=true&w=majority
-spring.data.mongodb.uri=
+#spring.data.mongodb.uri=
 
-# REQUIRED. A long random string. The app REFUSES TO START if this is "test123".
-app.jwt.secret=
+# A long random string. The app REFUSES TO START if this is "test123".
+#app.jwt.secret=
 
-# ── optional ──
+# Database name within the cluster (default: prod).
 #spring.data.mongodb.database=prod
+
 #app.jwt.expiration-minutes=1440
 
 # ── first-boot admin account ──
-#  prod seeds no user. To create the first one: uncomment these, set them, boot
+#  prod seeds no user. To create the first one: uncomment these, set them, start
 #  once, then comment them back out (the seeder skips an email that already exists).
 #app.seed-user.enabled=true
 #app.seed-user.email=
