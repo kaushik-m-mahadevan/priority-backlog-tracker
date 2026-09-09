@@ -11,10 +11,8 @@ import javax.crypto.SecretKey;
 
 import org.springframework.stereotype.Service;
 
-import com.backlogtracker.user.domain.Role;
 import com.backlogtracker.user.domain.User;
 
-import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
@@ -43,7 +41,6 @@ public class JwtService {
                 .subject(user.getId())
                 .claim("email", user.getEmail())
                 .claim("name", user.getName())
-                .claim("role", user.getRole().name())
                 .issuedAt(Date.from(now))
                 .expiration(Date.from(now.plus(ttl)))
                 .signWith(key)
@@ -51,21 +48,18 @@ public class JwtService {
     }
 
     /**
-     * Parses and verifies a token, returning the principal.
+     * Verifies a token and returns its subject (the user id). Role and status are read
+     * fresh from the database by the auth filter, never trusted from the token.
      *
      * @throws JwtException if the token is malformed, tampered, or expired
      */
-    public AuthUser parse(String token) {
-        Claims c = Jwts.parser()
+    public String parseSubject(String token) {
+        return Jwts.parser()
                 .verifyWith(key)
                 .build()
                 .parseSignedClaims(token)
-                .getPayload();
-        return new AuthUser(
-                c.getSubject(),
-                c.get("email", String.class),
-                c.get("name", String.class),
-                Role.valueOf(c.get("role", String.class)));
+                .getPayload()
+                .getSubject();
     }
 
     private static byte[] sha256(String s) {

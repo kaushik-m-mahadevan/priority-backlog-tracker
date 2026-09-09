@@ -21,13 +21,8 @@ class JwtServiceTest {
     }
 
     @Test
-    void issuesAndParsesRoundTrip() {
-        AuthUser parsed = service.parse(service.issue(user()));
-
-        assertThat(parsed.id()).isEqualTo("u-1");
-        assertThat(parsed.email()).isEqualTo("test123");
-        assertThat(parsed.name()).isEqualTo("Test User");
-        assertThat(parsed.role()).isEqualTo(Role.ADMIN);
+    void issuesAndReturnsTheSubjectOnParse() {
+        assertThat(service.parseSubject(service.issue(user()))).isEqualTo("u-1");
     }
 
     @Test
@@ -35,11 +30,11 @@ class JwtServiceTest {
         String foreign = new JwtService(new JwtProperties("a-totally-different-secret", 60))
                 .issue(user());
 
-        assertThatThrownBy(() -> service.parse(foreign)).isInstanceOf(JwtException.class);
+        assertThatThrownBy(() -> service.parseSubject(foreign)).isInstanceOf(JwtException.class);
     }
 
     @Test
     void rejectsGarbageToken() {
-        assertThatThrownBy(() -> service.parse("not.a.jwt")).isInstanceOf(JwtException.class);
+        assertThatThrownBy(() -> service.parseSubject("not.a.jwt")).isInstanceOf(JwtException.class);
     }
 }

@@ -11,6 +11,9 @@ import org.springframework.security.web.authentication.WebAuthenticationDetailsS
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
+import com.backlogtracker.user.domain.User;
+import com.backlogtracker.user.repository.UserRepository;
+
 import io.jsonwebtoken.JwtException;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -19,9 +22,9 @@ import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 
 /**
- * Reads a {@code Authorization: Bearer <jwt>} header, verifies it, and populates the
- * security context. Missing/invalid tokens are simply left unauthenticated so the
- * security chain can return 401/403 as configured.
+ * Reads {@code Authorization: Bearer <jwt>}, verifies it, then loads the user from the
+ * database and populates the security context with a fresh {@link AuthUser} (current
+ * role + status). A token whose user no longer exists is left unauthenticated → 401.
  */
 @Component
 @RequiredArgsConstructor
@@ -30,6 +33,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private static final String PREFIX = "Bearer ";
 
     private final JwtService jwtService;
+    private final UserRepository users;
 
     @Override
     protected void doFilterInternal(@NonNull HttpServletRequest request,
@@ -41,11 +45,16 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         if (header != null && header.startsWith(PREFIX)
                 && SecurityContextHolder.getContext().getAuthentication() == null) {
             try {
-                AuthUser principal = jwtService.parse(header.substring(PREFIX.length()));
-                var authorities = List.of(new SimpleGrantedAuthority(principal.role().authority()));
-                var auth = new UsernamePasswordAuthenticationToken(principal, null, authorities);
-                auth.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-                SecurityContextHolder.getContext().setAuthentication(auth);
+                String userId = jwtService.parseSubject(header.substring(PREFIX.length()));
+                User user = users.findById(userId).orElse(null);
+                if (user != null) {
+                    AuthUser principal = AuthUser.from(user);
+                    var authorities =
+                            List.of(new SimpleGrantedAuthority(principal.role().authority()));
+                    var auth = new UsernamePasswordAuthenticationToken(principal, null, authorities);
+                    auth.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+                    SecurityContextHolder.getContext().setAuthentication(auth);
+                }
             } catch (JwtException ignored) {
                 // leave unauthenticated
             }

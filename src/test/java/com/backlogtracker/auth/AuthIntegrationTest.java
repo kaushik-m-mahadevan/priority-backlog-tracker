@@ -35,6 +35,7 @@ class AuthIntegrationTest {
                 .andExpect(jsonPath("$.token").isNotEmpty())
                 .andExpect(jsonPath("$.user.email").value(email))
                 .andExpect(jsonPath("$.user.role").value("ADMIN"))
+                .andExpect(jsonPath("$.user.status").value("ACTIVE"))
                 .andReturn().getResponse().getContentAsString();
         JsonNode node = mapper.readTree(body);
         return node.get("token").asText();
@@ -70,7 +71,9 @@ class AuthIntegrationTest {
 
         mvc.perform(get("/api/auth/me").header("Authorization", "Bearer " + token))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.email").value("test123"));
+                .andExpect(jsonPath("$.email").value("test123"))
+                .andExpect(jsonPath("$.role").value("ADMIN"))
+                .andExpect(jsonPath("$.status").value("ACTIVE"));
     }
 
     @Test
