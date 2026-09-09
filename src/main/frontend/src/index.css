@@ -360,6 +360,40 @@ tr:last-child td {
   background: var(--urgent);
   color: #2a1420;
 }
+.team-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+.team-row {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border: 1px solid var(--border-soft);
+  border-radius: 10px;
+}
+.team-name {
+  font-weight: 600;
+}
+.team-add {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+.team-add input {
+  width: auto;
+  flex: 1 1 140px;
+}
+@media (max-width: 620px) {
+  .team-row {
+    grid-template-columns: 1fr;
+    gap: 6px;
+  }
+}
 .effort-input {
   display: flex;
   gap: 8px;

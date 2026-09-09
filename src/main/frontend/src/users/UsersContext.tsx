@@ -1,4 +1,12 @@
-import { createContext, useContext, useEffect, useMemo, useState, ReactNode } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  ReactNode,
+} from "react";
 import { api } from "../api/client";
 
 interface TeamUser {
@@ -14,20 +22,30 @@ interface Ctx {
   /** stable position of a user in the sorted team list, or -1 — used to give each
       distinct person a distinct avatar without hash collisions on tiny teams */
   indexOf: (id: string | null | undefined) => number;
+  /** re-fetch the team list (call after adding a member or changing a role) */
+  refresh: () => void;
 }
 
 const UsersCtx = createContext<Ctx>({
   users: [],
   nameOf: () => "Unassigned",
   indexOf: () => -1,
+  refresh: () => {},
 });
 
 export function UsersProvider({ children }: { children: ReactNode }) {
   const [users, setUsers] = useState<TeamUser[]>([]);
 
-  useEffect(() => {
-    api.get<TeamUser[]>("/users").then(setUsers).catch(() => setUsers([]));
+  const refresh = useCallback(() => {
+    api
+      .get<TeamUser[]>("/users")
+      .then(setUsers)
+      .catch(() => setUsers([]));
   }, []);
+
+  useEffect(() => {
+    refresh();
+  }, [refresh]);
 
   const value = useMemo<Ctx>(() => {
     const byId = new Map(users.map((u) => [u.id, u.name]));
@@ -36,8 +54,9 @@ export function UsersProvider({ children }: { children: ReactNode }) {
       users,
       nameOf: (id) => (id && byId.get(id)) || "Unassigned",
       indexOf: (id) => (id ? idxById.get(id) ?? -1 : -1),
+      refresh,
     };
-  }, [users]);
+  }, [users, refresh]);
 
   return <UsersCtx.Provider value={value}>{children}</UsersCtx.Provider>;
 }

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { api, ApiError } from "../api/client";
 import { useConfigCtx } from "../config/ConfigContext";
 import { useTheme } from "../theme/ThemeContext";
+import { useUsers } from "../users/UsersContext";
 import { notifyItemsChanged } from "../lib/events";
 import { TZ_CHOICES, getTzPref, setTzPref } from "../lib/tz";
 import type { AppConfig } from "../types";
@@ -41,9 +42,14 @@ function toDraft(c: AppConfig): Draft {
   };
 }
 
+const ROLES = ["OWNER", "CONTRIBUTOR", "VIEWER"];
+const BLANK_MEMBER = { name: "", email: "", password: "", role: "OWNER" };
+
 export default function SettingsPage() {
   const { config, refresh } = useConfigCtx();
   const { theme, setTheme } = useTheme();
+  const { users, refresh: refreshUsers } = useUsers();
+  const [member, setMember] = useState(BLANK_MEMBER);
   const [draft, setDraft] = useState<Draft | null>(null);
   const [buried, setBuried] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
@@ -102,6 +108,32 @@ export default function SettingsPage() {
     );
   }
 
+  function addMember() {
+    const m = { ...member, name: member.name.trim(), email: member.email.trim() };
+    if (!m.name || !m.email || m.password.length < 8) {
+      setErr("Name, email, and a password of at least 8 characters are required.");
+      return;
+    }
+    call(api.post("/users", m), `${m.name} added.`).then(() => {
+      setMember(BLANK_MEMBER);
+      refreshUsers();
+    });
+  }
+
+  function setRole(id: string, role: string) {
+    call(api.patch(`/users/${id}`, { role }), "Role updated.").then(refreshUsers);
+  }
+
+  function resetPassword(id: string, name: string) {
+    const password = window.prompt(`New password for ${name} (min 8 characters):`, "");
+    if (password === null) return;
+    if (password.length < 8) {
+      setErr("Password must be at least 8 characters.");
+      return;
+    }
+    call(api.patch(`/users/${id}`, { password }), `Password reset for ${name}.`);
+  }
+
   function removeChip(kind: "categories" | "priorities", name: string, others: string[]) {
     const reassignTo = window.prompt(
       `If an item still uses "${name}", which ${kind === "categories" ? "category" : "priority"} should it move to?\n(${others.join(", ")})\nLeave blank if none use it.`,
@@ -121,6 +153,64 @@ export default function SettingsPage() {
       {msg && <div className="hint" style={{ color: "var(--growth)", marginBottom: 12 }}>{msg}</div>}
 
       <div className="grid cols-2">
+        <div className="card" style={{ gridColumn: "1 / -1" }}>
+          <h2>Team members</h2>
+          <div className="team-list">
+            {users.map((u) => (
+              <div className="team-row" key={u.id}>
+                <div>
+                  <div className="team-name">{u.name}</div>
+                  <div className="muted" style={{ fontSize: 12 }}>{u.email}</div>
+                </div>
+                <select value={u.role} onChange={(e) => setRole(u.id, e.target.value)} disabled={busy}>
+                  {ROLES.map((r) => (
+                    <option key={r} value={r}>
+                      {r[0] + r.slice(1).toLowerCase()}
+                    </option>
+                  ))}
+                </select>
+                <button className="ghost" disabled={busy} onClick={() => resetPassword(u.id, u.name)}>
+                  Reset password
+                </button>
+              </div>
+            ))}
+          </div>
+          <div className="team-add">
+            <input
+              placeholder="Name"
+              value={member.name}
+              onChange={(e) => setMember({ ...member, name: e.target.value })}
+            />
+            <input
+              placeholder="Email"
+              type="email"
+              value={member.email}
+              onChange={(e) => setMember({ ...member, email: e.target.value })}
+            />
+            <input
+              placeholder="Temp password (min 8)"
+              value={member.password}
+              onChange={(e) => setMember({ ...member, password: e.target.value })}
+            />
+            <select
+              value={member.role}
+              onChange={(e) => setMember({ ...member, role: e.target.value })}
+            >
+              {ROLES.map((r) => (
+                <option key={r} value={r}>
+                  {r[0] + r.slice(1).toLowerCase()}
+                </option>
+              ))}
+            </select>
+            <button className="primary" disabled={busy} onClick={addMember}>
+              Add member
+            </button>
+          </div>
+          <p className="hint" style={{ marginTop: 8 }}>
+            New members sign in with the temp password and can be reset here. Owner-only (§8).
+          </p>
+        </div>
+
         <div className="card">
           <h2>Theme</h2>
           <div style={{ display: "flex", gap: 8 }}>
