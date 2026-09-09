@@ -26,6 +26,7 @@ import com.backlogtracker.item.domain.Item;
 import com.backlogtracker.item.domain.ItemScope;
 import com.backlogtracker.item.domain.ItemStatus;
 import com.backlogtracker.item.repository.ItemRepository;
+import com.backlogtracker.user.domain.AccountStatus;
 import com.backlogtracker.user.domain.Role;
 import com.backlogtracker.user.domain.User;
 import com.backlogtracker.user.repository.UserRepository;
@@ -157,7 +158,7 @@ public class DemoDataSeeder implements ApplicationRunner {
         return users.findByEmailIgnoreCase(email).orElseGet(() -> users.save(User.builder()
                 .name(name).email(email)
                 .passwordHash(passwordEncoder.encode("test123"))
-                .role(Role.OWNER).userCode(code)
+                .role(Role.USER).status(AccountStatus.ACTIVE).userCode(code)
                 .build()));
     }
 

@@ -54,6 +54,9 @@ public class AppConfig {
     private int defaultDueDateOffsetDays;
     private int effortCapDays;
 
+    /** How many groups one account may belong to. */
+    private int maxGroupsPerUser;
+
     /**
      * The default configuration from docs/design.md §2. Weights are an even three-way
      * split (0.333 / 0.333 / 0.334) that sums to exactly 1.0.
@@ -81,6 +84,7 @@ public class AppConfig {
                         "Technical Discussion", "Admin-Ops", "Other")))
                 .defaultDueDateOffsetDays(30)
                 .effortCapDays(30)
+                .maxGroupsPerUser(5)
                 .build();
     }
 }

@@ -17,7 +17,7 @@ import com.backlogtracker.config.domain.ConfigHistory;
 import com.backlogtracker.config.dto.UpdateConfigRequest;
 import com.backlogtracker.config.service.ConfigService;
 import com.backlogtracker.security.AuthUser;
-import com.backlogtracker.security.RequiresOwner;
+import com.backlogtracker.security.RequiresAdmin;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -36,26 +36,26 @@ public class ConfigController {
     }
 
     @PutMapping
-    @RequiresOwner
+    @RequiresAdmin
     public AppConfig update(@Valid @RequestBody UpdateConfigRequest request,
                             @AuthenticationPrincipal AuthUser actor) {
         return configService.update(request, actor == null ? null : actor.id());
     }
 
     @GetMapping("/history")
-    @RequiresOwner
+    @RequiresAdmin
     public List<ConfigHistory> history() {
         return configService.history();
     }
 
     @PostMapping("/categories")
-    @RequiresOwner
+    @RequiresAdmin
     public AppConfig addCategory(@RequestBody NameRequest body) {
         return configService.addCategory(body.name());
     }
 
     @DeleteMapping("/categories/{name}")
-    @RequiresOwner
+    @RequiresAdmin
     public AppConfig removeCategory(@org.springframework.web.bind.annotation.PathVariable String name,
                                    @RequestParam(required = false) String reassignTo,
                                    @AuthenticationPrincipal AuthUser actor) {
@@ -63,13 +63,13 @@ public class ConfigController {
     }
 
     @PostMapping("/priorities")
-    @RequiresOwner
+    @RequiresAdmin
     public AppConfig addPriority(@RequestBody PriorityRequest body) {
         return configService.addPriority(body.name(), body.value());
     }
 
     @DeleteMapping("/priorities/{name}")
-    @RequiresOwner
+    @RequiresAdmin
     public AppConfig removePriority(@org.springframework.web.bind.annotation.PathVariable String name,
                                    @RequestParam(required = false) String reassignTo,
                                    @AuthenticationPrincipal AuthUser actor) {

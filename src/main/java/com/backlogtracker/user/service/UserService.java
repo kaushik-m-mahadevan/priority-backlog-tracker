@@ -9,6 +9,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
+import com.backlogtracker.user.domain.AccountStatus;
 import com.backlogtracker.user.domain.Role;
 import com.backlogtracker.user.domain.User;
 import com.backlogtracker.user.dto.CreateUserRequest;
@@ -32,12 +33,11 @@ public class UserService {
         return repository.findById(id);
     }
 
-    /** Current Owners — used for archival-request quorum (design §18) in a later step. */
-    public List<User> owners() {
-        return repository.findByRole(Role.OWNER);
+    public List<User> admins() {
+        return repository.findByRole(Role.ADMIN);
     }
 
-    /** Add a team member (Owner-only endpoint). */
+    /** Add a team member (admin-only endpoint). */
     public User create(CreateUserRequest r) {
         String email = r.email().trim();
         if (repository.existsByEmailIgnoreCase(email)) {
@@ -50,6 +50,7 @@ public class UserService {
                 .email(email)
                 .passwordHash(passwordEncoder.encode(r.password()))
                 .role(parseRole(r.role()))
+                .status(AccountStatus.ACTIVE)
                 .userCode(uniqueCode(code))
                 .build());
     }
@@ -69,12 +70,12 @@ public class UserService {
 
     private static Role parseRole(String s) {
         if (!has(s)) {
-            return Role.OWNER;
+            return Role.USER;
         }
         try {
             return Role.valueOf(s.trim().toUpperCase());
         } catch (IllegalArgumentException e) {
-            throw new IllegalArgumentException("role must be OWNER, CONTRIBUTOR or VIEWER");
+            throw new IllegalArgumentException("role must be ADMIN or USER");
         }
     }
 

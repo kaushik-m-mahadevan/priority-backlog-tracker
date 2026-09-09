@@ -34,7 +34,7 @@ class AuthIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.token").isNotEmpty())
                 .andExpect(jsonPath("$.user.email").value(email))
-                .andExpect(jsonPath("$.user.role").value("OWNER"))
+                .andExpect(jsonPath("$.user.role").value("ADMIN"))
                 .andReturn().getResponse().getContentAsString();
         JsonNode node = mapper.readTree(body);
         return node.get("token").asText();

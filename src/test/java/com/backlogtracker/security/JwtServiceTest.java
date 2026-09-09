@@ -17,7 +17,7 @@ class JwtServiceTest {
     private static User user() {
         return User.builder()
                 .id("u-1").name("Test User").email("test123")
-                .role(Role.OWNER).userCode("TST").build();
+                .role(Role.ADMIN).userCode("TST").build();
     }
 
     @Test
@@ -27,7 +27,7 @@ class JwtServiceTest {
         assertThat(parsed.id()).isEqualTo("u-1");
         assertThat(parsed.email()).isEqualTo("test123");
         assertThat(parsed.name()).isEqualTo("Test User");
-        assertThat(parsed.role()).isEqualTo(Role.OWNER);
+        assertThat(parsed.role()).isEqualTo(Role.ADMIN);
     }
 
     @Test

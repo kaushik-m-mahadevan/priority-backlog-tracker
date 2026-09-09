@@ -15,7 +15,8 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 /**
- * A member of the founding team (design §2, §8).
+ * An account. Roles: {@link Role#ADMIN} / {@link Role#USER}. Lifecycle:
+ * {@link AccountStatus#PENDING} → {@link AccountStatus#ACTIVE} on admin approval.
  */
 @Document("users")
 @Getter
@@ -39,10 +40,21 @@ public class User {
 
     private Role role;
 
-    /** Short code used in personal item IDs, e.g. {@code P-TST-014} (design §20). */
+    /** null on legacy documents — treated as {@link AccountStatus#ACTIVE}. */
+    private AccountStatus status;
+
+    /** Short, user-facing handle (invite target). Was {@code userCode}. */
     @Indexed(unique = true)
     private String userCode;
 
     @CreatedDate
     private Instant createdAt;
+
+    private Instant approvedAt;
+    private String approvedByUserId;
+
+    /** Legacy nulls mean the account predates the onboarding lifecycle → active. */
+    public boolean isActive() {
+        return status == null || status == AccountStatus.ACTIVE;
+    }
 }

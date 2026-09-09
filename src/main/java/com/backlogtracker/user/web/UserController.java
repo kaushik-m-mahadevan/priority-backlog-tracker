@@ -13,7 +13,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.backlogtracker.security.RequiresOwner;
+import com.backlogtracker.security.RequiresAdmin;
 import com.backlogtracker.user.dto.CreateUserRequest;
 import com.backlogtracker.user.dto.UpdateUserRequest;
 import com.backlogtracker.user.dto.UserSummary;
@@ -43,14 +43,14 @@ public class UserController {
     /** Add a team member (design §8 — Owner-only). */
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    @RequiresOwner
+    @RequiresAdmin
     public UserSummary create(@Valid @RequestBody CreateUserRequest request) {
         return UserSummary.of(userService.create(request));
     }
 
     /** Change a member's role or reset their password (Owner-only). */
     @PatchMapping("/{id}")
-    @RequiresOwner
+    @RequiresAdmin
     public UserSummary update(@PathVariable String id,
                              @Valid @RequestBody UpdateUserRequest request) {
         return UserSummary.of(userService.update(id, request));

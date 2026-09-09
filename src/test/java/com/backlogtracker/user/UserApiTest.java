@@ -46,7 +46,7 @@ class UserApiTest {
         mvc.perform(get("/api/users").header("Authorization", "Bearer " + ownerToken))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[?(@.email=='test123')].role")
-                        .value(org.hamcrest.Matchers.hasItem("OWNER")))
+                        .value(org.hamcrest.Matchers.hasItem("ADMIN")))
                 .andExpect(jsonPath("$[0].name").exists());
     }
 
@@ -63,7 +63,7 @@ class UserApiTest {
                         .header("Authorization", "Bearer " + ownerToken)
                         .contentType(MediaType.APPLICATION_JSON).content(body))
                 .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.role").value("OWNER"))
+                .andExpect(jsonPath("$.role").value("USER"))
                 .andReturn().getResponse().getContentAsString());
 
         // the new member can sign in
@@ -75,9 +75,9 @@ class UserApiTest {
         mvc.perform(patch("/api/users/" + created.get("id").asText())
                         .header("Authorization", "Bearer " + ownerToken)
                         .contentType(MediaType.APPLICATION_JSON).content("""
-                                {"role":"VIEWER"}"""))
+                                {"role":"ADMIN"}"""))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.role").value("VIEWER"));
+                .andExpect(jsonPath("$.role").value("ADMIN"));
     }
 
     @Test
@@ -96,7 +96,7 @@ class UserApiTest {
     void nonOwnerCannotCreateMembers() throws Exception {
         User viewer = users.save(User.builder()
                 .name("Vic Viewer").email("vic@founders.test")
-                .passwordHash("x").role(Role.VIEWER).userCode("VIC2").build());
+                .passwordHash("x").role(Role.USER).userCode("VIC2").build());
         try {
             mvc.perform(post("/api/users").header("Authorization", "Bearer " + jwt.issue(viewer))
                             .contentType(MediaType.APPLICATION_JSON).content("""

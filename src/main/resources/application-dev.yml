@@ -27,9 +27,5 @@ app:
   mongo:
     transactions:
       enabled: true # Atlas is a replica set
-  seed-user:
-    enabled: ${SEED_USER_ENABLED:true}
-    email: ${SEED_USER_EMAIL:test123}
-    password: ${SEED_USER_PASSWORD:test123}
-    name: ${SEED_USER_NAME:Test User}
-    user-code: ${SEED_USER_CODE:TST}
+  # inherits app.local-bootstrap.enabled: true from application.yml — the shared dev
+  # database already has the legacy account, which LegacyDataMigration promotes.

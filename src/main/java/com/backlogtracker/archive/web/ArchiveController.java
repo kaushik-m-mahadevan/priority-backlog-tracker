@@ -18,7 +18,7 @@ import com.backlogtracker.archive.repository.ArchivedItemRepository;
 import com.backlogtracker.archive.service.ArchiveService;
 import com.backlogtracker.common.web.PageResponse;
 import com.backlogtracker.security.AuthUser;
-import com.backlogtracker.security.RequiresContributor;
+import com.backlogtracker.security.RequiresUser;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -32,7 +32,7 @@ public class ArchiveController {
 
     /** Completes an item — physically moves it to archivedItems (design §24). */
     @PostMapping("/api/items/{id}/complete")
-    @RequiresContributor
+    @RequiresUser
     public ArchivedItemView complete(@PathVariable String id,
                                      @Valid @RequestBody CompleteItemRequest request,
                                      @AuthenticationPrincipal AuthUser actor) {

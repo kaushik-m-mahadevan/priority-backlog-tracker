@@ -1,16 +1,15 @@
 package com.backlogtracker.user.domain;
 
 /**
- * User roles (design §8). Currently every account is provisioned as {@link #OWNER};
- * CONTRIBUTOR and VIEWER exist so access checks can be written against them now and
- * enforced when those accounts are introduced.
+ * Account roles. There are only two: {@link #ADMIN} (approves onboarding, owns the
+ * ranking/formula settings) and {@link #USER} (everything else, scoped to their groups).
+ * ADMIN has no extra power inside a group.
  */
 public enum Role {
-    OWNER,
-    CONTRIBUTOR,
-    VIEWER;
+    ADMIN,
+    USER;
 
-    /** Spring Security authority name, e.g. {@code ROLE_OWNER}. */
+    /** Spring Security authority name, e.g. {@code ROLE_ADMIN}. */
     public String authority() {
         return "ROLE_" + name();
     }

@@ -44,10 +44,8 @@ app:
     transactions:
       # true only against a replica set / Atlas — makes the §24 archive move atomic
       enabled: ${MONGO_TRANSACTIONS_ENABLED:false}
-  # Dev seed account (design has no real founder data yet). Override in production.
-  seed-user:
-    enabled: ${SEED_USER_ENABLED:true}
-    email: ${SEED_USER_EMAIL:test123}
-    password: ${SEED_USER_PASSWORD:test123}
-    name: ${SEED_USER_NAME:Test User}
-    user-code: ${SEED_USER_CODE:TST}
+  # On an empty DB, create a fixed ADMIN account (test123/test123) so local runs,
+  # the demo profile and the test suite can sign in. Turned OFF in prod, where the
+  # admin already exists. No SEED_USER_* knobs.
+  local-bootstrap:
+    enabled: true

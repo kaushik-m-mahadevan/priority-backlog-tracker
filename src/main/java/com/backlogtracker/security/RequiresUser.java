@@ -7,9 +7,12 @@ import java.lang.annotation.Target;
 
 import org.springframework.security.access.prepost.PreAuthorize;
 
-/** Owners and Contributors may mutate shared items; Viewers are read-only (design §8). */
+/**
+ * Any authenticated account (ADMIN or USER). The PENDING-account block is enforced
+ * separately (ActiveAccountFilter); group-membership checks live in the services.
+ */
 @Target({ ElementType.METHOD, ElementType.TYPE })
 @Retention(RetentionPolicy.RUNTIME)
-@PreAuthorize("hasAnyRole('OWNER','CONTRIBUTOR')")
-public @interface RequiresContributor {
+@PreAuthorize("hasAnyRole('ADMIN','USER')")
+public @interface RequiresUser {
 }

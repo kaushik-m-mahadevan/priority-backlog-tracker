@@ -7,9 +7,9 @@ import java.lang.annotation.Target;
 
 import org.springframework.security.access.prepost.PreAuthorize;
 
-/** Owner-only actions: config editing, archival-request approval (design §7, §8, §18). */
+/** Admin-only actions: onboarding approval, the ranking/formula settings (design: roles). */
 @Target({ ElementType.METHOD, ElementType.TYPE })
 @Retention(RetentionPolicy.RUNTIME)
-@PreAuthorize("hasRole('OWNER')")
-public @interface RequiresOwner {
+@PreAuthorize("hasRole('ADMIN')")
+public @interface RequiresAdmin {
 }

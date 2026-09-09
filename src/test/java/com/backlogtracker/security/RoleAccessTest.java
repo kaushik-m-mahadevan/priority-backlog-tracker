@@ -2,8 +2,10 @@ package com.backlogtracker.security;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -13,6 +15,7 @@ import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 
 import com.backlogtracker.support.AuthTestSupport;
+import com.backlogtracker.user.domain.AccountStatus;
 import com.backlogtracker.user.domain.Role;
 import com.backlogtracker.user.domain.User;
 import com.backlogtracker.user.repository.UserRepository;
@@ -27,36 +30,56 @@ class RoleAccessTest {
     @Autowired UserRepository users;
     @Autowired JwtService jwt;
 
-    private String viewerToken;
+    private String userToken;
 
     @BeforeEach
     void setUp() {
-        users.findByEmailIgnoreCase("viewer@demo.test").ifPresent(users::delete);
-        User viewer = users.save(User.builder()
-                .name("Vera Viewer").email("viewer@demo.test")
-                .passwordHash("x").role(Role.VIEWER).userCode("VVW").build());
-        viewerToken = jwt.issue(viewer);
+        users.findByEmailIgnoreCase("plainuser@demo.test").ifPresent(users::delete);
+        User u = users.save(User.builder()
+                .name("Uma User").email("plainuser@demo.test")
+                .passwordHash("x").role(Role.USER).status(AccountStatus.ACTIVE)
+                .userCode("UMA").build());
+        userToken = jwt.issue(u);
+    }
+
+    @AfterEach
+    void tearDown() {
+        users.findByEmailIgnoreCase("plainuser@demo.test").ifPresent(users::delete);
     }
 
     private static final String NEW_ITEM = """
-            {"title":"nope","category":"Project","priority":"Low",
+            {"title":"role check","category":"Project","priority":"Low",
              "effortEstimate":{"value":1,"unit":"HOURS"}}""";
 
-    @Test
-    void viewerCanReadButNotMutate() throws Exception {
-        mvc.perform(get("/api/items").header("Authorization", "Bearer " + viewerToken))
-                .andExpect(status().isOk());
+    private static final String CONFIG = """
+            {"priorityWeight":0.5,"urgencyWeight":0.3,"effortWeight":0.2,
+             "urgencyWindowDays":14,"staleThresholdDays":10,"buriedThresholdDays":30,
+             "defaultDueDateOffsetDays":30,"effortCapDays":30,
+             "buriedPriorityLevels":["Low"],
+             "priorityValues":{"Critical":4,"High":3,"Medium":2,"Low":1}}""";
 
-        mvc.perform(post("/api/items").header("Authorization", "Bearer " + viewerToken)
+    @Test
+    void plainUserCanReadAndMutateItemsButNotAdminEndpoints() throws Exception {
+        mvc.perform(get("/api/items").header("Authorization", "Bearer " + userToken))
+                .andExpect(status().isOk());
+        mvc.perform(post("/api/items").header("Authorization", "Bearer " + userToken)
                         .contentType(MediaType.APPLICATION_JSON).content(NEW_ITEM))
+                .andExpect(status().isCreated());
+
+        mvc.perform(put("/api/config").header("Authorization", "Bearer " + userToken)
+                        .contentType(MediaType.APPLICATION_JSON).content(CONFIG))
+                .andExpect(status().isForbidden());
+        mvc.perform(post("/api/users").header("Authorization", "Bearer " + userToken)
+                        .contentType(MediaType.APPLICATION_JSON).content("""
+                                {"name":"X","email":"x@demo.test","password":"changeme123"}"""))
                 .andExpect(status().isForbidden());
     }
 
     @Test
-    void ownerCanMutate() throws Exception {
-        String owner = AuthTestSupport.devToken(mvc, mapper); // test123 is an OWNER
-        mvc.perform(post("/api/items").header("Authorization", "Bearer " + owner)
-                        .contentType(MediaType.APPLICATION_JSON).content(NEW_ITEM))
-                .andExpect(status().isCreated());
+    void adminCanHitAdminEndpoints() throws Exception {
+        String admin = AuthTestSupport.devToken(mvc, mapper); // test123 is ADMIN
+        mvc.perform(put("/api/config").header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON).content(CONFIG))
+                .andExpect(status().isOk());
     }
 }

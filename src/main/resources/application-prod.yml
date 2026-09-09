@@ -28,9 +28,7 @@ app:
   mongo:
     transactions:
       enabled: true # Atlas is a replica set — makes the archive move (§24) atomic
-  seed-user:
-    # Off by default in prod. Flip on with SEED_USER_ENABLED=true (+ SEED_USER_EMAIL /
-    # SEED_USER_PASSWORD / SEED_USER_NAME / SEED_USER_CODE) for a one-time bootstrap of
-    # the first account, then set it back to false. ProdSanityCheck still blocks a
-    # 'test123' password.
-    enabled: ${SEED_USER_ENABLED:false}
+  # No local bootstrap in prod — the admin account already exists and is promoted to
+  # ADMIN/ACTIVE by LegacyDataMigration. New accounts come only from /api/auth/register.
+  local-bootstrap:
+    enabled: false
