@@ -38,6 +38,7 @@ public class ArchivedItem {
     private String priority;
     private EffortEstimate effortEstimate;
     private Instant dueDate;
+    private String groupId;
     private ItemScope scope;
     private String createdBy;
     private String lastUpdatedBy;
@@ -62,6 +63,7 @@ public class ArchivedItem {
                 .priority(i.getPriority())
                 .effortEstimate(i.getEffortEstimate())
                 .dueDate(i.getDueDate())
+                .groupId(i.getGroupId())
                 .scope(i.getScope())
                 .createdBy(i.getCreatedBy())
                 .lastUpdatedBy(actorId != null ? actorId : i.getLastUpdatedBy())

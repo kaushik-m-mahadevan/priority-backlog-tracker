@@ -26,8 +26,8 @@ import lombok.Setter;
  */
 @Document("items")
 @CompoundIndexes({
-        @CompoundIndex(name = "scope_status", def = "{'scope': 1, 'status': 1}"),
-        @CompoundIndex(name = "scope_owner", def = "{'scope': 1, 'ownerId': 1}")
+        @CompoundIndex(name = "group_status", def = "{'groupId': 1, 'status': 1}"),
+        @CompoundIndex(name = "group_owner", def = "{'groupId': 1, 'ownerId': 1}")
 })
 @Getter
 @Setter
@@ -51,6 +51,11 @@ public class Item {
     private Instant dueDate;
 
     private ItemStatus status;
+
+    /** The group this item belongs to. Every item is in exactly one group (design: groups). */
+    private String groupId;
+
+    /** Legacy — always SHARED, unused since groups. Kept until the Phase 6 cleanup. */
     private ItemScope scope;
 
     /** Audit-only — never gates edit rights (design §2, §8). */
