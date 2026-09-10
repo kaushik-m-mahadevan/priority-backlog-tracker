@@ -25,9 +25,11 @@ public class CompletionStatsService {
     public record CompletionStats(long count, int days, Instant lastCompletedAt) {
     }
 
-    public CompletionStats recent(int days) {
+    public CompletionStats recent(String groupId, int days) {
         int d = Math.min(Math.max(1, days), 365);
-        Criteria done = Criteria.where("terminalStatus").in("RESOLVED", "ARCHIVED");
+        Criteria done = new Criteria().andOperator(
+                Criteria.where("groupId").is(groupId),
+                Criteria.where("terminalStatus").in("RESOLVED", "ARCHIVED"));
 
         long count = mongo.count(
                 Query.query(new Criteria().andOperator(done,

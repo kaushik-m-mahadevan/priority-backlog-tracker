@@ -14,6 +14,7 @@ import org.springframework.web.server.ResponseStatusException;
 import com.backlogtracker.archive.domain.ArchivedItem;
 import com.backlogtracker.archive.domain.TerminalStatus;
 import com.backlogtracker.archive.repository.ArchivedItemRepository;
+import com.backlogtracker.group.service.GroupService;
 import com.backlogtracker.item.domain.Item;
 import com.backlogtracker.item.repository.ItemRepository;
 import com.backlogtracker.security.AuthUser;
@@ -35,15 +36,18 @@ public class ArchiveService {
 
     private final ItemRepository items;
     private final ArchivedItemRepository archived;
+    private final GroupService groupService;
     private final Clock clock;
     private final TransactionTemplate tx; // null when transactions are not available
 
     public ArchiveService(ItemRepository items,
                           ArchivedItemRepository archived,
+                          GroupService groupService,
                           Clock clock,
                           ObjectProvider<MongoTransactionManager> txManager) {
         this.items = items;
         this.archived = archived;
+        this.groupService = groupService;
         this.clock = clock;
         MongoTransactionManager txm = txManager.getIfAvailable();
         this.tx = txm != null ? new TransactionTemplate(txm) : null;
@@ -55,6 +59,7 @@ public class ArchiveService {
     public ArchivedItem complete(String id, TerminalStatus terminal, AuthUser actor) {
         Item item = items.findById(id).orElseThrow(
                 () -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Item not found: " + id));
+        groupService.requireMember(item.getGroupId(), actor != null ? actor.id() : null);
 
         Instant now = clock.instant();
         ArchivedItem toArchive = ArchivedItem.from(item, terminal,
@@ -71,9 +76,5 @@ public class ArchiveService {
         }
         log.info("Item {} ({}) -> {} archived", item.getItemId(), id, terminal);
         return toArchive;
-    }
-
-    public List<ArchivedItem> list() {
-        return archived.findAllByOrderByMovedAtDesc();
     }
 }

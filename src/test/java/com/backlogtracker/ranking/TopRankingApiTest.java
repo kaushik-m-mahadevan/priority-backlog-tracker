@@ -14,6 +14,7 @@ import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 
 import com.backlogtracker.item.repository.ItemRepository;
+import com.backlogtracker.group.repository.GroupRepository;
 import com.backlogtracker.support.AuthTestSupport;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -24,13 +25,17 @@ class TopRankingApiTest {
     @Autowired MockMvc mvc;
     @Autowired ObjectMapper mapper;
     @Autowired ItemRepository items;
+    @Autowired GroupRepository groups;
 
     private String token;
+    private String groupId;
 
     @BeforeEach
     void setUp() throws Exception {
         items.deleteAll();
         token = AuthTestSupport.devToken(mvc, mapper);
+        groups.deleteAll();
+        groupId = AuthTestSupport.createGroup(mvc, mapper, token, "Top Test Group");
     }
 
     private void create(String title, String priority, int effortValue, String effortUnit,
@@ -38,9 +43,9 @@ class TopRankingApiTest {
         mvc.perform(post("/api/items").header("Authorization", "Bearer " + token)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"title":"%s","category":"Project","priority":"%s",
+                                {"groupId":"%s","title":"%s","category":"Project","priority":"%s",
                                  "effortEstimate":{"value":%d,"unit":"%s"},"dueDate":"%s"}"""
-                                .formatted(title, priority, effortValue, effortUnit, dueDate)))
+                                .formatted(groupId, title, priority, effortValue, effortUnit, dueDate)))
                 .andExpect(status().isCreated());
     }
 
@@ -50,7 +55,7 @@ class TopRankingApiTest {
         create("someday-low", "Low", 20, "DAYS", "2027-01-01T00:00:00Z");
         create("mid", "Medium", 2, "HOURS", "2026-06-01T00:00:00Z");
 
-        mvc.perform(get("/api/items/top").header("Authorization", "Bearer " + token))
+        mvc.perform(get("/api/items/top").param("groupId", groupId).header("Authorization", "Bearer " + token))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.length()").value(3))
                 .andExpect(jsonPath("$[0].item.title").value("urgent-critical"))
@@ -64,15 +69,9 @@ class TopRankingApiTest {
         for (int i = 0; i < 5; i++) {
             create("item-" + i, "Medium", 1, "HOURS", "2026-03-01T00:00:00Z");
         }
-        mvc.perform(get("/api/items/top?limit=2").header("Authorization", "Bearer " + token))
+        mvc.perform(get("/api/items/top").param("groupId", groupId).param("limit", "2").header("Authorization", "Bearer " + token))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.length()").value(2));
-    }
-
-    @Test
-    void personalScopeNotYetSupported() throws Exception {
-        mvc.perform(get("/api/items/top?scope=personal").header("Authorization", "Bearer " + token))
-                .andExpect(status().isBadRequest());
     }
 
     @Test

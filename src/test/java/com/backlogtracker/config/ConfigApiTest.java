@@ -19,6 +19,7 @@ import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilde
 import com.backlogtracker.config.repository.ConfigHistoryRepository;
 import com.backlogtracker.config.repository.ConfigRepository;
 import com.backlogtracker.item.repository.ItemRepository;
+import com.backlogtracker.group.repository.GroupRepository;
 import com.backlogtracker.support.AuthTestSupport;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -31,8 +32,10 @@ class ConfigApiTest {
     @Autowired ConfigRepository configRepo;
     @Autowired ConfigHistoryRepository historyRepo;
     @Autowired ItemRepository items;
+    @Autowired GroupRepository groups;
 
     private String token;
+    private String groupId;
 
     @BeforeEach
     void setUp() throws Exception {
@@ -40,6 +43,8 @@ class ConfigApiTest {
         historyRepo.deleteAll();
         items.deleteAll();
         token = AuthTestSupport.devToken(mvc, mapper);
+        groups.deleteAll();
+        groupId = AuthTestSupport.createGroup(mvc, mapper, token, "Config Test Group");
     }
 
     private MockHttpServletRequestBuilder auth(MockHttpServletRequestBuilder b) {
@@ -56,9 +61,9 @@ class ConfigApiTest {
     private void createItem(String title, String category, String priority) throws Exception {
         mvc.perform(auth(post("/api/items")).contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"title":"%s","category":"%s","priority":"%s",
+                                {"groupId":"%s","title":"%s","category":"%s","priority":"%s",
                                  "effortEstimate":{"value":30,"unit":"MINUTES"}}"""
-                                .formatted(title, category, priority)))
+                                .formatted(groupId, title, category, priority)))
                 .andExpect(status().isCreated());
     }
 
@@ -110,7 +115,7 @@ class ConfigApiTest {
         createItem("only", "Admin-Ops", "Low");
         mvc.perform(auth(delete("/api/config/categories/Admin-Ops").param("reassignTo", "Project")))
                 .andExpect(status().isOk());
-        mvc.perform(auth(get("/api/items")))
+        mvc.perform(auth(get("/api/items")).param("groupId", groupId))
                 .andExpect(jsonPath("$.content[0].category").value("Project"));
     }
 }

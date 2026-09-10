@@ -15,6 +15,7 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import com.backlogtracker.archive.repository.ArchivedItemRepository;
 import com.backlogtracker.item.repository.ItemRepository;
+import com.backlogtracker.group.repository.GroupRepository;
 import com.backlogtracker.support.AuthTestSupport;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -27,22 +28,26 @@ class ArchiveApiTest {
     @Autowired ObjectMapper mapper;
     @Autowired ItemRepository items;
     @Autowired ArchivedItemRepository archived;
+    @Autowired GroupRepository groups;
 
     private String token;
+    private String groupId;
 
     @BeforeEach
     void setUp() throws Exception {
         items.deleteAll();
         archived.deleteAll();
         token = AuthTestSupport.devToken(mvc, mapper);
+        groups.deleteAll();
+        groupId = AuthTestSupport.createGroup(mvc, mapper, token, "Archive Test Group");
     }
 
     private JsonNode createItem(String title) throws Exception {
         String res = mvc.perform(post("/api/items").header("Authorization", "Bearer " + token)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"title":"%s","category":"Project","priority":"High",
-                                 "effortEstimate":{"value":30,"unit":"MINUTES"}}""".formatted(title)))
+                                {"groupId":"%s","title":"%s","category":"Project","priority":"High",
+                                 "effortEstimate":{"value":30,"unit":"MINUTES"}}""".formatted(groupId, title)))
                 .andExpect(status().isCreated())
                 .andReturn().getResponse().getContentAsString();
         return mapper.readTree(res);
@@ -62,15 +67,15 @@ class ArchiveApiTest {
                 .andExpect(jsonPath("$.movedAt").isNotEmpty());
 
         // gone from live views
-        mvc.perform(get("/api/items").header("Authorization", "Bearer " + token))
+        mvc.perform(get("/api/items").param("groupId", groupId).header("Authorization", "Bearer " + token))
                 .andExpect(jsonPath("$.total").value(0));
-        mvc.perform(get("/api/items/top").header("Authorization", "Bearer " + token))
+        mvc.perform(get("/api/items/top").param("groupId", groupId).header("Authorization", "Bearer " + token))
                 .andExpect(jsonPath("$.length()").value(0));
         mvc.perform(get("/api/items/" + id).header("Authorization", "Bearer " + token))
                 .andExpect(status().isNotFound());
 
         // present in the completed view
-        mvc.perform(get("/api/archived").header("Authorization", "Bearer " + token))
+        mvc.perform(get("/api/archived").param("groupId", groupId).header("Authorization", "Bearer " + token))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.total").value(1))
                 .andExpect(jsonPath("$.content[0].title").value("Ship v1"))
@@ -84,7 +89,7 @@ class ArchiveApiTest {
         complete(a, "REJECTED");
         complete(b, "ARCHIVED");
 
-        mvc.perform(get("/api/archived").header("Authorization", "Bearer " + token))
+        mvc.perform(get("/api/archived").param("groupId", groupId).header("Authorization", "Bearer " + token))
                 .andExpect(jsonPath("$.content[0].title").value("second"))
                 .andExpect(jsonPath("$.content[1].title").value("first"));
     }

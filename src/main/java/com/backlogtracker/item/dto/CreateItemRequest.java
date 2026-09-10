@@ -13,6 +13,7 @@ import jakarta.validation.constraints.NotNull;
  * a missing due date defaults to {@code now + config.defaultDueDateOffsetDays} (§2).
  */
 public record CreateItemRequest(
+        @NotBlank String groupId,
         @NotBlank String title,
         @NotBlank String category,
         @NotBlank String priority,

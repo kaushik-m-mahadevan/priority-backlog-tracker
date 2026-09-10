@@ -12,6 +12,7 @@ import org.springframework.web.server.ResponseStatusException;
 import com.backlogtracker.config.domain.AppConfig;
 import com.backlogtracker.config.service.ConfigService;
 import com.backlogtracker.counter.CounterService;
+import com.backlogtracker.group.service.GroupService;
 import com.backlogtracker.item.domain.Item;
 import com.backlogtracker.item.domain.ItemScope;
 import com.backlogtracker.item.domain.ItemStatus;
@@ -25,8 +26,8 @@ import com.backlogtracker.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 
 /**
- * CRUD and live status flow for shared backlog items (design §2, §4). Personal-scope
- * items, edit locking, and terminal/archive transitions arrive in later steps.
+ * CRUD and live status flow for backlog items. Every item belongs to one group; the
+ * caller must be a member of that group to read or mutate it (design: groups).
  */
 @Service
 @RequiredArgsConstructor
@@ -38,9 +39,11 @@ public class ItemService {
     private final ConfigService configService;
     private final CounterService counters;
     private final UserRepository users;
+    private final GroupService groupService;
     private final Clock clock;
 
     public Item create(CreateItemRequest r, AuthUser actor) {
+        groupService.requireMember(r.groupId(), actor.id());
         AppConfig cfg = configService.getConfig();
         validateCategory(cfg, r.category());
         validatePriority(cfg, r.priority());
@@ -58,6 +61,7 @@ public class ItemService {
                 .effortEstimate(r.effortEstimate())
                 .dueDate(due)
                 .status(ItemStatus.BACKLOG)
+                .groupId(r.groupId())
                 .scope(ItemScope.SHARED)
                 .createdBy(actor.id())
                 .lastUpdatedBy(actor.id())
@@ -70,7 +74,7 @@ public class ItemService {
     }
 
     public Item update(String id, UpdateItemRequest r, AuthUser actor) {
-        Item item = require(id);
+        Item item = requireMemberItem(id, actor);
         AppConfig cfg = configService.getConfig();
         validateCategory(cfg, r.category());
         validatePriority(cfg, r.priority());
@@ -105,24 +109,27 @@ public class ItemService {
     }
 
     public Item changeStatus(String id, ItemStatus status, AuthUser actor) {
-        Item item = require(id);
+        Item item = requireMemberItem(id, actor);
         item.setStatus(status);
         item.setLastUpdatedBy(actor.id());
         return items.save(item);
     }
 
-    public Item get(String id) {
-        return require(id);
+    public Item get(String id, AuthUser actor) {
+        return requireMemberItem(id, actor);
     }
 
-    /** Live shared items (Backlog + In Progress). */
-    public List<Item> listShared() {
-        return items.findByScopeAndStatusIn(ItemScope.SHARED, LIVE);
+    /** Live items (Backlog + In Progress) in a group. Caller membership checked upstream. */
+    public List<Item> listLive(String groupId) {
+        return items.findByGroupIdAndStatusIn(groupId, LIVE);
     }
 
-    private Item require(String id) {
-        return items.findById(id)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Item not found: " + id));
+    private Item requireMemberItem(String id, AuthUser actor) {
+        Item item = items.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
+                        "Item not found: " + id));
+        groupService.requireMember(item.getGroupId(), actor.id());
+        return item;
     }
 
     private static void validateCategory(AppConfig cfg, String category) {

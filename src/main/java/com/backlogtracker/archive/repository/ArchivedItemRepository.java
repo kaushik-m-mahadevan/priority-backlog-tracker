@@ -11,9 +11,9 @@ import com.backlogtracker.archive.domain.ArchivedItem;
 
 public interface ArchivedItemRepository extends MongoRepository<ArchivedItem, String> {
 
-    List<ArchivedItem> findAllByOrderByMovedAtDesc();
+    Page<ArchivedItem> findByGroupIdOrderByMovedAtDesc(String groupId, Pageable pageable);
 
-    Page<ArchivedItem> findAllByOrderByMovedAtDesc(Pageable pageable);
+    List<ArchivedItem> findByGroupId(String groupId);
 
     Optional<ArchivedItem> findByItemId(String itemId);
 }

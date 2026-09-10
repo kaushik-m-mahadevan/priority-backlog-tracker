@@ -32,11 +32,11 @@ public class WorkloadService {
     private final ItemService itemService;
     private final UserRepository users;
 
-    public OwnerWorkloadView.Overview overview() {
+    public OwnerWorkloadView.Overview overview(String groupId) {
         Map<String, String> nameById = users.findAll().stream()
                 .collect(Collectors.toMap(u -> u.getId(), u -> u.getName(), (a, b) -> a));
 
-        Map<String, List<Item>> byOwner = itemService.listShared().stream()
+        Map<String, List<Item>> byOwner = itemService.listLive(groupId).stream()
                 .collect(Collectors.groupingBy(
                         i -> i.getOwnerId() == null || i.getOwnerId().isBlank()
                                 ? UNASSIGNED : i.getOwnerId(),

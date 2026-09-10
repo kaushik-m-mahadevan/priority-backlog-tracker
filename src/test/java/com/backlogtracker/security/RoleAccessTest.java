@@ -47,10 +47,6 @@ class RoleAccessTest {
         users.findByEmailIgnoreCase("plainuser@demo.test").ifPresent(users::delete);
     }
 
-    private static final String NEW_ITEM = """
-            {"title":"role check","category":"Project","priority":"Low",
-             "effortEstimate":{"value":1,"unit":"HOURS"}}""";
-
     private static final String CONFIG = """
             {"priorityWeight":0.5,"urgencyWeight":0.3,"effortWeight":0.2,
              "urgencyWindowDays":14,"staleThresholdDays":10,"buriedThresholdDays":30,
@@ -60,10 +56,15 @@ class RoleAccessTest {
 
     @Test
     void plainUserCanReadAndMutateItemsButNotAdminEndpoints() throws Exception {
-        mvc.perform(get("/api/items").header("Authorization", "Bearer " + userToken))
+        String groupId = AuthTestSupport.createGroup(mvc, mapper, userToken, "Uma Group");
+
+        mvc.perform(get("/api/items").param("groupId", groupId)
+                        .header("Authorization", "Bearer " + userToken))
                 .andExpect(status().isOk());
         mvc.perform(post("/api/items").header("Authorization", "Bearer " + userToken)
-                        .contentType(MediaType.APPLICATION_JSON).content(NEW_ITEM))
+                        .contentType(MediaType.APPLICATION_JSON).content("""
+                                {"groupId":"%s","title":"role check","category":"Project","priority":"Low",
+                                 "effortEstimate":{"value":1,"unit":"HOURS"}}""".formatted(groupId)))
                 .andExpect(status().isCreated());
 
         mvc.perform(put("/api/config").header("Authorization", "Bearer " + userToken)

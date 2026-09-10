@@ -38,10 +38,10 @@ public class AgingService {
     private final ConfigService configService;
     private final Clock clock;
 
-    public NeedsAttentionView needsAttention() {
+    public NeedsAttentionView needsAttention(String groupId) {
         AppConfig cfg = configService.getConfig();
         LocalDate today = LocalDate.now(clock);
-        List<Item> live = itemService.listShared();
+        List<Item> live = itemService.listLive(groupId);
 
         List<FlaggedItem> stale = live.stream()
                 .filter(i -> i.getDueDate() != null)

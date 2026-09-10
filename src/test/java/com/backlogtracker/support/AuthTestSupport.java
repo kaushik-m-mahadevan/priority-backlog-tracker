@@ -7,7 +7,7 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 
-/** Shared helper: log in as the seeded dev user and return a bearer token. */
+/** Shared helpers: a bearer token for the bootstrap admin, and a group it owns. */
 public final class AuthTestSupport {
 
     private AuthTestSupport() {
@@ -20,5 +20,16 @@ public final class AuthTestSupport {
                                 {"email":"test123","password":"test123"}"""))
                 .andReturn().getResponse().getContentAsString();
         return mapper.readTree(body).get("token").asText();
+    }
+
+    /** Creates a fresh group owned by the given token's user and returns its id. */
+    public static String createGroup(MockMvc mvc, ObjectMapper mapper, String token, String name)
+            throws Exception {
+        String body = mvc.perform(post("/api/groups")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\":\"" + name + "\"}"))
+                .andReturn().getResponse().getContentAsString();
+        return mapper.readTree(body).get("id").asText();
     }
 }

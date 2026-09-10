@@ -26,6 +26,7 @@ import org.springframework.data.mongodb.core.query.Query;
 import com.backlogtracker.counter.domain.Counter;
 import com.backlogtracker.item.domain.Item;
 import com.backlogtracker.item.repository.ItemRepository;
+import com.backlogtracker.group.repository.GroupRepository;
 import com.backlogtracker.support.AuthTestSupport;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -37,27 +38,36 @@ class ItemApiTest {
     @Autowired MockMvc mvc;
     @Autowired ObjectMapper mapper;
     @Autowired ItemRepository items;
+    @Autowired GroupRepository groups;
     @Autowired MongoOperations mongo;
 
     private String token;
+    private String groupId;
 
     @BeforeEach
     void setUp() throws Exception {
         items.deleteAll();
         mongo.remove(new Query(), Counter.class); // reset ITM- sequence for deterministic ids
         token = AuthTestSupport.devToken(mvc, mapper);
+        groups.deleteAll();
+        groupId = AuthTestSupport.createGroup(mvc, mapper, token, "Item Test Group");
     }
 
     private MockHttpServletRequestBuilder auth(MockHttpServletRequestBuilder b) {
         return b.header("Authorization", "Bearer " + token);
     }
 
-    private static String createBody(String title, String category, String priority,
-                                     int effortValue, String effortUnit) {
+    /** GET builder for the item list already carrying groupId. */
+    private MockHttpServletRequestBuilder listReq() {
+        return auth(get("/api/items")).param("groupId", groupId);
+    }
+
+    private String createBody(String title, String category, String priority,
+                              int effortValue, String effortUnit) {
         return """
-                {"title":"%s","category":"%s","priority":"%s",
+                {"groupId":"%s","title":"%s","category":"%s","priority":"%s",
                  "effortEstimate":{"value":%d,"unit":"%s"}}"""
-                .formatted(title, category, priority, effortValue, effortUnit);
+                .formatted(groupId, title, category, priority, effortValue, effortUnit);
     }
 
     private JsonNode create(String body) throws Exception {
@@ -114,7 +124,7 @@ class ItemApiTest {
     @Test
     void listReturnsLiveItems() throws Exception {
         create(createBody("Listed", "Admin-Ops", "Medium", 2, "HOURS"));
-        mvc.perform(auth(get("/api/items")))
+        mvc.perform(listReq())
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.total").value(1))
                 .andExpect(jsonPath("$.content[0].title").value("Listed"));
@@ -126,14 +136,14 @@ class ItemApiTest {
         create(createBody("Beta report", "Project", "Low", 30, "MINUTES"));
         create(createBody("Gamma memo", "Research", "Low", 30, "MINUTES"));
 
-        mvc.perform(auth(get("/api/items").param("q", "report")))
+        mvc.perform(listReq().param("q", "report"))
                 .andExpect(jsonPath("$.total").value(2));
-        mvc.perform(auth(get("/api/items").param("category", "Research")))
+        mvc.perform(listReq().param("category", "Research"))
                 .andExpect(jsonPath("$.total").value(2));
-        mvc.perform(auth(get("/api/items").param("q", "report").param("priority", "Low")))
+        mvc.perform(listReq().param("q", "report").param("priority", "Low"))
                 .andExpect(jsonPath("$.total").value(1))
                 .andExpect(jsonPath("$.content[0].title").value("Beta report"));
-        mvc.perform(auth(get("/api/items").param("size", "2")))
+        mvc.perform(listReq().param("size", "2"))
                 .andExpect(jsonPath("$.content.length()").value(2))
                 .andExpect(jsonPath("$.totalPages").value(2));
     }
@@ -187,8 +197,9 @@ class ItemApiTest {
     void rejectsUnknownOwnerOnCreate() throws Exception {
         mvc.perform(auth(post("/api/items")).contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"title":"Orphan","category":"Research","priority":"Low",
-                                 "effortEstimate":{"value":15,"unit":"MINUTES"},"ownerId":"nobody-here"}"""))
+                                {"groupId":"%s","title":"Orphan","category":"Research","priority":"Low",
+                                 "effortEstimate":{"value":15,"unit":"MINUTES"},"ownerId":"nobody-here"}"""
+                                .formatted(groupId)))
                 .andExpect(status().isBadRequest());
     }
 

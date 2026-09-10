@@ -70,8 +70,9 @@ class AdminApiTest {
                 .andExpect(jsonPath("$.status").value("ACTIVE"));
 
         // the freshly-approved account is no longer gated
-        mvc.perform(get("/api/items").header("Authorization", "Bearer " + candToken))
-                .andExpect(status().isOk());
+        mvc.perform(post("/api/groups").header("Authorization", "Bearer " + candToken)
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"name\":\"Cand Group\"}"))
+                .andExpect(status().isCreated());
     }
 
     @Test

@@ -17,6 +17,7 @@ import com.backlogtracker.archive.dto.CompleteItemRequest;
 import com.backlogtracker.archive.repository.ArchivedItemRepository;
 import com.backlogtracker.archive.service.ArchiveService;
 import com.backlogtracker.common.web.PageResponse;
+import com.backlogtracker.group.service.GroupService;
 import com.backlogtracker.security.AuthUser;
 import com.backlogtracker.security.RequiresUser;
 
@@ -29,6 +30,7 @@ public class ArchiveController {
 
     private final ArchiveService archiveService;
     private final ArchivedItemRepository archivedItems;
+    private final GroupService groupService;
 
     /** Completes an item — physically moves it to archivedItems (design §24). */
     @PostMapping("/api/items/{id}/complete")
@@ -47,14 +49,18 @@ public class ArchiveController {
         return ArchivedItemView.of(archiveService.complete(id, terminal, actor));
     }
 
-    /** The "Completed Items" view (design §24), newest first, paginated. */
+    /** One group's "Completed Items" view (design §24), newest first, paginated. */
     @GetMapping("/api/archived")
     public PageResponse<ArchivedItemView> list(
+            @RequestParam String groupId,
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "50") int size) {
+            @RequestParam(defaultValue = "50") int size,
+            @AuthenticationPrincipal AuthUser actor) {
+        groupService.requireMember(groupId, actor.id());
         int p = Math.max(0, page);
         int s = Math.min(Math.max(1, size), 200);
-        Page<ArchivedItem> found = archivedItems.findAllByOrderByMovedAtDesc(PageRequest.of(p, s));
+        Page<ArchivedItem> found =
+                archivedItems.findByGroupIdOrderByMovedAtDesc(groupId, PageRequest.of(p, s));
         return PageResponse.of(
                 found.getContent().stream().map(ArchivedItemView::of).toList(),
                 p, s, found.getTotalElements());

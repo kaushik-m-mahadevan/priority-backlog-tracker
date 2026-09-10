@@ -13,14 +13,14 @@ import org.springframework.stereotype.Service;
 
 import com.backlogtracker.common.web.PageResponse;
 import com.backlogtracker.item.domain.Item;
-import com.backlogtracker.item.domain.ItemScope;
 import com.backlogtracker.item.domain.ItemStatus;
 
 import lombok.RequiredArgsConstructor;
 
 /**
- * Server-side search &amp; filtering for the live item list (design §21): title contains,
- * plus combinable owner / category / priority / status, scoped and paginated.
+ * Server-side search &amp; filtering for one group's live item list: title contains, plus
+ * combinable owner / category / priority / status, paginated. Membership is checked by
+ * the caller before this runs.
  */
 @Service
 @RequiredArgsConstructor
@@ -30,17 +30,13 @@ public class ItemQueryService {
 
     private final MongoOperations mongo;
 
-    public PageResponse<Item> search(ItemScope scope, String actorId, String q, String owner,
-                                     String category, String priority, ItemStatus status,
-                                     int page, int size) {
+    public PageResponse<Item> search(String groupId, String q, String owner, String category,
+                                     String priority, ItemStatus status, int page, int size) {
         int p = Math.max(0, page);
         int s = Math.min(Math.max(1, size), 200);
 
         List<Criteria> and = new ArrayList<>();
-        and.add(Criteria.where("scope").is(scope));
-        if (scope == ItemScope.PERSONAL) {
-            and.add(Criteria.where("ownerId").is(actorId));
-        }
+        and.add(Criteria.where("groupId").is(groupId));
         and.add(status != null
                 ? Criteria.where("status").is(status)
                 : Criteria.where("status").in(LIVE));

@@ -14,7 +14,7 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.backlogtracker.common.web.PageResponse;
-import com.backlogtracker.item.domain.ItemScope;
+import com.backlogtracker.group.service.GroupService;
 import com.backlogtracker.item.domain.ItemStatus;
 import com.backlogtracker.item.dto.CreateItemRequest;
 import com.backlogtracker.item.dto.ItemView;
@@ -35,15 +35,16 @@ public class ItemController {
 
     private final ItemService itemService;
     private final ItemQueryService itemQueryService;
+    private final GroupService groupService;
 
     /**
-     * Live items (Backlog + In Progress), searched / filtered / paginated (design §21).
-     * All params optional: {@code q} (title contains), {@code owner}, {@code category},
-     * {@code priority}, {@code status}, {@code page} (0-based), {@code size}.
+     * One group's live items (Backlog + In Progress), searched / filtered / paginated.
+     * {@code groupId} is required; {@code q} / {@code owner} / {@code category} /
+     * {@code priority} / {@code status} / {@code page} / {@code size} are optional.
      */
     @GetMapping
     public PageResponse<ItemView> list(
-            @RequestParam(defaultValue = "shared") String scope,
+            @RequestParam String groupId,
             @RequestParam(required = false) String q,
             @RequestParam(required = false) String owner,
             @RequestParam(required = false) String category,
@@ -52,21 +53,18 @@ public class ItemController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "50") int size,
             @AuthenticationPrincipal AuthUser actor) {
-        if (!"shared".equalsIgnoreCase(scope)) {
-            throw new IllegalArgumentException("Only scope=shared is supported yet");
-        }
+        groupService.requireMember(groupId, actor.id());
         ItemStatus st = status == null || status.isBlank()
                 ? null
                 : ItemStatus.valueOf(status.trim().toUpperCase());
-        var res = itemQueryService.search(ItemScope.SHARED, actor.id(), q, owner, category,
-                priority, st, page, size);
+        var res = itemQueryService.search(groupId, q, owner, category, priority, st, page, size);
         return PageResponse.of(res.content().stream().map(ItemView::of).toList(),
                 res.page(), res.size(), res.total());
     }
 
     @GetMapping("/{id}")
-    public ItemView get(@PathVariable String id) {
-        return ItemView.of(itemService.get(id));
+    public ItemView get(@PathVariable String id, @AuthenticationPrincipal AuthUser actor) {
+        return ItemView.of(itemService.get(id, actor));
     }
 
     @PostMapping

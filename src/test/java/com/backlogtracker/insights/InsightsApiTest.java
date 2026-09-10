@@ -26,6 +26,7 @@ import com.backlogtracker.item.domain.Item;
 import com.backlogtracker.item.domain.ItemScope;
 import com.backlogtracker.item.domain.ItemStatus;
 import com.backlogtracker.item.repository.ItemRepository;
+import com.backlogtracker.group.repository.GroupRepository;
 import com.backlogtracker.support.AuthTestSupport;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -37,13 +38,17 @@ class InsightsApiTest {
     @Autowired ObjectMapper mapper;
     @Autowired ItemRepository items;
     @Autowired MongoOperations mongo;
+    @Autowired GroupRepository groups;
 
     private String token;
+    private String groupId;
 
     @BeforeEach
     void setUp() throws Exception {
         items.deleteAll();
         token = AuthTestSupport.devToken(mvc, mapper);
+        groups.deleteAll();
+        groupId = AuthTestSupport.createGroup(mvc, mapper, token, "Insights Test Group");
     }
 
     /** Saves an item then back-dates createdAt/dueDate past the auditing callbacks. */
@@ -52,7 +57,7 @@ class InsightsApiTest {
         Item i = items.save(Item.builder()
                 .itemId(itemId).title(itemId).category("Project").priority(priority)
                 .effortEstimate(new EffortEstimate(30, EffortUnit.MINUTES))
-                .status(status).scope(ItemScope.SHARED)
+                .status(status).scope(ItemScope.SHARED).groupId(groupId)
                 .createdBy("seed").lastUpdatedBy("seed")
                 .dueDate(Instant.now())
                 .build());
@@ -72,7 +77,7 @@ class InsightsApiTest {
         seed("ITM-YOUNGLOW", "Low", ItemStatus.BACKLOG, 10, 60);    // 10 days old -> not buried
         seed("ITM-OLDHIGH", "High", ItemStatus.BACKLOG, 40, 60);    // old but not Low -> not buried
 
-        mvc.perform(get("/api/insights/needs-attention").header("Authorization", "Bearer " + token))
+        mvc.perform(get("/api/insights/needs-attention").param("groupId", groupId).header("Authorization", "Bearer " + token))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.staleAndOverdue.length()").value(1))
                 .andExpect(jsonPath("$.staleAndOverdue[0].item.itemId").value("ITM-STALE"))
@@ -91,7 +96,7 @@ class InsightsApiTest {
         createViaApi("owned-project", "Medium", uid);
         createViaApi("nobody-1", "Low", null);
 
-        mvc.perform(get("/api/insights/workload").header("Authorization", "Bearer " + token))
+        mvc.perform(get("/api/insights/workload").param("groupId", groupId).header("Authorization", "Bearer " + token))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.owners[?(@.ownerName=='Unassigned')].openCount").value(1))
                 .andExpect(jsonPath("$.owners[?(@.ownerId=='" + uid + "')].openCount").value(2))
@@ -109,9 +114,9 @@ class InsightsApiTest {
         mvc.perform(post("/api/items").header("Authorization", "Bearer " + token)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"title":"%s","category":"Project","priority":"%s",
+                                {"groupId":"%s","title":"%s","category":"Project","priority":"%s",
                                  "effortEstimate":{"value":30,"unit":"MINUTES"}%s}"""
-                                .formatted(title, priority, owner)))
+                                .formatted(groupId, title, priority, owner)))
                 .andExpect(status().isCreated());
     }
 }

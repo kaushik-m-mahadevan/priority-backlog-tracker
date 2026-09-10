@@ -14,6 +14,7 @@ import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 
 import com.backlogtracker.item.repository.ItemRepository;
+import com.backlogtracker.group.repository.GroupRepository;
 import com.backlogtracker.support.AuthTestSupport;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -24,23 +25,27 @@ class QuickWinsApiTest {
     @Autowired MockMvc mvc;
     @Autowired ObjectMapper mapper;
     @Autowired ItemRepository items;
+    @Autowired GroupRepository groups;
 
     private String token;
+    private String groupId;
 
     @BeforeEach
     void setUp() throws Exception {
         items.deleteAll();
         token = AuthTestSupport.devToken(mvc, mapper);
+        groups.deleteAll();
+        groupId = AuthTestSupport.createGroup(mvc, mapper, token, "QW Test Group");
     }
 
     private void create(String title, String priority, int v, String unit) throws Exception {
         mvc.perform(post("/api/items").header("Authorization", "Bearer " + token)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"title":"%s","category":"Project","priority":"%s",
+                                {"groupId":"%s","title":"%s","category":"Project","priority":"%s",
                                  "effortEstimate":{"value":%d,"unit":"%s"},
                                  "dueDate":"2026-06-01T00:00:00Z"}"""
-                                .formatted(title, priority, v, unit)))
+                                .formatted(groupId, title, priority, v, unit)))
                 .andExpect(status().isCreated());
     }
 
@@ -50,7 +55,7 @@ class QuickWinsApiTest {
         create("tiny-low", "Low", 15, "MINUTES");
         create("small-medium", "Medium", 45, "MINUTES");
 
-        mvc.perform(get("/api/items/quick-wins").header("Authorization", "Bearer " + token))
+        mvc.perform(get("/api/items/quick-wins").param("groupId", groupId).header("Authorization", "Bearer " + token))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].item.title").value("tiny-low"))
                 .andExpect(jsonPath("$[1].item.title").value("small-medium"))
@@ -62,21 +67,19 @@ class QuickWinsApiTest {
         create("urgent", "Critical", 30, "MINUTES");
         create("meh", "Low", 30, "MINUTES");
 
-        mvc.perform(get("/api/items/quick-wins").header("Authorization", "Bearer " + token))
+        mvc.perform(get("/api/items/quick-wins").param("groupId", groupId).header("Authorization", "Bearer " + token))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].item.title").value("urgent"));
     }
 
     @Test
-    void limitAndScopeGuardAndAuth() throws Exception {
+    void limitAndAuth() throws Exception {
         create("a", "Low", 15, "MINUTES");
         create("b", "Low", 30, "MINUTES");
 
-        mvc.perform(get("/api/items/quick-wins?limit=1").header("Authorization", "Bearer " + token))
+        mvc.perform(get("/api/items/quick-wins").param("groupId", groupId).param("limit", "1").header("Authorization", "Bearer " + token))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.length()").value(1));
-        mvc.perform(get("/api/items/quick-wins?scope=personal").header("Authorization", "Bearer " + token))
-                .andExpect(status().isBadRequest());
         mvc.perform(get("/api/items/quick-wins")).andExpect(status().isUnauthorized());
     }
 }
