@@ -2,6 +2,7 @@ import { FormEvent, KeyboardEvent as ReactKeyboardEvent, useEffect, useRef, useS
 import { api, ApiError } from "../api/client";
 import { useConfig } from "../config/ConfigContext";
 import { useUsers } from "../users/UsersContext";
+import { useGroups } from "../groups/GroupContext";
 import { notifyItemsChanged } from "../lib/events";
 import { formatDateTime } from "../lib/format";
 import MarkdownField from "./MarkdownField";
@@ -50,6 +51,7 @@ const UNIT_RULES: Record<
 export default function ItemFormModal({ existing, onClose, onSaved, onComplete }: Props) {
   const config = useConfig();
   const { users, nameOf } = useUsers();
+  const { currentGroupId } = useGroups();
   const editing = !!existing;
 
   const plus30 = () => {
@@ -168,7 +170,7 @@ export default function ItemFormModal({ existing, onClose, onSaved, onComplete }
     if (dueDate) body.dueDate = new Date(dueDate + "T00:00:00Z").toISOString();
     try {
       if (editing) await api.put(`/items/${existing!.id}`, body);
-      else await api.post("/items", body);
+      else await api.post("/items", { ...body, groupId: currentGroupId });
       notifyItemsChanged();
       onSaved();
     } catch (err) {

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { api } from "../api/client";
 import { useItemsChanged } from "../lib/events";
+import { useGroups } from "../groups/GroupContext";
 import { BellIcon, AgeIcon, OverdueIcon } from "./icons";
 import { ageShort } from "../lib/format";
 import type { NeedsAttention } from "../types";
@@ -11,6 +12,7 @@ import type { NeedsAttention } from "../types";
  * it once that exists. Number sits in a bubble to the left of the bell.
  */
 export default function Bell() {
+  const { currentGroupId } = useGroups();
   const [data, setData] = useState<NeedsAttention | null>(null);
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -23,12 +25,16 @@ export default function Bell() {
   }
 
   function load() {
+    if (!currentGroupId) {
+      setData(null);
+      return;
+    }
     api
-      .get<NeedsAttention>("/insights/needs-attention")
+      .get<NeedsAttention>(`/insights/needs-attention?groupId=${currentGroupId}`)
       .then(setData)
       .catch(() => setData(null));
   }
-  useEffect(load, [loc.pathname]);
+  useEffect(load, [loc.pathname, currentGroupId]);
   useItemsChanged(load);
 
   useEffect(() => {

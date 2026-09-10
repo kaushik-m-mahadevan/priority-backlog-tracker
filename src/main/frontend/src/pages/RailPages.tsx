@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { api } from "../api/client";
 import { useItemsChanged } from "../lib/events";
+import { useGroups } from "../groups/GroupContext";
+import NoGroupNotice from "../components/NoGroupNotice";
 import { QuickWinsBody, AttentionBody, TeamBody } from "../components/rail/panels";
 import ItemFormModal from "../components/ItemFormModal";
 import type { Item, NeedsAttention, RankedItem, WorkloadOverview } from "../types";
@@ -17,13 +19,16 @@ function Shell({ title, sub, children }: { title: string; sub: string; children:
 }
 
 export function QuickWinsPage() {
+  const { currentGroupId } = useGroups();
   const [rows, setRows] = useState<RankedItem[] | null>(null);
   const [editing, setEditing] = useState<Item | null>(null);
   function load() {
-    api.get<RankedItem[]>("/items/quick-wins?limit=12").then(setRows).catch(() => setRows([]));
+    if (!currentGroupId) return;
+    api.get<RankedItem[]>(`/items/quick-wins?limit=12&groupId=${currentGroupId}`).then(setRows).catch(() => setRows([]));
   }
-  useEffect(load, []);
+  useEffect(load, [currentGroupId]);
   useItemsChanged(load);
+  if (!currentGroupId) return <NoGroupNotice />;
   return (
     <Shell title="Quick wins" sub="Small things you can close out now.">
       <QuickWinsBody rows={rows} onOpen={setEditing} />
@@ -42,13 +47,15 @@ export function QuickWinsPage() {
 }
 
 export function AttentionPage() {
+  const { currentGroupId } = useGroups();
   const [data, setData] = useState<NeedsAttention | null>(null);
   const [editing, setEditing] = useState<Item | null>(null);
   const [params, setParams] = useSearchParams();
   function load() {
-    api.get<NeedsAttention>("/insights/needs-attention").then(setData).catch(() => setData(null));
+    if (!currentGroupId) return;
+    api.get<NeedsAttention>(`/insights/needs-attention?groupId=${currentGroupId}`).then(setData).catch(() => setData(null));
   }
-  useEffect(load, []);
+  useEffect(load, [currentGroupId]);
   useItemsChanged(load);
 
   // deep link from the bell: /attention?open=<id>
@@ -77,12 +84,18 @@ export function AttentionPage() {
 }
 
 export function TeamPage() {
+  const { currentGroupId } = useGroups();
   const [data, setData] = useState<WorkloadOverview | null>(null);
   useEffect(() => {
-    api.get<WorkloadOverview>("/insights/workload").then(setData).catch(() => setData(null));
-  }, []);
+    if (!currentGroupId) return;
+    api
+      .get<WorkloadOverview>(`/insights/workload?groupId=${currentGroupId}`)
+      .then(setData)
+      .catch(() => setData(null));
+  }, [currentGroupId]);
+  if (!currentGroupId) return <NoGroupNotice />;
   return (
-    <Shell title="Team workload" sub="Who's holding what.">
+    <Shell title="Workload" sub="Who's holding what in this group.">
       <TeamBody data={data} />
     </Shell>
   );

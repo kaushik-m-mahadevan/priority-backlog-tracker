@@ -1,6 +1,22 @@
 export type Role = "ADMIN" | "USER";
 export type AccountStatus = "PENDING" | "ACTIVE";
 
+export interface UserSummary {
+  id: string;
+  name: string;
+  handle: string;
+  email: string;
+  role: Role;
+  status: AccountStatus;
+}
+
+export interface GroupView {
+  id: string;
+  name: string;
+  createdAt: string | null;
+  members: UserSummary[];
+}
+
 export interface User {
   id: string;
   name: string;

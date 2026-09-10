@@ -6,11 +6,14 @@ import { EffortIcon } from "../components/EffortIcon";
 import { formatDateTime, effortLabel } from "../lib/format";
 import { useItemsChanged } from "../lib/events";
 import EmptyLeaf from "../components/EmptyLeaf";
+import NoGroupNotice from "../components/NoGroupNotice";
+import { useGroups } from "../groups/GroupContext";
 import type { ArchivedItem, Page } from "../types";
 
 const SIZE = 25;
 
 export default function ArchivePage() {
+  const { currentGroupId } = useGroups();
   const [rows, setRows] = useState<ArchivedItem[]>([]);
   const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
@@ -19,8 +22,9 @@ export default function ArchivePage() {
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(() => {
+    if (!currentGroupId) return;
     setLoading(true);
-    const p = new URLSearchParams({ page: String(page), size: String(SIZE) });
+    const p = new URLSearchParams({ page: String(page), size: String(SIZE), groupId: currentGroupId });
     api
       .get<Page<ArchivedItem>>(`/archived?${p}`)
       .then((res) => {
@@ -30,12 +34,14 @@ export default function ArchivePage() {
       })
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
-  }, [page]);
+  }, [page, currentGroupId]);
 
   useEffect(() => {
     load();
   }, [load]);
   useItemsChanged(load);
+
+  if (!currentGroupId) return <NoGroupNotice />;
 
   return (
     <div>

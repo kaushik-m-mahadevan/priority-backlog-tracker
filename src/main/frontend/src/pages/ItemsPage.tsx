@@ -8,6 +8,8 @@ import { EffortIcon } from "../components/EffortIcon";
 import { DueMark } from "../components/DueMark";
 import ItemFormModal from "../components/ItemFormModal";
 import EmptyLeaf from "../components/EmptyLeaf";
+import NoGroupNotice from "../components/NoGroupNotice";
+import { useGroups } from "../groups/GroupContext";
 import { useConfig } from "../config/ConfigContext";
 import { useItemsChanged, notifyItemsChanged } from "../lib/events";
 import { effortLabel, formatDate } from "../lib/format";
@@ -18,6 +20,7 @@ const SIZE = 25;
 export default function ItemsPage() {
   const config = useConfig();
   const { nameOf } = useUsers();
+  const { currentGroupId } = useGroups();
   const [items, setItems] = useState<Item[]>([]);
   const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
@@ -33,8 +36,9 @@ export default function ItemsPage() {
   const [fPrio, setFPrio] = useState("");
 
   const load = useCallback(() => {
+    if (!currentGroupId) return;
     setLoading(true);
-    const p = new URLSearchParams({ page: String(page), size: String(SIZE) });
+    const p = new URLSearchParams({ page: String(page), size: String(SIZE), groupId: currentGroupId });
     if (q.trim()) p.set("q", q.trim());
     if (fCat) p.set("category", fCat);
     if (fPrio) p.set("priority", fPrio);
@@ -47,7 +51,7 @@ export default function ItemsPage() {
       })
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
-  }, [q, fCat, fPrio, page]);
+  }, [q, fCat, fPrio, page, currentGroupId]);
 
   // reset to the first page whenever a filter changes
   const filterKey = `${q}|${fCat}|${fPrio}`;
@@ -75,6 +79,8 @@ export default function ItemsPage() {
     setMenuFor(null);
     notifyItemsChanged();
   }
+
+  if (!currentGroupId) return <NoGroupNotice />;
 
   return (
     <div>

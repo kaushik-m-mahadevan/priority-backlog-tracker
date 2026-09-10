@@ -3,6 +3,7 @@ import { useDock } from "../dock/DockContext";
 import { useKeepAlive } from "../lib/useKeepAlive";
 import Bell from "./Bell";
 import NavMenu from "./NavMenu";
+import GroupSwitcher from "./GroupSwitcher";
 import {
   SidebarIcon,
   PriorityGlyph,
@@ -37,6 +38,7 @@ export default function Layout() {
           <NavLink to="/items">Items</NavLink>
         </div>
         <span className="spacer" />
+        <GroupSwitcher />
         <Bell />
         <NavMenu />
       </nav>
@@ -55,7 +57,7 @@ export default function Layout() {
         <NavLink to="/attention" aria-label="Needs attention">
           <AttentionGlyph size={22} />
         </NavLink>
-        <NavLink to="/team" aria-label="Team workload">
+        <NavLink to="/groups" aria-label="Groups">
           <TeamGlyph size={22} />
         </NavLink>
         <NavLink to="/items" aria-label="Items">

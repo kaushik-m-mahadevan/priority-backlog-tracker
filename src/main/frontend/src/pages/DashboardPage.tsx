@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { api, ApiError } from "../api/client";
 import { runCelebration, collapseRow } from "../lib/celebrate";
 import { useItemsChanged, notifyItemsChanged } from "../lib/events";
@@ -6,7 +6,9 @@ import ItemFormModal from "../components/ItemFormModal";
 import LeftDock from "../components/LeftDock";
 import Grove from "../components/Grove";
 import EmptyLeaf from "../components/EmptyLeaf";
+import NoGroupNotice from "../components/NoGroupNotice";
 import { Creature } from "../components/Creature";
+import { useGroups } from "../groups/GroupContext";
 import { useUsers } from "../users/UsersContext";
 import { PriorityMark } from "../components/PriorityMark";
 import { EffortIcon } from "../components/EffortIcon";
@@ -25,16 +27,25 @@ export default function DashboardPage() {
   const [groveKey, setGroveKey] = useState(0);
   const { nameOf } = useUsers();
   const { shown } = useDock();
+  const { currentGroupId } = useGroups();
 
   const listRef = useRef<HTMLDivElement>(null);
   const [railMax, setRailMax] = useState<number | undefined>();
 
-  function load() {
+  const load = useCallback(() => {
+    if (!currentGroupId) {
+      setTop([]);
+      setQuick([]);
+      setAttention(null);
+      setTeam(null);
+      return;
+    }
+    const g = `groupId=${currentGroupId}`;
     Promise.all([
-      api.get<RankedItem[]>("/items/top?limit=10"),
-      api.get<RankedItem[]>("/items/quick-wins?limit=8"),
-      api.get<NeedsAttention>("/insights/needs-attention"),
-      api.get<WorkloadOverview>("/insights/workload"),
+      api.get<RankedItem[]>(`/items/top?limit=10&${g}`),
+      api.get<RankedItem[]>(`/items/quick-wins?limit=8&${g}`),
+      api.get<NeedsAttention>(`/insights/needs-attention?${g}`),
+      api.get<WorkloadOverview>(`/insights/workload?${g}`),
     ])
       .then(([t, q, a, w]) => {
         setTop(t);
@@ -43,8 +54,8 @@ export default function DashboardPage() {
         setTeam(w);
       })
       .catch((e) => setError(e.message));
-  }
-  useEffect(load, []);
+  }, [currentGroupId]);
+  useEffect(load, [load]);
   useItemsChanged(load);
 
   async function handleComplete(item: Item, terminal: string = "RESOLVED") {
@@ -73,6 +84,8 @@ export default function DashboardPage() {
     window.addEventListener("resize", measure);
     return () => window.removeEventListener("resize", measure);
   }, [top]);
+
+  if (!currentGroupId) return <NoGroupNotice />;
 
   return (
     <div data-dock={shown ? "on" : "off"}>

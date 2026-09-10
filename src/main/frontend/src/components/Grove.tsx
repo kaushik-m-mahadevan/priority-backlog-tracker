@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { api } from "../api/client";
+import { useGroups } from "../groups/GroupContext";
 import { Creature } from "./Creature";
 import type { CompletionStats } from "../types";
 
@@ -21,14 +22,19 @@ export default function Grove({
   solo?: boolean;
   refreshKey?: number;
 }) {
+  const { currentGroupId } = useGroups();
   const [stats, setStats] = useState<CompletionStats | null>(null);
 
   useEffect(() => {
+    if (!currentGroupId) {
+      setStats({ count: 0, days: 30, lastCompletedAt: null });
+      return;
+    }
     api
-      .get<CompletionStats>("/insights/completions?days=30")
+      .get<CompletionStats>(`/insights/completions?days=30&groupId=${currentGroupId}`)
       .then(setStats)
       .catch(() => setStats({ count: 0, days: 30, lastCompletedAt: null }));
-  }, [refreshKey]);
+  }, [refreshKey, currentGroupId]);
 
   const count = stats?.count ?? 0;
   const stage = stageFor(count);
