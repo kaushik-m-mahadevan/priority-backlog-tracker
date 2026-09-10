@@ -10,6 +10,25 @@ export default function GroupsPage() {
   const [name, setName] = useState("");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const [msg, setMsg] = useState<string | null>(null);
+  const [invite, setInvite] = useState<Record<string, string>>({});
+
+  async function sendInvite(groupId: string) {
+    const to = (invite[groupId] ?? "").trim();
+    if (!to) return;
+    setBusy(true);
+    setErr(null);
+    setMsg(null);
+    try {
+      await api.post(`/groups/${groupId}/invites`, { to });
+      setInvite((m) => ({ ...m, [groupId]: "" }));
+      setMsg(`Invite sent to ${to}.`);
+    } catch (e2) {
+      setErr(e2 instanceof ApiError ? e2.message : "Could not send the invite");
+    } finally {
+      setBusy(false);
+    }
+  }
 
   async function create(e: FormEvent) {
     e.preventDefault();
@@ -52,6 +71,7 @@ export default function GroupsPage() {
         Shared workspaces. Everyone in a group has the same rights — there's no owner.
       </p>
       {err && <div className="error">{err}</div>}
+      {msg && <div className="hint" style={{ color: "var(--growth)", marginBottom: 12 }}>{msg}</div>}
 
       <div className="card" style={{ marginBottom: 16 }}>
         <h2>New group</h2>
@@ -108,6 +128,28 @@ export default function GroupsPage() {
                     {m.name} <span className="muted">@{m.handle}</span>
                   </span>
                 ))}
+              </div>
+              <div
+                className="team-add"
+                style={{ marginTop: 10 }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    sendInvite(g.id);
+                  }
+                }}
+              >
+                <input
+                  placeholder="Invite by email or @handle"
+                  value={invite[g.id] ?? ""}
+                  onChange={(e) => setInvite((m) => ({ ...m, [g.id]: e.target.value }))}
+                />
+                <button
+                  disabled={busy || !(invite[g.id] ?? "").trim()}
+                  onClick={() => sendInvite(g.id)}
+                >
+                  Invite
+                </button>
               </div>
             </div>
           );
