@@ -60,6 +60,22 @@ public class UserService {
                 .build());
     }
 
+    /** A user updates their own profile — display name and/or the animations preference.
+     *  Email stays fixed (it's the login id). Null fields are left unchanged. */
+    public User updateProfile(String userId, String name, Boolean animationsEnabled) {
+        User u = require(userId);
+        if (name != null) {
+            if (name.isBlank()) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Name cannot be blank");
+            }
+            u.setName(name.trim());
+        }
+        if (animationsEnabled != null) {
+            u.setAnimationsEnabled(animationsEnabled);
+        }
+        return repository.save(u);
+    }
+
     /** Admin approves a pending account. Idempotent for an already-active account. */
     public User approve(String id, String adminId) {
         User u = require(id);

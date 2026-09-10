@@ -12,11 +12,16 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
+import org.springframework.web.bind.annotation.RequestBody;
+
 import com.backlogtracker.security.AuthUser;
 import com.backlogtracker.security.RequiresAdmin;
 import com.backlogtracker.user.domain.AccountStatus;
+import com.backlogtracker.user.dto.ApprovePasswordRequest;
+import com.backlogtracker.user.dto.PasswordRequestView;
 import com.backlogtracker.user.dto.UserSummary;
 import com.backlogtracker.user.repository.UserRepository;
+import com.backlogtracker.user.service.PasswordRequestService;
 import com.backlogtracker.user.service.UserService;
 
 import lombok.RequiredArgsConstructor;
@@ -30,6 +35,7 @@ public class AdminController {
 
     private final UserService userService;
     private final UserRepository users;
+    private final PasswordRequestService passwordRequests;
 
     /** Accounts awaiting approval, oldest first. */
     @GetMapping("/pending-users")
@@ -59,5 +65,27 @@ public class AdminController {
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void reject(@PathVariable String id) {
         userService.reject(id);
+    }
+
+    // ---- password requests (design: password changes go through an admin) ----
+
+    @GetMapping("/password-requests")
+    public List<PasswordRequestView> passwordRequests() {
+        return passwordRequests.pending().stream().map(PasswordRequestView::of).toList();
+    }
+
+    @PostMapping("/password-requests/{id}/approve")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void approvePasswordRequest(@PathVariable String id,
+                                       @RequestBody(required = false) ApprovePasswordRequest body,
+                                       @AuthenticationPrincipal AuthUser admin) {
+        passwordRequests.approve(id, admin, body == null ? null : body.temporaryPassword());
+    }
+
+    @PostMapping("/password-requests/{id}/reject")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void rejectPasswordRequest(@PathVariable String id,
+                                      @AuthenticationPrincipal AuthUser admin) {
+        passwordRequests.reject(id, admin);
     }
 }

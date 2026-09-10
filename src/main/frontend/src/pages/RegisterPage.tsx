@@ -10,11 +10,18 @@ export default function RegisterPage() {
   const [handle, setHandle] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirm, setConfirm] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const mismatch = confirm.length > 0 && confirm !== password;
+
   async function submit(e: FormEvent) {
     e.preventDefault();
+    if (password !== confirm) {
+      setError("Passwords don't match");
+      return;
+    }
     setBusy(true);
     setError(null);
     try {
@@ -73,7 +80,22 @@ export default function RegisterPage() {
               />
               <div className="hint">At least 8 characters.</div>
             </div>
-            <button type="submit" className="primary" style={{ width: "100%" }} disabled={busy}>
+            <div className="form-row">
+              <label>Confirm password</label>
+              <PasswordInput
+                value={confirm}
+                onChange={setConfirm}
+                autoComplete="new-password"
+                required
+              />
+              {mismatch && <div className="hint bad">Passwords don't match.</div>}
+            </div>
+            <button
+              type="submit"
+              className="primary"
+              style={{ width: "100%" }}
+              disabled={busy || mismatch || !password}
+            >
               {busy ? "Creating…" : "Create account"}
             </button>
           </form>

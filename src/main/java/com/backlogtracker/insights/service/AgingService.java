@@ -1,6 +1,7 @@
 package com.backlogtracker.insights.service;
 
 import java.time.Clock;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.time.temporal.ChronoUnit;
@@ -60,6 +61,38 @@ public class AgingService {
                 .toList();
 
         return new NeedsAttentionView(stale, buried);
+    }
+
+    /**
+     * Grove health for the opt-in "the tree suffers" animation. {@code neglect} = live
+     * items that are overdue OR untouched for longer than the stale threshold; the stage
+     * (0 healthy → 4 stump) drives how far the tree degrades.
+     */
+    public GroveHealth health(String groupId) {
+        AppConfig cfg = configService.getConfig();
+        LocalDate today = LocalDate.now(clock);
+        Instant now = clock.instant();
+        List<Item> live = itemService.listLive(groupId);
+
+        long overdue = live.stream()
+                .filter(i -> i.getDueDate() != null && i.getDueDate().isBefore(now))
+                .count();
+        long stale = live.stream()
+                .filter(i -> i.getUpdatedAt() != null)
+                .filter(i -> daysBetween(dateOf(i.getUpdatedAt()), today) > cfg.getStaleThresholdDays())
+                .count();
+        long neglect = live.stream().filter(i -> {
+            boolean o = i.getDueDate() != null && i.getDueDate().isBefore(now);
+            boolean s = i.getUpdatedAt() != null
+                    && daysBetween(dateOf(i.getUpdatedAt()), today) > cfg.getStaleThresholdDays();
+            return o || s;
+        }).count();
+
+        int stage = neglect >= 10 ? 4 : neglect >= 6 ? 3 : neglect >= 3 ? 2 : neglect >= 1 ? 1 : 0;
+        return new GroveHealth(overdue, stale, neglect, stage);
+    }
+
+    public record GroveHealth(long overdue, long stale, long neglect, int stage) {
     }
 
     private static LocalDate dateOf(java.time.Instant instant) {

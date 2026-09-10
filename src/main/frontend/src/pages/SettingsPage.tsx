@@ -5,6 +5,7 @@ import { useTheme } from "../theme/ThemeContext";
 import { useAuth } from "../auth/AuthContext";
 import { notifyItemsChanged } from "../lib/events";
 import { TZ_CHOICES, getTzPref, setTzPref } from "../lib/tz";
+import PasswordInput from "../components/PasswordInput";
 import type { AppConfig } from "../types";
 
 type Draft = {
@@ -48,8 +49,12 @@ function toDraft(c: AppConfig): Draft {
 export default function SettingsPage() {
   const { config, refresh } = useConfigCtx();
   const { theme, setTheme } = useTheme();
-  const { user } = useAuth();
+  const { user, refresh: refreshAuth } = useAuth();
   const isAdmin = user?.role === "ADMIN";
+  const [displayName, setDisplayName] = useState(user?.name ?? "");
+  const [curPw, setCurPw] = useState("");
+  const [newPw, setNewPw] = useState("");
+  const [confPw, setConfPw] = useState("");
   const [draft, setDraft] = useState<Draft | null>(null);
   const [buried, setBuried] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
@@ -109,6 +114,32 @@ export default function SettingsPage() {
     );
   }
 
+  function saveName() {
+    const n = displayName.trim();
+    if (!n || n === user?.name) return;
+    call(api.patch("/users/me", { name: n }).then(() => refreshAuth()), "Name updated.");
+  }
+
+  function toggleAnimations() {
+    const next = !user?.animationsEnabled;
+    call(
+      api.patch("/users/me", { animationsEnabled: next }).then(() => refreshAuth()),
+      next ? "Grove animations on." : "Grove animations off.",
+    );
+  }
+
+  function requestPasswordChange() {
+    if (newPw.length < 8 || newPw !== confPw) return;
+    call(
+      api.post("/auth/password-change", { currentPassword: curPw, newPassword: newPw }),
+      "Sent to an admin — your password changes once they approve it.",
+    ).then(() => {
+      setCurPw("");
+      setNewPw("");
+      setConfPw("");
+    });
+  }
+
   function removeChip(kind: "categories" | "priorities", name: string, others: string[]) {
     const reassignTo = window.prompt(
       `If an item still uses "${name}", which ${kind === "categories" ? "category" : "priority"} should it move to?\n(${others.join(", ")})\nLeave blank if none use it.`,
@@ -140,6 +171,81 @@ export default function SettingsPage() {
               Tide
             </button>
           </div>
+        </div>
+
+        <div className="card">
+          <h2>Your profile</h2>
+          <div className="form-row">
+            <label>Display name</label>
+            <input value={displayName} onChange={(e) => setDisplayName(e.target.value)} maxLength={80} />
+          </div>
+          <div className="form-row">
+            <label>Email</label>
+            <input value={user?.email ?? ""} disabled />
+          </div>
+          <p className="hint" style={{ marginTop: 4 }}>
+            Email is your login id and can't be changed here.
+          </p>
+          <div className="modal-actions" style={{ marginTop: 10 }}>
+            <button
+              className="primary"
+              disabled={busy || !displayName.trim() || displayName.trim() === user?.name}
+              onClick={saveName}
+            >
+              Save name
+            </button>
+          </div>
+        </div>
+
+        <div className="card">
+          <h2>Password</h2>
+          <div className="form-row">
+            <label>Current password</label>
+            <PasswordInput value={curPw} onChange={setCurPw} autoComplete="current-password" />
+          </div>
+          <div className="form-row">
+            <label>New password</label>
+            <PasswordInput value={newPw} onChange={setNewPw} autoComplete="new-password" />
+          </div>
+          <div className="form-row">
+            <label>Confirm new password</label>
+            <PasswordInput value={confPw} onChange={setConfPw} autoComplete="new-password" />
+            {confPw.length > 0 && confPw !== newPw && (
+              <div className="hint bad">Passwords don't match.</div>
+            )}
+          </div>
+          <p className="hint">
+            Password changes go to an admin for approval — there's no instant reset, on
+            purpose. Pick something you'll remember.
+          </p>
+          <div className="modal-actions" style={{ marginTop: 10 }}>
+            <button
+              className="primary"
+              disabled={busy || !curPw || newPw.length < 8 || newPw !== confPw}
+              onClick={requestPasswordChange}
+            >
+              Request change
+            </button>
+          </div>
+        </div>
+
+        <div className="card">
+          <h2>Animations</h2>
+          <label style={{ display: "flex", gap: 10, alignItems: "center", cursor: "pointer" }}>
+            <input
+              type="checkbox"
+              checked={!!user?.animationsEnabled}
+              onChange={toggleAnimations}
+              disabled={busy}
+              style={{ width: "auto" }}
+            />
+            <span>Let the grove react to the backlog</span>
+          </label>
+          <p className="hint" style={{ marginTop: 8 }}>
+            When on, the tree wilts and gets chopped as overdue and long-untouched items
+            pile up in your current group, and recovers as you clear them. Off by default;
+            the red overdue marker on rows is always shown regardless.
+          </p>
         </div>
 
         <div className="card">

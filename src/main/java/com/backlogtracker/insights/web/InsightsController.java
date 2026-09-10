@@ -51,4 +51,12 @@ public class InsightsController {
         groupService.requireMember(groupId, actor.id());
         return completionStats.recent(groupId, days);
     }
+
+    /** Grove health — overdue / stale counts and a 0–4 stage for the "tree suffers" animation. */
+    @GetMapping("/health")
+    public AgingService.GroveHealth health(@RequestParam String groupId,
+                                           @AuthenticationPrincipal AuthUser actor) {
+        groupService.requireMember(groupId, actor.id());
+        return agingService.health(groupId);
+    }
 }

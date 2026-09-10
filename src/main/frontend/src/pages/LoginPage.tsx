@@ -1,7 +1,7 @@
 import { FormEvent, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
-import { ApiError } from "../api/client";
+import { api, ApiError } from "../api/client";
 import PasswordInput from "../components/PasswordInput";
 
 export default function LoginPage() {
@@ -11,6 +11,21 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [forgot, setForgot] = useState(false);
+  const [forgotSent, setForgotSent] = useState(false);
+
+  async function sendForgot(e: FormEvent) {
+    e.preventDefault();
+    setBusy(true);
+    try {
+      await api.post("/auth/forgot-password", { email: email.trim() });
+    } catch {
+      /* deliberately silent — never reveal whether the account exists */
+    } finally {
+      setBusy(false);
+      setForgotSent(true);
+    }
+  }
 
   async function submit(e: FormEvent) {
     e.preventDefault();
@@ -41,6 +56,43 @@ export default function LoginPage() {
         </p>
         <div className="card">
           {error && <div className="error">{error}</div>}
+
+          {forgot ? (
+            forgotSent ? (
+              <div>
+                <p className="page-sub">
+                  If that account exists, an admin has been notified and will set a
+                  temporary password for you to collect from them.
+                </p>
+                <button className="ghost" onClick={() => { setForgot(false); setForgotSent(false); }}>
+                  Back to sign in
+                </button>
+              </div>
+            ) : (
+              <form onSubmit={sendForgot}>
+                <div className="form-row">
+                  <label>Email</label>
+                  <input
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
+                    autoFocus
+                  />
+                </div>
+                <button type="submit" className="primary" style={{ width: "100%" }} disabled={busy || !email.trim()}>
+                  {busy ? "Sending…" : "Request a password reset"}
+                </button>
+                <button
+                  type="button"
+                  className="linkbtn"
+                  style={{ marginTop: 10 }}
+                  onClick={() => setForgot(false)}
+                >
+                  Back to sign in
+                </button>
+              </form>
+            )
+          ) : (
           <form onSubmit={submit}>
             <div className="form-row">
               <label>Email</label>
@@ -65,7 +117,16 @@ export default function LoginPage() {
             <button type="submit" className="primary" style={{ width: "100%" }} disabled={busy}>
               {busy ? "Signing in…" : "Sign in"}
             </button>
+            <button
+              type="button"
+              className="linkbtn"
+              style={{ marginTop: 10 }}
+              onClick={() => setForgot(true)}
+            >
+              Forgot password?
+            </button>
           </form>
+          )}
         </div>
         <p className="page-sub" style={{ textAlign: "center", marginTop: 12 }}>
           New here? <Link to="/register">Create an account</Link>

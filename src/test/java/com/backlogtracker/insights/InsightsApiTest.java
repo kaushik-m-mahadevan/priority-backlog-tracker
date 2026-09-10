@@ -103,9 +103,23 @@ class InsightsApiTest {
     }
 
     @Test
+    void healthCountsOverdueAndStaleAndDerivesAStage() throws Exception {
+        seed("ITM-OD1", "High", ItemStatus.BACKLOG, 3, -10);   // overdue
+        seed("ITM-OD2", "High", ItemStatus.BACKLOG, 3, -2);    // overdue
+        seed("ITM-OK", "High", ItemStatus.BACKLOG, 3, 30);     // fine
+
+        mvc.perform(get("/api/insights/health").param("groupId", groupId).header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.overdue").value(2))
+                .andExpect(jsonPath("$.neglect").value(2))
+                .andExpect(jsonPath("$.stage").value(1));
+    }
+
+    @Test
     void requiresAuth() throws Exception {
         mvc.perform(get("/api/insights/needs-attention")).andExpect(status().isUnauthorized());
         mvc.perform(get("/api/insights/workload")).andExpect(status().isUnauthorized());
+        mvc.perform(get("/api/insights/health")).andExpect(status().isUnauthorized());
     }
 
     private void createViaApi(String title, String priority, String ownerId) throws Exception {

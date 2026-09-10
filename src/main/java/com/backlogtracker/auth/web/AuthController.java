@@ -15,6 +15,11 @@ import com.backlogtracker.auth.dto.RegisterRequest;
 import com.backlogtracker.auth.dto.UserView;
 import com.backlogtracker.auth.service.AuthService;
 import com.backlogtracker.security.AuthUser;
+import com.backlogtracker.security.RequiresUser;
+import com.backlogtracker.user.dto.ChangePasswordRequest;
+import com.backlogtracker.user.dto.ForgotPasswordRequest;
+import com.backlogtracker.user.service.PasswordRequestService;
+import com.backlogtracker.user.service.UserService;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -25,6 +30,8 @@ import lombok.RequiredArgsConstructor;
 public class AuthController {
 
     private final AuthService authService;
+    private final PasswordRequestService passwordRequestService;
+    private final UserService userService;
 
     /** Exchanges email + password for a JWT. */
     @PostMapping("/login")
@@ -39,9 +46,27 @@ public class AuthController {
         return authService.register(request);
     }
 
-    /** Returns the currently authenticated user (from the bearer token). */
+    /** Returns the currently authenticated user (loaded fresh so preferences are current). */
     @GetMapping("/me")
     public UserView me(@AuthenticationPrincipal AuthUser principal) {
-        return UserView.of(principal);
+        return userService.findById(principal.id())
+                .map(UserView::of)
+                .orElseGet(() -> UserView.of(principal));
+    }
+
+    /** Signed-in user requests a password change — an admin has to approve it. */
+    @PostMapping("/password-change")
+    @ResponseStatus(HttpStatus.ACCEPTED)
+    @RequiresUser
+    public void requestPasswordChange(@Valid @RequestBody ChangePasswordRequest request,
+                                      @AuthenticationPrincipal AuthUser actor) {
+        passwordRequestService.requestChange(actor, request.currentPassword(), request.newPassword());
+    }
+
+    /** Login-screen "forgot password" — notifies an admin, always 202 (no account probing). */
+    @PostMapping("/forgot-password")
+    @ResponseStatus(HttpStatus.ACCEPTED)
+    public void forgotPassword(@Valid @RequestBody ForgotPasswordRequest request) {
+        passwordRequestService.requestReset(request.email());
     }
 }
