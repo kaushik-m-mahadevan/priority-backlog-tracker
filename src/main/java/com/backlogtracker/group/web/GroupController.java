@@ -17,6 +17,8 @@ import com.backlogtracker.group.domain.Group;
 import com.backlogtracker.group.dto.CreateGroupRequest;
 import com.backlogtracker.group.dto.GroupView;
 import com.backlogtracker.group.service.GroupService;
+import com.backlogtracker.notification.dto.InviteRequest;
+import com.backlogtracker.notification.service.NotificationService;
 import com.backlogtracker.security.AuthUser;
 import com.backlogtracker.security.RequiresUser;
 
@@ -30,6 +32,7 @@ import lombok.RequiredArgsConstructor;
 public class GroupController {
 
     private final GroupService groupService;
+    private final NotificationService notificationService;
 
     private GroupView view(Group g) {
         return GroupView.of(g, groupService.members(g));
@@ -51,6 +54,15 @@ public class GroupController {
     @GetMapping("/{id}")
     public GroupView get(@PathVariable String id, @AuthenticationPrincipal AuthUser actor) {
         return view(groupService.requireMember(id, actor.id()));
+    }
+
+    /** Invite an existing user (by email or @handle) — they get a notification to accept. */
+    @PostMapping("/{id}/invites")
+    @ResponseStatus(HttpStatus.CREATED)
+    public void invite(@PathVariable String id,
+                       @Valid @RequestBody InviteRequest request,
+                       @AuthenticationPrincipal AuthUser actor) {
+        notificationService.createGroupInvite(id, request.to(), actor);
     }
 
     /** Leave. If the caller was the last member the group and its items are deleted. */

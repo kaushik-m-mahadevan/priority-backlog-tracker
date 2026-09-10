@@ -64,6 +64,30 @@ public class GroupService {
                 && groups.findById(groupId).map(g -> g.hasMember(userId)).orElse(false);
     }
 
+    public long groupCount(String userId) {
+        return groups.countByMemberIdsContaining(userId);
+    }
+
+    public int maxGroupsPerUser() {
+        return configService.getConfig().getMaxGroupsPerUser();
+    }
+
+    /** Add a user to a group (used when they accept an invite). Re-checks the cap. */
+    public Group addMember(String groupId, String userId) {
+        Group g = groups.findById(groupId).orElseThrow(
+                () -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Group not found"));
+        if (g.hasMember(userId)) {
+            return g;
+        }
+        int cap = maxGroupsPerUser();
+        if (cap > 0 && groupCount(userId) >= cap) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "You're already in the maximum of " + cap + " groups — leave one first");
+        }
+        g.getMemberIds().add(userId);
+        return groups.save(g);
+    }
+
     /** Remove the caller. If they were the last member, delete the group and all its items. */
     public void leave(String groupId, String userId) {
         Group g = requireMember(groupId, userId);

@@ -1,0 +1,14 @@
+package com.backlogtracker.notification.dto;
+
+import java.time.Instant;
+
+import com.backlogtracker.notification.domain.Notification;
+
+public record NotificationView(String id, String type, String status, Instant createdAt,
+                               String groupId, String groupName, String invitedByName) {
+
+    public static NotificationView of(Notification n) {
+        return new NotificationView(n.getId(), n.getType().name(), n.getStatus().name(),
+                n.getCreatedAt(), n.getGroupId(), n.getGroupName(), n.getInvitedByName());
+    }
+}
