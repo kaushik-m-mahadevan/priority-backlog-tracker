@@ -50,7 +50,7 @@ class RoleAccessTest {
     private static final String CONFIG = """
             {"priorityWeight":0.5,"urgencyWeight":0.3,"effortWeight":0.2,
              "urgencyWindowDays":14,"staleThresholdDays":10,"buriedThresholdDays":30,
-             "defaultDueDateOffsetDays":30,"effortCapDays":30,
+             "defaultDueDateOffsetDays":30,"effortCapDays":30,"maxGroupsPerUser":5,
              "buriedPriorityLevels":["Low"],
              "priorityValues":{"Critical":4,"High":3,"Medium":2,"Low":1}}""";
 
@@ -69,10 +69,6 @@ class RoleAccessTest {
 
         mvc.perform(put("/api/config").header("Authorization", "Bearer " + userToken)
                         .contentType(MediaType.APPLICATION_JSON).content(CONFIG))
-                .andExpect(status().isForbidden());
-        mvc.perform(post("/api/users").header("Authorization", "Bearer " + userToken)
-                        .contentType(MediaType.APPLICATION_JSON).content("""
-                                {"name":"X","email":"x@demo.test","password":"changeme123"}"""))
                 .andExpect(status().isForbidden());
     }
 

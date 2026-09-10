@@ -3,24 +3,14 @@ package com.backlogtracker.user.web;
 import java.util.Comparator;
 import java.util.List;
 
-import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PatchMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.backlogtracker.security.RequiresAdmin;
-import com.backlogtracker.user.dto.CreateUserRequest;
-import com.backlogtracker.user.dto.UpdateUserRequest;
+import com.backlogtracker.user.domain.AccountStatus;
 import com.backlogtracker.user.dto.UserSummary;
 import com.backlogtracker.user.repository.UserRepository;
-import com.backlogtracker.user.service.UserService;
 
-import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
 @RestController
@@ -29,31 +19,14 @@ import lombok.RequiredArgsConstructor;
 public class UserController {
 
     private final UserRepository users;
-    private final UserService userService;
 
-    /** Active accounts — for owner labels and the assignee picker. */
+    /** Active accounts — for owner labels, the assignee picker and group member lists. */
     @GetMapping
     public List<UserSummary> list() {
         return users.findAll().stream()
-                .filter(u -> u.getStatus() != com.backlogtracker.user.domain.AccountStatus.PENDING)
+                .filter(u -> u.getStatus() != AccountStatus.PENDING)
                 .map(UserSummary::of)
                 .sorted(Comparator.comparing(UserSummary::name, String.CASE_INSENSITIVE_ORDER))
                 .toList();
-    }
-
-    /** Add a team member (design §8 — Owner-only). */
-    @PostMapping
-    @ResponseStatus(HttpStatus.CREATED)
-    @RequiresAdmin
-    public UserSummary create(@Valid @RequestBody CreateUserRequest request) {
-        return UserSummary.of(userService.create(request));
-    }
-
-    /** Change a member's role or reset their password (Owner-only). */
-    @PatchMapping("/{id}")
-    @RequiresAdmin
-    public UserSummary update(@PathVariable String id,
-                             @Valid @RequestBody UpdateUserRequest request) {
-        return UserSummary.of(userService.update(id, request));
     }
 }

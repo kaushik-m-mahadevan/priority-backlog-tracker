@@ -81,6 +81,7 @@ public class ConfigService {
         cfg.setBuriedThresholdDays(r.buriedThresholdDays());
         cfg.setDefaultDueDateOffsetDays(r.defaultDueDateOffsetDays());
         cfg.setEffortCapDays(r.effortCapDays());
+        cfg.setMaxGroupsPerUser(r.maxGroupsPerUser());
         cfg.setBuriedPriorityLevels(new ArrayList<>(r.buriedPriorityLevels()));
         cfg.setPriorityValues(new LinkedHashMap<>(r.priorityValues()));
         AppConfig saved = repository.save(cfg);

@@ -125,4 +125,5 @@ export interface AppConfig {
   categories: string[];
   defaultDueDateOffsetDays: number;
   effortCapDays: number;
+  maxGroupsPerUser: number;
 }

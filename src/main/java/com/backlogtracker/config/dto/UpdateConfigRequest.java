@@ -20,6 +20,7 @@ public record UpdateConfigRequest(
         @Positive int buriedThresholdDays,
         @Positive int defaultDueDateOffsetDays,
         @Positive int effortCapDays,
+        @Positive int maxGroupsPerUser,
         @NotNull List<String> buriedPriorityLevels,
         @NotEmpty Map<String, Integer> priorityValues) {
 }
