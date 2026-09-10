@@ -12,6 +12,32 @@ export default function GroupsPage() {
   const [err, setErr] = useState<string | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
   const [invite, setInvite] = useState<Record<string, string>>({});
+  const [renaming, setRenaming] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState("");
+
+  function startRename(id: string, current: string) {
+    setRenaming(id);
+    setRenameValue(current);
+    setErr(null);
+    setMsg(null);
+  }
+
+  async function saveRename(id: string) {
+    const next = renameValue.trim();
+    if (!next) return;
+    setBusy(true);
+    setErr(null);
+    try {
+      await api.patch(`/groups/${id}`, { name: next });
+      setRenaming(null);
+      await refresh();
+      setMsg("Group renamed.");
+    } catch (e2) {
+      setErr(e2 instanceof ApiError ? e2.message : "Could not rename the group");
+    } finally {
+      setBusy(false);
+    }
+  }
 
   async function sendInvite(groupId: string) {
     const to = (invite[groupId] ?? "").trim();
@@ -100,16 +126,57 @@ export default function GroupsPage() {
           return (
             <div className="card" key={g.id} style={{ marginBottom: 12 }}>
               <div className="team-row" style={{ border: "none", padding: 0 }}>
-                <div>
-                  <div className="team-name">
-                    {g.name}
-                    {g.id === currentGroupId && (
-                      <span className="muted" style={{ fontSize: 12 }}> · current</span>
-                    )}
-                  </div>
-                  <div className="muted" style={{ fontSize: 12 }}>
-                    {g.members.length} member{g.members.length === 1 ? "" : "s"}
-                  </div>
+                <div style={{ flex: 1 }}>
+                  {renaming === g.id ? (
+                    <div
+                      className="team-add"
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          saveRename(g.id);
+                        } else if (e.key === "Escape") {
+                          setRenaming(null);
+                        }
+                      }}
+                    >
+                      <input
+                        autoFocus
+                        value={renameValue}
+                        maxLength={60}
+                        onChange={(e) => setRenameValue(e.target.value)}
+                      />
+                      <button
+                        className="primary"
+                        disabled={busy || !renameValue.trim()}
+                        onClick={() => saveRename(g.id)}
+                      >
+                        Save
+                      </button>
+                      <button className="ghost" disabled={busy} onClick={() => setRenaming(null)}>
+                        Cancel
+                      </button>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="team-name">
+                        {g.name}
+                        {g.id === currentGroupId && (
+                          <span className="muted" style={{ fontSize: 12 }}> · current</span>
+                        )}
+                        <button
+                          className="linkbtn"
+                          style={{ marginLeft: 8, fontSize: 12 }}
+                          disabled={busy}
+                          onClick={() => startRename(g.id, g.name)}
+                        >
+                          Rename
+                        </button>
+                      </div>
+                      <div className="muted" style={{ fontSize: 12 }}>
+                        {g.members.length} member{g.members.length === 1 ? "" : "s"}
+                      </div>
+                    </>
+                  )}
                 </div>
                 <button
                   disabled={busy || g.id === currentGroupId}

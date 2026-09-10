@@ -2,6 +2,7 @@ package com.backlogtracker.group;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -105,6 +106,29 @@ class GroupApiTest {
         String id = createGroup(tokenA, "Private").get("id").asText();
         mvc.perform(get("/api/groups/" + id).header("Authorization", "Bearer " + tokenB))
                 .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void anyMemberCanRenameTheGroupButNonMembersCannot() throws Exception {
+        String id = createGroup(tokenA, "Old Name").get("id").asText();
+
+        mvc.perform(patch("/api/groups/" + id).header("Authorization", "Bearer " + tokenA)
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"name\":\"New Name\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.name").value("New Name"));
+
+        mvc.perform(get("/api/groups/" + id).header("Authorization", "Bearer " + tokenA))
+                .andExpect(jsonPath("$.name").value("New Name"));
+
+        // non-member is rejected
+        mvc.perform(patch("/api/groups/" + id).header("Authorization", "Bearer " + tokenB)
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"name\":\"Hijacked\"}"))
+                .andExpect(status().isForbidden());
+
+        // blank name is rejected
+        mvc.perform(patch("/api/groups/" + id).header("Authorization", "Bearer " + tokenA)
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"name\":\"   \"}"))
+                .andExpect(status().isBadRequest());
     }
 
     @Test

@@ -49,6 +49,13 @@ public class GroupService {
                 .build());
     }
 
+    /** Rename a group. Any member may do it (design: groups are shared, owner-less). */
+    public Group rename(String groupId, String userId, String name) {
+        Group g = requireMember(groupId, userId);
+        g.setName(name.trim());
+        return groups.save(g);
+    }
+
     /** The group, or 404 if missing / 403 if the caller isn't a member. */
     public Group requireMember(String groupId, String userId) {
         Group g = groups.findById(groupId).orElseThrow(

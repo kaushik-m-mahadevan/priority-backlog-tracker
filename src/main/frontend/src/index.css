@@ -78,6 +78,18 @@ button.primary:hover {
 button.ghost {
   background: transparent;
 }
+button.linkbtn {
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--accent);
+  cursor: pointer;
+  text-decoration: underline;
+  border-radius: 0;
+}
+button.linkbtn:hover {
+  color: var(--accent-hover);
+}
 button:disabled {
   opacity: 0.45;
   cursor: not-allowed;
@@ -511,6 +523,80 @@ tr:last-child td {
   .team-row {
     grid-template-columns: 1fr;
     gap: 6px;
+  }
+
+  /* Data tables (Items, Completed) collapse to a card per row on phones.
+     Icons carry the meaning; text labels and non-essential columns drop out. */
+  .container {
+    padding: 20px 12px 96px;
+  }
+  .data-table,
+  .data-table tbody,
+  .data-table tr,
+  .data-table td {
+    display: block;
+  }
+  .data-table thead {
+    display: none;
+  }
+  .data-table tr {
+    position: relative;
+    border: 1px solid var(--border-soft);
+    border-radius: 12px;
+    padding: 12px 44px 12px 12px;
+    margin-bottom: 10px;
+  }
+  .data-table td {
+    border: none;
+    padding: 2px 0;
+  }
+  .data-table td:empty {
+    display: none;
+  }
+  .data-table .cell-title {
+    font-weight: 600;
+    font-size: 15px;
+    line-height: 1.3;
+  }
+  .data-table .cell-cat,
+  .data-table .cell-lbl {
+    display: none;
+  }
+  /* creature pinned to the top-right corner of the card */
+  .data-table .cell-creature {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    padding: 0;
+  }
+  /* the small facts share one wrapping row */
+  .data-table .cell-prio,
+  .data-table .cell-effort,
+  .data-table .cell-due,
+  .data-table .cell-status {
+    display: inline-flex;
+    align-items: center;
+    vertical-align: middle;
+    margin: 4px 10px 0 0;
+  }
+  .data-table .cell-actions {
+    margin-top: 8px;
+  }
+  .data-table .row-actions button {
+    padding: 5px 10px;
+  }
+
+  .toolbar {
+    gap: 6px;
+  }
+  .toolbar input,
+  .toolbar select,
+  .toolbar .primary {
+    flex: 1 1 100%;
+    width: 100%;
+  }
+  .toolbar .spacer {
+    display: none;
   }
 }
 .effort-input {
