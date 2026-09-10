@@ -117,6 +117,18 @@ public class ItemService {
         return requireMemberItem(id, actor);
     }
 
+    /** Pin / unpin an item for the whole group (design: pinning). Any member may. */
+    public Item setPinned(String id, AuthUser actor, boolean pinned) {
+        Item item = requireMemberItem(id, actor);
+        if (item.isPinned() == pinned) {
+            return item;
+        }
+        item.setPinned(pinned);
+        item.setPinnedAt(pinned ? java.time.Instant.now() : null);
+        item.setPinnedByUserId(pinned ? actor.id() : null);
+        return items.save(item);
+    }
+
     /** Live items (Backlog + In Progress) in a group. Caller membership checked upstream. */
     public List<Item> listLive(String groupId) {
         return items.findByGroupIdAndStatusIn(groupId, LIVE);

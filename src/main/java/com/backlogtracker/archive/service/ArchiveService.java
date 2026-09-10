@@ -59,22 +59,41 @@ public class ArchiveService {
     public ArchivedItem complete(String id, TerminalStatus terminal, AuthUser actor) {
         Item item = items.findById(id).orElseThrow(
                 () -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Item not found: " + id));
-        groupService.requireMember(item.getGroupId(), actor != null ? actor.id() : null);
+        String actorId = actor != null ? actor.id() : null;
+        groupService.requireMember(item.getGroupId(), actorId);
 
+        // Archiving an active item needs every member's approval — unless you're the only
+        // member (then it's unanimous by definition). RESOLVED / REJECTED stay direct.
+        if (terminal == TerminalStatus.ARCHIVED
+                && groupService.memberCount(item.getGroupId()) > 1) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "Archiving an active item needs every member's approval — "
+                            + "raise an archive request instead");
+        }
+        return move(item, terminal, actorId);
+    }
+
+    /** Final archive after an {@link com.backlogtracker.archive.domain.ArchiveRequest} is
+     *  unanimously approved. The approval already stands in for the membership check. */
+    public ArchivedItem completeApproved(String itemId, String actorId) {
+        Item item = items.findById(itemId).orElseThrow(
+                () -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Item not found: " + itemId));
+        return move(item, TerminalStatus.ARCHIVED, actorId);
+    }
+
+    private ArchivedItem move(Item item, TerminalStatus terminal, String actorId) {
         Instant now = clock.instant();
-        ArchivedItem toArchive = ArchivedItem.from(item, terminal,
-                actor != null ? actor.id() : null, now);
-
+        ArchivedItem toArchive = ArchivedItem.from(item, terminal, actorId, now);
         Runnable move = () -> {
             archived.save(toArchive);
-            items.deleteById(id);
+            items.deleteById(item.getId());
         };
         if (tx != null) {
             tx.executeWithoutResult(status -> move.run());
         } else {
             move.run();
         }
-        log.info("Item {} ({}) -> {} archived", item.getItemId(), id, terminal);
+        log.info("Item {} ({}) -> {} archived", item.getItemId(), item.getId(), terminal);
         return toArchive;
     }
 }

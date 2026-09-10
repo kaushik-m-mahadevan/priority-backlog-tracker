@@ -44,4 +44,11 @@ public class Notification {
     private String groupName;
     private String invitedByUserId;
     private String invitedByName;
+
+    // ---- ARCHIVE_REQUEST / ARCHIVE_RESULT payload ----
+    private String archiveRequestId;
+    private String itemId;
+    private String itemTitle;
+    /** ARCHIVE_REQUEST: the requester's optional note. ARCHIVE_RESULT: the outcome text. */
+    private String message;
 }

@@ -55,6 +55,11 @@ public class Item {
     /** The group this item belongs to. Every item is in exactly one group (design: groups). */
     private String groupId;
 
+    /** Pinned items float to the top of the Pecking Order for everyone (design: pinning). */
+    private boolean pinned;
+    private Instant pinnedAt;
+    private String pinnedByUserId;
+
     /** Audit-only — never gates edit rights (design §2, §8). */
     private String createdBy;
     private String lastUpdatedBy;

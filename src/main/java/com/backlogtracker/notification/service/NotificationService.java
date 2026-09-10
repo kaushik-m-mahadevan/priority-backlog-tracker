@@ -1,12 +1,16 @@
 package com.backlogtracker.notification.service;
 
 import java.time.Instant;
+import java.util.Collection;
+import java.util.EnumSet;
 import java.util.List;
+import java.util.Set;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
+import com.backlogtracker.archive.domain.ArchiveRequest;
 import com.backlogtracker.group.domain.Group;
 import com.backlogtracker.group.service.GroupService;
 import com.backlogtracker.notification.domain.Notification;
@@ -32,8 +36,74 @@ public class NotificationService {
         return notifications.findByUserIdOrderByCreatedAtDesc(userId);
     }
 
+    /** Types the recipient can act on — these drive the bell's badge count. */
+    private static final Set<NotificationType> ACTIONABLE =
+            EnumSet.of(NotificationType.GROUP_INVITE, NotificationType.ARCHIVE_REQUEST);
+
     public long pendingCount(String userId) {
-        return notifications.countByUserIdAndStatus(userId, NotificationStatus.PENDING);
+        return notifications.countByUserIdAndStatusAndTypeIn(
+                userId, NotificationStatus.PENDING, ACTIONABLE);
+    }
+
+    /** One inbox entry per other group member, asking them to approve/reject the archive. */
+    public void noticeArchiveRequest(ArchiveRequest req, Collection<String> recipientUserIds) {
+        for (String uid : recipientUserIds) {
+            notifications.save(Notification.builder()
+                    .userId(uid)
+                    .type(NotificationType.ARCHIVE_REQUEST)
+                    .status(NotificationStatus.PENDING)
+                    .archiveRequestId(req.getId())
+                    .groupId(req.getGroupId())
+                    .itemId(req.getItemId())
+                    .itemTitle(req.getItemTitle())
+                    .invitedByName(req.getRequestedByName())
+                    .message(req.getNote())
+                    .build());
+        }
+    }
+
+    /** Clear one member's open ARCHIVE_REQUEST notice once their vote is recorded. */
+    public void markArchiveVoteCast(String archiveRequestId, String userId, boolean approved) {
+        for (Notification n : notifications.findByArchiveRequestId(archiveRequestId)) {
+            if (n.getUserId().equals(userId)
+                    && n.getType() == NotificationType.ARCHIVE_REQUEST
+                    && n.getStatus() == NotificationStatus.PENDING) {
+                n.setStatus(approved ? NotificationStatus.ACCEPTED : NotificationStatus.DECLINED);
+                n.setActedAt(Instant.now());
+                notifications.save(n);
+            }
+        }
+    }
+
+    /** Close every open notice for a resolved request and post an informational result. */
+    public void resolveArchiveRequest(ArchiveRequest req, boolean approved,
+                                      Collection<String> memberUserIds) {
+        Instant now = Instant.now();
+        for (Notification n : notifications.findByArchiveRequestId(req.getId())) {
+            if (n.getType() == NotificationType.ARCHIVE_REQUEST
+                    && n.getStatus() == NotificationStatus.PENDING) {
+                n.setStatus(approved ? NotificationStatus.ACCEPTED : NotificationStatus.DECLINED);
+                n.setActedAt(now);
+                notifications.save(n);
+            }
+        }
+        String text = approved
+                ? "“" + req.getItemTitle() + "” was archived."
+                : "The request to archive “" + req.getItemTitle() + "” was declined"
+                        + (req.getRejectedByName() != null ? " by " + req.getRejectedByName() : "")
+                        + ".";
+        for (String uid : memberUserIds) {
+            notifications.save(Notification.builder()
+                    .userId(uid)
+                    .type(NotificationType.ARCHIVE_RESULT)
+                    .status(NotificationStatus.ACCEPTED) // informational — never counts as pending
+                    .archiveRequestId(req.getId())
+                    .groupId(req.getGroupId())
+                    .itemId(req.getItemId())
+                    .itemTitle(req.getItemTitle())
+                    .message(text)
+                    .build());
+        }
     }
 
     /** Member invites {@code to} (an email or a handle) to {@code groupId}. */
@@ -74,6 +144,16 @@ public class NotificationService {
                 .groupName(g.getName())
                 .invitedByUserId(inviter.id())
                 .invitedByName(inviter.name())
+                .build());
+    }
+
+    /** A one-line informational notice (no action). Never counts toward the badge. */
+    public void info(String userId, NotificationType type, String message) {
+        notifications.save(Notification.builder()
+                .userId(userId)
+                .type(type)
+                .status(NotificationStatus.ACCEPTED)
+                .message(message)
                 .build());
     }
 

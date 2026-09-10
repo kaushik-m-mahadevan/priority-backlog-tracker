@@ -75,6 +75,21 @@ export default function ItemsPage() {
     notifyItemsChanged();
   }
   async function complete(i: Item, terminalStatus: string) {
+    if (terminalStatus === "ARCHIVED") {
+      const note = window.prompt(
+        `Request to archive "${i.title}"?\nEvery group member has to approve before it's archived.\n\nOptional note:`,
+        "",
+      );
+      if (note === null) return; // cancelled
+      try {
+        await api.post(`/items/${i.id}/archive-requests`, { note });
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "Could not raise the archive request");
+      }
+      setMenuFor(null);
+      notifyItemsChanged();
+      return;
+    }
     await api.post(`/items/${i.id}/complete`, { terminalStatus });
     setMenuFor(null);
     notifyItemsChanged();
@@ -116,7 +131,7 @@ export default function ItemsPage() {
 
       <div className="card">
         <div className="table-wrap">
-          <table>
+          <table className="data-table">
             <thead>
               <tr>
                 <th style={{ width: 30 }}></th>
@@ -152,7 +167,7 @@ export default function ItemsPage() {
               )}
               {items.map((i) => (
                 <tr key={i.id}>
-                  <td>
+                  <td className="cell-creature">
                     <Creature
                       seed={i.ownerId}
                       label={nameOf(i.ownerId)}
@@ -160,25 +175,25 @@ export default function ItemsPage() {
                       size={24}
                     />
                   </td>
-                  <td>
+                  <td className="cell-prio">
                     <PriorityMark priority={i.priority} />
                   </td>
-                  <td>{i.title}</td>
-                  <td>{i.category}</td>
-                  <td className="muted" style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  <td className="cell-title">{i.title}</td>
+                  <td className="cell-cat">{i.category}</td>
+                  <td className="cell-effort muted" style={{ display: "flex", alignItems: "center", gap: 6 }}>
                     <EffortIcon effort={i.effort} size={16} />
-                    {effortLabel(i.effort)}
+                    <span className="cell-lbl">{effortLabel(i.effort)}</span>
                   </td>
-                  <td>
+                  <td className="cell-due">
                     <DueMark iso={i.dueDate} />
-                    <div className="muted" style={{ fontSize: 11, marginTop: 2 }}>
+                    <div className="muted cell-lbl" style={{ fontSize: 11, marginTop: 2 }}>
                       {formatDate(i.dueDate)}
                     </div>
                   </td>
-                  <td>
+                  <td className="cell-status">
                     <StatusBadge status={i.status} />
                   </td>
-                  <td>
+                  <td className="cell-actions">
                     <div className="row-actions">
                       <button
                         onClick={() => {
@@ -216,7 +231,9 @@ export default function ItemsPage() {
                                 style={{ display: "block", width: "100%", textAlign: "left" }}
                                 onClick={() => complete(i, t)}
                               >
-                                {t[0] + t.slice(1).toLowerCase()}
+                                {t === "ARCHIVED"
+                                  ? "Request archive…"
+                                  : t[0] + t.slice(1).toLowerCase()}
                               </button>
                             ))}
                           </div>

@@ -24,6 +24,14 @@ export interface User {
   email: string;
   role: Role;
   status: AccountStatus;
+  animationsEnabled?: boolean;
+}
+
+export interface GroveHealth {
+  overdue: number;
+  stale: number;
+  neglect: number;
+  stage: number; // 0 healthy .. 4 stump
 }
 
 export interface Effort {
@@ -42,6 +50,7 @@ export interface Item {
   dueDate: string | null;
   status: "BACKLOG" | "IN_PROGRESS";
   groupId: string;
+  pinned: boolean;
   ownerId: string | null;
   createdBy: string | null;
   lastUpdatedBy: string | null;
@@ -57,6 +66,12 @@ export interface RankedItem {
   urgencyFactor: number;
   effortFactor: number;
   sortScore: number;
+}
+
+export interface TopList {
+  items: RankedItem[];
+  pinnedCount: number;
+  overPinned: boolean;
 }
 
 export interface FlaggedItem {

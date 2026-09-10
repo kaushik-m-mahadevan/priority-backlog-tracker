@@ -327,7 +327,7 @@ export default function ItemFormModal({ existing, onClose, onSaved, onComplete }
               <span>Mark as</span>
               {(["RESOLVED", "REJECTED", "ARCHIVED"] as const).map((t) => (
                 <button key={t} type="button" onClick={() => onComplete(t)} disabled={busy}>
-                  {t[0] + t.slice(1).toLowerCase()}
+                  {t === "ARCHIVED" ? "Request archive…" : t[0] + t.slice(1).toLowerCase()}
                 </button>
               ))}
             </div>

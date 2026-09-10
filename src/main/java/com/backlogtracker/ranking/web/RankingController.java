@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.RestController;
 import com.backlogtracker.group.service.GroupService;
 import com.backlogtracker.ranking.RankingService;
 import com.backlogtracker.ranking.dto.RankedItemView;
+import com.backlogtracker.ranking.dto.TopListView;
 import com.backlogtracker.security.AuthUser;
 
 import lombok.RequiredArgsConstructor;
@@ -25,9 +26,9 @@ public class RankingController {
 
     /** Top N live items in {@code groupId} by sortScore (design §3). */
     @GetMapping("/top")
-    public List<RankedItemView> top(@RequestParam String groupId,
-                                    @RequestParam(defaultValue = "10") int limit,
-                                    @AuthenticationPrincipal AuthUser actor) {
+    public TopListView top(@RequestParam String groupId,
+                           @RequestParam(defaultValue = "10") int limit,
+                           @AuthenticationPrincipal AuthUser actor) {
         groupService.requireMember(groupId, actor.id());
         return rankingService.top(groupId, limit);
     }

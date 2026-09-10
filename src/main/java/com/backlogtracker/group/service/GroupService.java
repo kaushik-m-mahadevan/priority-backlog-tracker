@@ -71,6 +71,11 @@ public class GroupService {
                 && groups.findById(groupId).map(g -> g.hasMember(userId)).orElse(false);
     }
 
+    /** Number of members in a group, or 0 if it doesn't exist. */
+    public int memberCount(String groupId) {
+        return groups.findById(groupId).map(g -> g.getMemberIds().size()).orElse(0);
+    }
+
     public long groupCount(String userId) {
         return groups.countByMemberIdsContaining(userId);
     }

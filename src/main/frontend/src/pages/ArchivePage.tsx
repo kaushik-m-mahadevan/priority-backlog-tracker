@@ -53,7 +53,7 @@ export default function ArchivePage() {
 
       <div className="card">
         <div className="table-wrap">
-          <table>
+          <table className="data-table">
             <thead>
               <tr>
                 <th style={{ width: 28 }}></th>
@@ -81,19 +81,19 @@ export default function ArchivePage() {
               )}
               {rows.map((a) => (
                 <tr key={a.id}>
-                  <td>
+                  <td className="cell-prio">
                     <PriorityMark priority={a.priority} />
                   </td>
-                  <td>{a.title}</td>
-                  <td>{a.category}</td>
-                  <td className="muted" style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  <td className="cell-title">{a.title}</td>
+                  <td className="cell-cat">{a.category}</td>
+                  <td className="cell-effort muted" style={{ display: "flex", alignItems: "center", gap: 6 }}>
                     <EffortIcon effort={a.effort} size={16} />
-                    {effortLabel(a.effort)}
+                    <span className="cell-lbl">{effortLabel(a.effort)}</span>
                   </td>
-                  <td>
+                  <td className="cell-status">
                     <TerminalBadge status={a.terminalStatus} />
                   </td>
-                  <td>{formatDateTime(a.completionDate)}</td>
+                  <td className="cell-due">{formatDateTime(a.completionDate)}</td>
                 </tr>
               ))}
             </tbody>

@@ -5,22 +5,28 @@ import { QuickWinsBody, AttentionBody, TeamBody } from "./rail/panels";
 import type { Item, NeedsAttention, RankedItem, WorkloadOverview } from "../types";
 
 interface Props {
-  maxHeight?: number;
   quick: RankedItem[] | null;
   attention: NeedsAttention | null;
   team: WorkloadOverview | null;
   onOpen?: (item: Item) => void;
 }
 
+const ORDER: DockSection[] = ["quick", "attention", "team"];
 const META: Record<DockSection, { label: string; icon: ReactNode }> = {
-  quick: { label: "Quick wins", icon: <QuickGlyph size={19} /> },
-  attention: { label: "Needs attention", icon: <AttentionGlyph size={19} /> },
-  team: { label: "Team workload", icon: <TeamGlyph size={19} /> },
+  quick: { label: "Quick wins", icon: <QuickGlyph size={17} /> },
+  attention: { label: "Needs attention", icon: <AttentionGlyph size={17} /> },
+  team: { label: "Team workload", icon: <TeamGlyph size={17} /> },
 };
 
-export default function LeftDock({ maxHeight, quick, attention, team, onOpen }: Props) {
+/**
+ * The dashboard side panels. Hidden until "Show panels"; then a full-height
+ * accordion — exactly one section open at a time, Quick wins first by default.
+ */
+export default function LeftDock({ quick, attention, team, onOpen }: Props) {
   const { shown, setShown, active, setActive } = useDock();
   if (!shown) return null;
+
+  const open: DockSection = active ?? "quick";
 
   const counts: Record<DockSection, number | undefined> = {
     quick: quick?.length,
@@ -36,43 +42,34 @@ export default function LeftDock({ maxHeight, quick, attention, team, onOpen }: 
   }
 
   return (
-    <div className="dock">
-      <div className="dock-strip">
-        <button
-          className="iconbtn"
-          title="Hide panels"
-          aria-label="Hide panels"
-          onClick={() => setShown(false)}
-        >
-          <ChevronIcon open={false} size={17} />
+    <aside className="dock-acc">
+      <div className="dock-acc-head">
+        <span className="rp-title">Panels</span>
+        <button className="iconbtn" aria-label="Hide panels" onClick={() => setShown(false)}>
+          <ChevronIcon open={false} size={16} />
         </button>
-        {(Object.keys(META) as DockSection[]).map((s) => (
-          <button
-            key={s}
-            className={`dock-tab${active === s ? " on" : ""}`}
-            title={META[s].label}
-            aria-label={META[s].label}
-            onClick={() => setActive(active === s ? null : s)}
-          >
-            {META[s].icon}
-            {counts[s] ? <span className="tab-count">{counts[s]}</span> : null}
-          </button>
-        ))}
       </div>
 
-      {active && (
-        <section className="dock-panel" style={maxHeight ? { maxHeight } : undefined}>
-          <header>
-            <span className="rp-title">{META[active].label}</span>
-            <button className="iconbtn" aria-label="Collapse" onClick={() => setActive(null)}>
-              <span style={{ transform: "rotate(180deg)", display: "inline-flex" }}>
-                <ChevronIcon size={15} />
+      {ORDER.map((s) => {
+        const isOpen = s === open;
+        return (
+          <section key={s} className={`acc-sec${isOpen ? " open" : ""}`}>
+            <button
+              className="acc-hdr"
+              aria-expanded={isOpen}
+              onClick={() => setActive(s)}
+            >
+              <span className="acc-ico">{META[s].icon}</span>
+              <span className="acc-lbl">{META[s].label}</span>
+              {counts[s] ? <span className="acc-cnt">{counts[s]}</span> : null}
+              <span className="acc-chev">
+                <ChevronIcon open={isOpen} size={13} />
               </span>
             </button>
-          </header>
-          <div className="dock-body">{body(active)}</div>
-        </section>
-      )}
-    </div>
+            {isOpen && <div className="acc-body">{body(s)}</div>}
+          </section>
+        );
+      })}
+    </aside>
   );
 }

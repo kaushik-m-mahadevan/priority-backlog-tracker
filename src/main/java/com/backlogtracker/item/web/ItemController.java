@@ -2,6 +2,7 @@ package com.backlogtracker.item.web;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -96,5 +97,19 @@ public class ItemController {
                     "status must be BACKLOG or IN_PROGRESS (got '" + request.status() + "')");
         }
         return ItemView.of(itemService.changeStatus(id, status, actor));
+    }
+
+    /** Pin an item — it floats to the top of the Pecking Order for everyone. */
+    @PostMapping("/{id}/pin")
+    @RequiresUser
+    public ItemView pin(@PathVariable String id, @AuthenticationPrincipal AuthUser actor) {
+        return ItemView.of(itemService.setPinned(id, actor, true));
+    }
+
+    /** Remove an item's pin. */
+    @DeleteMapping("/{id}/pin")
+    @RequiresUser
+    public ItemView unpin(@PathVariable String id, @AuthenticationPrincipal AuthUser actor) {
+        return ItemView.of(itemService.setPinned(id, actor, false));
     }
 }

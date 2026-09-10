@@ -1,5 +1,6 @@
 package com.backlogtracker.ranking;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import org.springframework.stereotype.Service;
@@ -7,6 +8,7 @@ import org.springframework.stereotype.Service;
 import com.backlogtracker.config.service.ConfigService;
 import com.backlogtracker.item.service.ItemService;
 import com.backlogtracker.ranking.dto.RankedItemView;
+import com.backlogtracker.ranking.dto.TopListView;
 
 import lombok.RequiredArgsConstructor;
 
@@ -21,9 +23,28 @@ public class RankingService {
     private final ConfigService configService;
     private final ScoringService scoringService;
 
-    /** Top {@code limit} live items in the group by sortScore (design §3). */
-    public List<RankedItemView> top(String groupId, int limit) {
-        return rank(groupId, ScoringService.ORDER, limit);
+    /**
+     * The Pecking Order: pinned items first (in score order), then the rest fill the
+     * remaining slots up to {@code limit} (design §3 + pinning).
+     */
+    public TopListView top(String groupId, int limit) {
+        var cfg = configService.getConfig();
+        var ranked = scoringService.rankBy(itemService.listLive(groupId), cfg, ScoringService.ORDER);
+        int lim = Math.max(0, limit);
+
+        List<ScoringService.Scored> pinned = ranked.stream()
+                .filter(s -> s.item().isPinned()).toList();
+        List<ScoringService.Scored> rest = ranked.stream()
+                .filter(s -> !s.item().isPinned()).toList();
+
+        List<ScoringService.Scored> combined = new ArrayList<>(pinned.stream().limit(lim).toList());
+        if (combined.size() < lim) {
+            combined.addAll(rest.stream().limit(lim - combined.size()).toList());
+        }
+        return new TopListView(
+                combined.stream().map(RankedItemView::of).toList(),
+                pinned.size(),
+                pinned.size() > lim);
     }
 
     /** Fastest {@code limit} live items in the group — effort asc, sortScore desc (§23). */

@@ -70,7 +70,7 @@ class ArchiveApiTest {
         mvc.perform(get("/api/items").param("groupId", groupId).header("Authorization", "Bearer " + token))
                 .andExpect(jsonPath("$.total").value(0));
         mvc.perform(get("/api/items/top").param("groupId", groupId).header("Authorization", "Bearer " + token))
-                .andExpect(jsonPath("$.length()").value(0));
+                .andExpect(jsonPath("$.items.length()").value(0));
         mvc.perform(get("/api/items/" + id).header("Authorization", "Bearer " + token))
                 .andExpect(status().isNotFound());
 

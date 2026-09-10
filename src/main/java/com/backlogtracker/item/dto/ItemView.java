@@ -16,6 +16,7 @@ public record ItemView(
         Instant dueDate,
         String status,
         String groupId,
+        boolean pinned,
         String ownerId,
         String createdBy,
         String lastUpdatedBy,
@@ -38,6 +39,7 @@ public record ItemView(
                 effort, i.getDueDate(),
                 i.getStatus() == null ? null : i.getStatus().name(),
                 i.getGroupId(),
+                i.isPinned(),
                 i.getOwnerId(), i.getCreatedBy(), i.getLastUpdatedBy(), i.getNotes(),
                 i.getCreatedAt(), i.getUpdatedAt(), i.getVersion());
     }

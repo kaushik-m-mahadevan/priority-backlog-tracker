@@ -4,6 +4,7 @@ import { useKeepAlive } from "../lib/useKeepAlive";
 import Bell from "./Bell";
 import NavMenu from "./NavMenu";
 import GroupSwitcher from "./GroupSwitcher";
+import Grove from "./Grove";
 import {
   SidebarIcon,
   PriorityGlyph,
@@ -13,9 +14,15 @@ import {
   ItemsGlyph,
 } from "./icons";
 
+/** Group-scoped pages that carry the Grove as a first-class visual (the dashboard
+ *  renders its own). Settings / Admin / Manage-groups deliberately don't. */
+const GROVE_ROUTES = ["/quick-wins", "/attention", "/team", "/items", "/archive"];
+
 export default function Layout() {
   const { shown, setShown } = useDock();
-  const onDashboard = useLocation().pathname === "/";
+  const pathname = useLocation().pathname;
+  const onDashboard = pathname === "/";
+  const withGrove = GROVE_ROUTES.includes(pathname);
   useKeepAlive();
 
   return (
@@ -43,8 +50,19 @@ export default function Layout() {
         <NavMenu />
       </nav>
 
-      <div className="container">
-        <Outlet />
+      <div className={`container${withGrove ? " has-grove" : ""}`}>
+        {withGrove ? (
+          <>
+            <div className="cg-main">
+              <Outlet />
+            </div>
+            <aside className="cg-grove">
+              <Grove solo />
+            </aside>
+          </>
+        ) : (
+          <Outlet />
+        )}
       </div>
 
       <nav className="tabbar">
