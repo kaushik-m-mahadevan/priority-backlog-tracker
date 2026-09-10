@@ -15,7 +15,7 @@ public record ItemView(
         EffortView effort,
         Instant dueDate,
         String status,
-        String scope,
+        String groupId,
         String ownerId,
         String createdBy,
         String lastUpdatedBy,
@@ -37,7 +37,7 @@ public record ItemView(
                 i.getId(), i.getItemId(), i.getTitle(), i.getCategory(), i.getPriority(),
                 effort, i.getDueDate(),
                 i.getStatus() == null ? null : i.getStatus().name(),
-                i.getScope() == null ? null : i.getScope().name(),
+                i.getGroupId(),
                 i.getOwnerId(), i.getCreatedBy(), i.getLastUpdatedBy(), i.getNotes(),
                 i.getCreatedAt(), i.getUpdatedAt(), i.getVersion());
     }

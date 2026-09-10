@@ -41,7 +41,7 @@ export interface Item {
   effort: Effort | null;
   dueDate: string | null;
   status: "BACKLOG" | "IN_PROGRESS";
-  scope: "SHARED" | "PERSONAL";
+  groupId: string;
   ownerId: string | null;
   createdBy: string | null;
   lastUpdatedBy: string | null;
@@ -89,7 +89,7 @@ export interface ArchivedItem {
   priority: string;
   effort: Effort | null;
   dueDate: string | null;
-  scope: string;
+  groupId: string;
   ownerId: string | null;
   terminalStatus: "RESOLVED" | "REJECTED" | "ARCHIVED";
   completionDate: string | null;

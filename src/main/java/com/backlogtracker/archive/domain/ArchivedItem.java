@@ -7,7 +7,6 @@ import org.springframework.data.mongodb.core.mapping.Document;
 
 import com.backlogtracker.item.domain.EffortEstimate;
 import com.backlogtracker.item.domain.Item;
-import com.backlogtracker.item.domain.ItemScope;
 import com.backlogtracker.item.domain.Notes;
 
 import lombok.AllArgsConstructor;
@@ -39,7 +38,6 @@ public class ArchivedItem {
     private EffortEstimate effortEstimate;
     private Instant dueDate;
     private String groupId;
-    private ItemScope scope;
     private String createdBy;
     private String lastUpdatedBy;
     private String ownerId;
@@ -64,7 +62,6 @@ public class ArchivedItem {
                 .effortEstimate(i.getEffortEstimate())
                 .dueDate(i.getDueDate())
                 .groupId(i.getGroupId())
-                .scope(i.getScope())
                 .createdBy(i.getCreatedBy())
                 .lastUpdatedBy(actorId != null ? actorId : i.getLastUpdatedBy())
                 .ownerId(i.getOwnerId())

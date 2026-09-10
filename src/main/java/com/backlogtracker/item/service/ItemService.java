@@ -14,7 +14,6 @@ import com.backlogtracker.config.service.ConfigService;
 import com.backlogtracker.counter.CounterService;
 import com.backlogtracker.group.service.GroupService;
 import com.backlogtracker.item.domain.Item;
-import com.backlogtracker.item.domain.ItemScope;
 import com.backlogtracker.item.domain.ItemStatus;
 import com.backlogtracker.item.domain.Notes;
 import com.backlogtracker.item.dto.CreateItemRequest;
@@ -62,7 +61,6 @@ public class ItemService {
                 .dueDate(due)
                 .status(ItemStatus.BACKLOG)
                 .groupId(r.groupId())
-                .scope(ItemScope.SHARED)
                 .createdBy(actor.id())
                 .lastUpdatedBy(actor.id())
                 .ownerId(blankToNull(r.ownerId()))

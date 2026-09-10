@@ -55,9 +55,6 @@ public class Item {
     /** The group this item belongs to. Every item is in exactly one group (design: groups). */
     private String groupId;
 
-    /** Legacy — always SHARED, unused since groups. Kept until the Phase 6 cleanup. */
-    private ItemScope scope;
-
     /** Audit-only — never gates edit rights (design §2, §8). */
     private String createdBy;
     private String lastUpdatedBy;

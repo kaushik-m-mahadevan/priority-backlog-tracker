@@ -60,6 +60,12 @@ public class LegacyDataMigration implements ApplicationRunner {
                         .and("maxGroupsPerUser").exists(false)),
                 new Update().set("maxGroupsPerUser", 5), "config").getModifiedCount();
 
+        // drop the vestigial per-item scope field
+        mongo.updateMulti(new Query(Criteria.where("scope").exists(true)),
+                new Update().unset("scope"), "items");
+        mongo.updateMulti(new Query(Criteria.where("scope").exists(true)),
+                new Update().unset("scope"), "archivedItems");
+
         if (admins + users + activated + renamed + capped > 0) {
             log.info("LegacyDataMigration: OWNER->ADMIN x{}, CONTRIBUTOR/VIEWER->USER x{}, "
                     + "status->ACTIVE x{}, userCode->handle x{}, maxGroupsPerUser set x{}",

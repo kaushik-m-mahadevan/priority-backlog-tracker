@@ -13,7 +13,7 @@ public record ArchivedItemView(
         String priority,
         EffortView effort,
         Instant dueDate,
-        String scope,
+        String groupId,
         String ownerId,
         String createdBy,
         String lastUpdatedBy,
@@ -30,7 +30,7 @@ public record ArchivedItemView(
         return new ArchivedItemView(
                 a.getId(), a.getItemId(), a.getTitle(), a.getCategory(), a.getPriority(),
                 effort, a.getDueDate(),
-                a.getScope() == null ? null : a.getScope().name(),
+                a.getGroupId(),
                 a.getOwnerId(), a.getCreatedBy(), a.getLastUpdatedBy(),
                 a.getTerminalStatus() == null ? null : a.getTerminalStatus().name(),
                 a.getCompletionDate(), a.getMovedAt(), a.getCreatedAt());

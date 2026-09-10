@@ -85,7 +85,7 @@ class ItemApiTest {
 
         assertThat(created.get("itemId").asText()).isEqualTo("ITM-001");
         assertThat(created.get("status").asText()).isEqualTo("BACKLOG");
-        assertThat(created.get("scope").asText()).isEqualTo("SHARED");
+        assertThat(created.get("groupId").asText()).isEqualTo(groupId);
         assertThat(created.get("effort").get("minutes").asLong()).isEqualTo(30);
         assertThat(created.get("createdBy").asText()).isNotBlank();
         assertThat(created.get("lastUpdatedBy").asText())

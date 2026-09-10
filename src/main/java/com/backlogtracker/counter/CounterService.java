@@ -38,13 +38,8 @@ public class CounterService {
         return counter.getSeq();
     }
 
-    /** Next globally sequential shared-item id, e.g. {@code ITM-001} (§20). */
+    /** Next globally sequential item id, e.g. {@code ITM-001} (§20). */
     public String nextSharedItemId() {
         return "ITM-%03d".formatted(next(SHARED_KEY));
-    }
-
-    /** Next per-user personal-item id, e.g. {@code P-TST-014} (§20). */
-    public String nextPersonalItemId(String userCode) {
-        return "P-%s-%03d".formatted(userCode, next("personal-" + userCode));
     }
 }

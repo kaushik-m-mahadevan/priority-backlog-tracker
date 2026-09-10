@@ -23,7 +23,6 @@ import com.backlogtracker.counter.CounterService;
 import com.backlogtracker.item.domain.EffortEstimate;
 import com.backlogtracker.item.domain.EffortUnit;
 import com.backlogtracker.item.domain.Item;
-import com.backlogtracker.item.domain.ItemScope;
 import com.backlogtracker.item.domain.ItemStatus;
 import com.backlogtracker.item.repository.ItemRepository;
 import com.backlogtracker.user.domain.AccountStatus;
@@ -139,7 +138,7 @@ public class DemoDataSeeder implements ApplicationRunner {
                     .title(s.title()).category(s.category()).priority(s.priority())
                     .effortEstimate(s.effort())
                     .dueDate(now.plus(s.dueInDays(), ChronoUnit.DAYS))
-                    .status(s.status()).scope(ItemScope.SHARED).groupId(groupId)
+                    .status(s.status()).groupId(groupId)
                     .createdBy(test123).lastUpdatedBy(test123)
                     .ownerId(s.ownerId())
                     .build());
@@ -178,7 +177,7 @@ public class DemoDataSeeder implements ApplicationRunner {
                 .itemId(counters.nextSharedItemId())
                 .title(title).category(category).priority(priority).effortEstimate(effort)
                 .dueDate(now.minus(completedDaysAgo + 2L, ChronoUnit.DAYS))
-                .scope(ItemScope.SHARED).groupId(groupId).ownerId(ownerId)
+                .groupId(groupId).ownerId(ownerId)
                 .createdAt(now.minus(createdDaysAgo, ChronoUnit.DAYS))
                 .updatedAt(now.minus(completedDaysAgo, ChronoUnit.DAYS))
                 .terminalStatus(terminal)

@@ -23,7 +23,6 @@ import org.springframework.test.web.servlet.MockMvc;
 import com.backlogtracker.item.domain.EffortEstimate;
 import com.backlogtracker.item.domain.EffortUnit;
 import com.backlogtracker.item.domain.Item;
-import com.backlogtracker.item.domain.ItemScope;
 import com.backlogtracker.item.domain.ItemStatus;
 import com.backlogtracker.item.repository.ItemRepository;
 import com.backlogtracker.group.repository.GroupRepository;
@@ -57,7 +56,7 @@ class InsightsApiTest {
         Item i = items.save(Item.builder()
                 .itemId(itemId).title(itemId).category("Project").priority(priority)
                 .effortEstimate(new EffortEstimate(30, EffortUnit.MINUTES))
-                .status(status).scope(ItemScope.SHARED).groupId(groupId)
+                .status(status).groupId(groupId)
                 .createdBy("seed").lastUpdatedBy("seed")
                 .dueDate(Instant.now())
                 .build());
