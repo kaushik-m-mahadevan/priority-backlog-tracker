@@ -50,6 +50,7 @@ import lombok.extern.slf4j.Slf4j;
 public class DemoDataSeeder implements ApplicationRunner {
 
     private final UserRepository users;
+    private final com.backlogtracker.group.repository.GroupRepository groups;
     private final PasswordEncoder passwordEncoder;
     private final ItemRepository items;
     private final ArchivedItemRepository archived;
@@ -76,6 +77,13 @@ public class DemoDataSeeder implements ApplicationRunner {
         User priya = ensureUser("Priya Shah", "priya@demo.test", "PRY");
         User sam = ensureUser("Sam Lee", "sam@demo.test", "SAM");
         String test123 = users.findByEmailIgnoreCase("test123").map(User::getId).orElse(null);
+
+        String groupId = groups.save(com.backlogtracker.group.domain.Group.builder()
+                .name("Founders")
+                .createdByUserId(test123)
+                .memberIds(new ArrayList<>(java.util.List.of(
+                        test123, alex.getId(), priya.getId(), sam.getId())))
+                .build()).getId();
 
         // title, category, priority, effort, dueInDays, status, ownerId, createdDaysAgo
         record Spec(String title, String category, String priority, EffortEstimate effort,
@@ -131,7 +139,7 @@ public class DemoDataSeeder implements ApplicationRunner {
                     .title(s.title()).category(s.category()).priority(s.priority())
                     .effortEstimate(s.effort())
                     .dueDate(now.plus(s.dueInDays(), ChronoUnit.DAYS))
-                    .status(s.status()).scope(ItemScope.SHARED)
+                    .status(s.status()).scope(ItemScope.SHARED).groupId(groupId)
                     .createdBy(test123).lastUpdatedBy(test123)
                     .ownerId(s.ownerId())
                     .build());
@@ -141,13 +149,13 @@ public class DemoDataSeeder implements ApplicationRunner {
                     Item.class);
         }
 
-        seedArchived("Kill the legacy cron worker", "Project", "Medium", hours(4),
+        seedArchived(groupId, "Kill the legacy cron worker", "Project", "Medium", hours(4),
                 TerminalStatus.RESOLVED, sam.getId(), 20, 4);
-        seedArchived("Evaluate Segment for analytics", "Technical Discussion", "Low", hours(2),
+        seedArchived(groupId, "Evaluate Segment for analytics", "Technical Discussion", "Low", hours(2),
                 TerminalStatus.REJECTED, priya.getId(), 30, 9);
-        seedArchived("One-off data backfill for beta users", "Admin-Ops", "High", days(1),
+        seedArchived(groupId, "One-off data backfill for beta users", "Admin-Ops", "High", days(1),
                 TerminalStatus.RESOLVED, alex.getId(), 14, 2);
-        seedArchived("Explore native mobile app", "Research", "Low", days(3),
+        seedArchived(groupId, "Explore native mobile app", "Research", "Low", days(3),
                 TerminalStatus.ARCHIVED, null, 45, 15);
 
         log.info("Demo data: {} live items, {} archived, {} users",
@@ -162,15 +170,15 @@ public class DemoDataSeeder implements ApplicationRunner {
                 .build()));
     }
 
-    private void seedArchived(String title, String category, String priority, EffortEstimate effort,
-                              TerminalStatus terminal, String ownerId, int createdDaysAgo,
-                              int completedDaysAgo) {
+    private void seedArchived(String groupId, String title, String category, String priority,
+                              EffortEstimate effort, TerminalStatus terminal, String ownerId,
+                              int createdDaysAgo, int completedDaysAgo) {
         Instant now = Instant.now();
         archived.save(ArchivedItem.builder()
                 .itemId(counters.nextSharedItemId())
                 .title(title).category(category).priority(priority).effortEstimate(effort)
                 .dueDate(now.minus(completedDaysAgo + 2L, ChronoUnit.DAYS))
-                .scope(ItemScope.SHARED).ownerId(ownerId)
+                .scope(ItemScope.SHARED).groupId(groupId).ownerId(ownerId)
                 .createdAt(now.minus(createdDaysAgo, ChronoUnit.DAYS))
                 .updatedAt(now.minus(completedDaysAgo, ChronoUnit.DAYS))
                 .terminalStatus(terminal)
