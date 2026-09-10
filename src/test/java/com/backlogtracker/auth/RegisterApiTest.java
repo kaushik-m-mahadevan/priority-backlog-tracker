@@ -70,13 +70,24 @@ class RegisterApiTest {
 
     @Test
     void rejectsABadHandleOrShortPassword() throws Exception {
-        mvc.perform(register("X", "AB", "reg@demo.test", "changeme123"))
-                .andExpect(status().isBadRequest());
         mvc.perform(register("X", "has space", "reg@demo.test", "changeme123"))
                 .andExpect(status().isBadRequest());
         mvc.perform(register("X", "Upper", "reg@demo.test", "changeme123"))
                 .andExpect(status().isBadRequest());
+        mvc.perform(register("X", "", "reg@demo.test", "changeme123"))
+                .andExpect(status().isBadRequest());
+        mvc.perform(register("X", "x".repeat(31), "reg@demo.test", "changeme123"))
+                .andExpect(status().isBadRequest());
         mvc.perform(register("X", "okhandle", "reg@demo.test", "short"))
                 .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void acceptsAOneCharacterHandle() throws Exception {
+        mvc.perform(register("Tiny", "q", "tiny@demo.test", "changeme123"))
+                .andExpect(status().isCreated());
+        // and it persisted — a second account can't take the same handle
+        mvc.perform(register("Tiny Two", "q", "tiny2@demo.test", "changeme123"))
+                .andExpect(status().isConflict());
     }
 }

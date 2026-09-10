@@ -48,8 +48,8 @@ export default function RegisterPage() {
               <input
                 value={handle}
                 onChange={(e) => setHandle(e.target.value)}
-                placeholder="lowercase, 3–20 chars, letters/digits/-/_"
-                pattern="[a-z0-9_-]{3,20}"
+                placeholder="lowercase, 1–30 chars, letters/digits/-/_"
+                pattern="[a-z0-9_-]{1,30}"
                 required
               />
             </div>
