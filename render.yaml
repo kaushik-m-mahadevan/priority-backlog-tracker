@@ -20,14 +20,5 @@ services:
         generateValue: true       # Render generates a strong value once and keeps it
       - key: MONGODB_URI
         sync: false               # secret — set it in the dashboard, no trailing /database
-      # First-boot admin: uncomment, set values, deploy, log in, then re-comment + redeploy.
-      # - key: SEED_USER_ENABLED
-      #   value: "true"
-      # - key: SEED_USER_EMAIL
-      #   sync: false
-      # - key: SEED_USER_PASSWORD
-      #   sync: false
-      # - key: SEED_USER_NAME
-      #   value: "Kaushik"
-      # - key: SEED_USER_CODE
-      #   value: "KM"
+      # No first-boot admin env vars: on an existing DB, LegacyDataMigration promotes the
+      # old OWNER account to ADMIN; a fresh DB needs an admin seeded out of band (README).

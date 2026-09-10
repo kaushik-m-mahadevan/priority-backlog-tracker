@@ -1,5 +1,12 @@
 # Priority Backlog Tracker — Final Design Document
 
+> **Superseded in part.** The onboarding model (self-serve registration, `ADMIN`/`USER`
+> roles, admin approval, owner-less **groups**, email/`@handle` invites via the
+> notification inbox) is specified in
+> [`design-onboarding-groups.md`](design-onboarding-groups.md). Where the two disagree —
+> roles, scoping (groups replaced the `personal`/`shared` item scope), user management —
+> that document wins. The ranking math, aging rules, and archive flow below are unchanged.
+
 ## 1. Purpose
 
 A shared web application for 3 founders (extensible to more) to log, rank, and act on a
