@@ -26,3 +26,6 @@ application-local.yml
 # OS
 .DS_Store
 Thumbs.db
+
+# compiled one-off ops tools
+/ops/**/*.class

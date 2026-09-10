@@ -46,6 +46,13 @@ public class GroupBackfill implements ApplicationRunner {
         if (admins.isEmpty()) {
             return;
         }
+        // Nothing pre-groups to rehome → don't fabricate a group. A reset/empty prod
+        // database lands here: the admin signs in group-less and creates their own.
+        long orphans = mongo.count(orphanQuery(), "items")
+                + mongo.count(orphanQuery(), "archivedItems");
+        if (orphans == 0) {
+            return;
+        }
         User admin = admins.get(0);
         Group g = groups.save(Group.builder()
                 .name(admin.getName() + "'s Backlog")
@@ -60,8 +67,11 @@ public class GroupBackfill implements ApplicationRunner {
     }
 
     private long assignGroup(String collection, String groupId) {
-        return mongo.updateMulti(
-                new Query(Criteria.where("groupId").exists(false)),
+        return mongo.updateMulti(orphanQuery(),
                 new Update().set("groupId", groupId), collection).getModifiedCount();
+    }
+
+    private static Query orphanQuery() {
+        return new Query(Criteria.where("groupId").exists(false));
     }
 }
