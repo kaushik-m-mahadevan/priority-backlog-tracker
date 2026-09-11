@@ -101,10 +101,13 @@ export default function Grove({
 
   const sufferStyle = `
     .wilt{filter:saturate(.3) brightness(.8);transition:filter .6s ease}
-    .axeman{animation:chop 1s ease-in-out infinite;transform-box:fill-box;transform-origin:top left}
-    .axeman:nth-of-type(2){animation-delay:.5s}
-    @keyframes chop{0%,100%{transform:rotate(0)}50%{transform:rotate(-9deg)}}
-    @media (prefers-reduced-motion:reduce){.axeman{animation:none}.leaf{animation:none}}
+    /* animate the arm sub-group only — the outer .axeman group carries an SVG
+       transform="translate(...) scale(...)" attribute, and a CSS transform (including
+       one driven by an animation) on that SAME element overrides the attribute outright,
+       snapping the whole figure to the origin instead of rotating it in place. */
+    .axeman-arm{animation:chop 1s ease-in-out infinite;transform-box:fill-box;transform-origin:0% 100%}
+    @keyframes chop{0%,100%{transform:rotate(0)}50%{transform:rotate(-22deg)}}
+    @media (prefers-reduced-motion:reduce){.axeman-arm{animation:none}.leaf{animation:none}}
   `;
 
   if (compact) {
