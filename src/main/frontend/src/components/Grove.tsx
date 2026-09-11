@@ -4,6 +4,7 @@ import { useGroups } from "../groups/GroupContext";
 import { useAuth } from "../auth/AuthContext";
 import { useItemsChanged } from "../lib/events";
 import { Creature } from "./Creature";
+import { Lumberjack } from "./Lumberjack";
 import type { CompletionStats, GroveHealth } from "../types";
 
 function stageFor(n: number): number {
@@ -15,28 +16,13 @@ function stageFor(n: number): number {
   return 0;
 }
 
-/** A tiny lumberjack chopping the trunk (opt-in "the grove suffers" animation). */
-function Axeman({ x, flip = false }: { x: number; flip?: boolean }) {
-  return (
-    <g
-      className="axeman"
-      transform={`translate(${x} 96) scale(${flip ? -1 : 1} 1)`}
-      stroke="var(--text-dim)"
-      strokeWidth="1.5"
-      strokeLinecap="round"
-      fill="none"
-    >
-      <circle cx="0" cy="0" r="2.2" fill="var(--text-dim)" stroke="none" />
-      <path d="M0 2 V8" />
-      <path d="M0 8 L-3 13 M0 8 L3 13" />
-      <g className="axeman-arm">
-        <path d="M0 4 L6 1" />
-        <path d="M6 1 L11 -3" strokeWidth="1.3" />
-        <path d="M11 -3 l2.5 -1.4 l1.3 2.4 l-2.5 1.4 Z" fill="var(--text-dim)" stroke="none" />
-      </g>
-    </g>
-  );
-}
+/** Same absolute placement in both the compact and full Grove — like the canopy/trunk,
+ *  it's the differing crop + render size between the two that changes how big it looks. */
+const LUMBERJACK_HEIGHT = 20;
+const LUMBERJACKS = [
+  { x: 54, flip: false }, // approaches from the left, axe swings toward the trunk
+  { x: 93, flip: true }, // approaches from the right
+];
 
 export default function Grove({
   compact = false,
@@ -101,13 +87,13 @@ export default function Grove({
 
   const sufferStyle = `
     .wilt{filter:saturate(.3) brightness(.8);transition:filter .6s ease}
-    /* animate the arm sub-group only — the outer .axeman group carries an SVG
+    /* animate the arm sub-group only — an ancestor .lumberjack <g> carries an SVG
        transform="translate(...) scale(...)" attribute, and a CSS transform (including
        one driven by an animation) on that SAME element overrides the attribute outright,
        snapping the whole figure to the origin instead of rotating it in place. */
-    .axeman-arm{animation:chop 1s ease-in-out infinite;transform-box:fill-box;transform-origin:0% 100%}
-    @keyframes chop{0%,100%{transform:rotate(0)}50%{transform:rotate(-22deg)}}
-    @media (prefers-reduced-motion:reduce){.axeman-arm{animation:none}.leaf{animation:none}}
+    .lj-arm-swing{animation:chop 1.7s cubic-bezier(.5,0,.3,1) infinite;transform-box:view-box;transform-origin:27.5px 18.5px}
+    @keyframes chop{0%,100%{transform:rotate(0)}55%{transform:rotate(-40deg)}}
+    @media (prefers-reduced-motion:reduce){.lj-arm-swing{animation:none}.leaf{animation:none}}
   `;
 
   if (compact) {
@@ -140,8 +126,9 @@ export default function Grove({
                 {stage >= 2 && <circle cx={88 + stage} cy={84 - stage * 3} r={7 + stage * 3} />}
               </g>
             ))}
-          {sick >= 2 && <Axeman x={64} flip />}
-          {sick >= 3 && <Axeman x={88} />}
+          {LUMBERJACKS.slice(0, sick >= 3 ? 2 : sick >= 2 ? 1 : 0).map((lj) => (
+            <Lumberjack key={lj.x} x={lj.x} y={104 - LUMBERJACK_HEIGHT} height={LUMBERJACK_HEIGHT} flip={lj.flip} />
+          ))}
           <style>{sufferStyle}</style>
         </svg>
         <span className="say">{say}</span>
@@ -229,9 +216,15 @@ export default function Grove({
               </g>
             )}
             {/* lumberjacks */}
-            {sick >= 2 && <Axeman x={60} flip />}
-            {sick >= 3 && <Axeman x={92} />}
-            {sick >= 3 && <Axeman x={50} flip />}
+            {LUMBERJACKS.slice(0, sick >= 3 ? 2 : sick >= 2 ? 1 : 0).map((lj) => (
+              <Lumberjack
+                key={lj.x}
+                x={lj.x}
+                y={104 - LUMBERJACK_HEIGHT}
+                height={LUMBERJACK_HEIGHT}
+                flip={lj.flip}
+              />
+            ))}
           </>
         )}
       </svg>

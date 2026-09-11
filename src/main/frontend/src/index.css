@@ -17,6 +17,25 @@
   --p-low: #a8c99a;
   --radius: 14px;
   color-scheme: dark;
+
+  /* Lumberjack mascot (opt-in "the grove suffers" animation) — fixed real-world colors,
+     same idea as the emoji Creature avatars: it doesn't retint with the theme toggle. */
+  --lj-skin: #e3b48a;
+  --lj-skin-sh: #cf9a6c;
+  --lj-hair: #5b3a24;
+  --lj-beard: #5b3a24;
+  --lj-beard-dk: #432a1a;
+  --lj-shirt: #c1524a;
+  --lj-shirt-dk: #a63f39;
+  --lj-plaid: #241c28;
+  --lj-pants: #a9855f;
+  --lj-pants-dk: #8f6d49;
+  --lj-boot: #3f2c20;
+  --lj-boot-dk: #2e2017;
+  --lj-axe: #6d6672;
+  --lj-axe-hi: #8b8492;
+  --lj-handle: #8a5a34;
+  --lj-handle-dk: #734a2a;
 }
 :root[data-theme="tide"] {
   --bg: #132028;
