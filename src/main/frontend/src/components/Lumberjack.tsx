@@ -142,12 +142,12 @@ export function Lumberjack({
       <Body />
     </svg>
   );
+  // A slight lean from the ankles toward the trunk — applied before any flip, so on a
+  // flipped (mirrored) figure it reads as leaning the other way, i.e. still toward the
+  // tree it's standing next to either side of.
+  const lean = `rotate(9 ${width / 2} ${height})`;
   if (!flip) {
-    return (
-      <g transform={`translate(${x} ${y})`}>{svg}</g>
-    );
+    return <g transform={`translate(${x} ${y}) ${lean}`}>{svg}</g>;
   }
-  return (
-    <g transform={`translate(${x + width} ${y}) scale(-1 1)`}>{svg}</g>
-  );
+  return <g transform={`translate(${x + width} ${y}) scale(-1 1) ${lean}`}>{svg}</g>;
 }

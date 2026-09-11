@@ -91,9 +91,36 @@ export default function Grove({
        transform="translate(...) scale(...)" attribute, and a CSS transform (including
        one driven by an animation) on that SAME element overrides the attribute outright,
        snapping the whole figure to the origin instead of rotating it in place. */
-    .lj-arm-swing{animation:chop 1.7s cubic-bezier(.5,0,.3,1) infinite;transform-box:view-box;transform-origin:27.5px 18.5px}
-    @keyframes chop{0%,100%{transform:rotate(0)}55%{transform:rotate(-40deg)}}
-    @media (prefers-reduced-motion:reduce){.lj-arm-swing{animation:none}.leaf{animation:none}}
+    .lj-arm-swing{
+      animation: chop 1.4s cubic-bezier(.65,0,.35,1) infinite;
+      transform-box: view-box; transform-origin: 27.5px 18.5px;
+    }
+    /* wind the axe back, then swing it down hard into the trunk and hold a beat on
+       impact before resetting — a rotate(0) "raised by the shoulder" idle reads as a
+       wave; the axe needs a real backswing and a downstroke to read as a chop. */
+    @keyframes chop {
+      0%   { transform: rotate(0deg); }
+      18%  { transform: rotate(-32deg); }
+      46%  { transform: rotate(98deg); }
+      58%  { transform: rotate(98deg); }
+      100% { transform: rotate(0deg); }
+    }
+    /* the trunk + canopy shake together right on impact, timed to the same cycle so
+       every lumberjack's downstroke lands in sync with a hit. */
+    .tree-shake{
+      animation: treeHit 1.4s cubic-bezier(.65,0,.35,1) infinite;
+      transform-box: view-box; transform-origin: 75px 104px;
+    }
+    @keyframes treeHit {
+      0%, 44% { transform: translate(0,0) rotate(0); }
+      47% { transform: translate(1.4px,-0.3px) rotate(1.3deg); }
+      50% { transform: translate(-1.1px,0.2px) rotate(-1deg); }
+      53% { transform: translate(0.6px,0) rotate(0.5deg); }
+      58%, 100% { transform: translate(0,0) rotate(0); }
+    }
+    @media (prefers-reduced-motion:reduce){
+      .lj-arm-swing,.tree-shake{animation:none}.leaf{animation:none}
+    }
   `;
 
   if (compact) {
@@ -102,30 +129,32 @@ export default function Grove({
       <div className="grove compact" title={say}>
         <svg width="52" height="46" viewBox="35 58 80 48" aria-hidden="true">
           <path d="M18 104 H132" stroke="var(--border)" strokeWidth="2" strokeLinecap="round" />
-          <path
-            d={`M75 104 V${sick >= 4 ? 98 : 104 - 18 - stage * 6}`}
-            stroke="var(--text-dim)"
-            strokeWidth={sick >= 4 ? 6 : 2 + stage * 0.6}
-            strokeLinecap="round"
-          />
-          {sick < 4 &&
-            (stage === 0 ? (
-              <path
-                d="M75 86 C68 84 65 78 65 78 C72 78 75 84 75 86Z"
-                fill="var(--growth)"
-                className={wilt ? "wilt" : undefined}
-              />
-            ) : (
-              <g
-                fill="var(--growth)"
-                opacity={resting ? 0.4 : 0.9}
-                className={wilt ? "wilt" : undefined}
-              >
-                <circle cx="75" cy={78 - stage * 5} r={(10 + stage * 5) * (wilt ? 0.8 : 1)} />
-                {stage >= 2 && <circle cx={62 - stage} cy={84 - stage * 3} r={7 + stage * 3} />}
-                {stage >= 2 && <circle cx={88 + stage} cy={84 - stage * 3} r={7 + stage * 3} />}
-              </g>
-            ))}
+          <g className={sick >= 2 ? "tree-shake" : undefined}>
+            <path
+              d={`M75 104 V${sick >= 4 ? 98 : 104 - 18 - stage * 6}`}
+              stroke="var(--text-dim)"
+              strokeWidth={sick >= 4 ? 6 : 2 + stage * 0.6}
+              strokeLinecap="round"
+            />
+            {sick < 4 &&
+              (stage === 0 ? (
+                <path
+                  d="M75 86 C68 84 65 78 65 78 C72 78 75 84 75 86Z"
+                  fill="var(--growth)"
+                  className={wilt ? "wilt" : undefined}
+                />
+              ) : (
+                <g
+                  fill="var(--growth)"
+                  opacity={resting ? 0.4 : 0.9}
+                  className={wilt ? "wilt" : undefined}
+                >
+                  <circle cx="75" cy={78 - stage * 5} r={(10 + stage * 5) * (wilt ? 0.8 : 1)} />
+                  {stage >= 2 && <circle cx={62 - stage} cy={84 - stage * 3} r={7 + stage * 3} />}
+                  {stage >= 2 && <circle cx={88 + stage} cy={84 - stage * 3} r={7 + stage * 3} />}
+                </g>
+              ))}
+          </g>
           {LUMBERJACKS.slice(0, sick >= 3 ? 2 : sick >= 2 ? 1 : 0).map((lj) => (
             <Lumberjack key={lj.x} x={lj.x} y={104 - LUMBERJACK_HEIGHT} height={LUMBERJACK_HEIGHT} flip={lj.flip} />
           ))}
@@ -157,64 +186,66 @@ export default function Grove({
           </>
         ) : (
           <>
-            {/* trunk */}
-            <path
-              d={`M75 104 V${104 - 18 - stage * 6}`}
-              stroke="var(--text-dim)"
-              strokeWidth={2 + stage * 0.6}
-              strokeLinecap="round"
-              fill="none"
-            />
-            {/* chop notch */}
-            {sick >= 2 && (
+            <g className={sick >= 2 ? "tree-shake" : undefined}>
+              {/* trunk */}
               <path
-                d="M75 101 l7 -3.5 l0 7 Z"
-                fill="var(--bg-elev)"
+                d={`M75 104 V${104 - 18 - stage * 6}`}
                 stroke="var(--text-dim)"
-                strokeWidth="0.8"
+                strokeWidth={2 + stage * 0.6}
+                strokeLinecap="round"
+                fill="none"
               />
-            )}
-            {/* canopy */}
-            {stage === 0 && (
-              <path
-                d="M75 86 C68 84 65 78 65 78 C72 78 75 84 75 86Z"
-                fill="var(--growth)"
-                opacity="0.9"
-                className={wilt ? "wilt" : undefined}
-              />
-            )}
-            {stage >= 1 && (
-              <g
-                fill="var(--growth)"
-                opacity={resting ? 0.4 : 0.9}
-                className={wilt ? "wilt" : undefined}
-              >
-                <circle cx="75" cy={78 - stage * 5} r={(10 + stage * 5) * canopyScale} />
-                {stage >= 2 && (
-                  <circle cx={62 - stage} cy={84 - stage * 3} r={(7 + stage * 3) * canopyScale} />
-                )}
-                {stage >= 2 && (
-                  <circle cx={88 + stage} cy={84 - stage * 3} r={(7 + stage * 3) * canopyScale} />
-                )}
-                {stage >= 4 && <circle cx="75" cy={62 - stage * 4} r={9 + stage * 2} />}
-              </g>
-            )}
-            {stage >= 5 && !resting && !sick && (
-              <g fill="var(--accent)">
-                <circle cx="64" cy="52" r="2.4" />
-                <circle cx="86" cy="46" r="2.4" />
-                <circle cx="75" cy="38" r="2.4" />
-                <circle cx="92" cy="60" r="2.4" />
-              </g>
-            )}
-            {/* drooping / shed leaves */}
-            {(resting || wilt) && stage >= 1 && (
-              <g fill="var(--growth)" opacity="0.7">
-                <ellipse className="leaf leaf1" cx="55" cy="92" rx="3" ry="1.7" />
-                <ellipse className="leaf leaf2" cx="96" cy="88" rx="3" ry="1.7" />
-                <ellipse className="leaf leaf3" cx="78" cy="96" rx="3" ry="1.7" />
-              </g>
-            )}
+              {/* chop notch */}
+              {sick >= 2 && (
+                <path
+                  d="M75 101 l7 -3.5 l0 7 Z"
+                  fill="var(--bg-elev)"
+                  stroke="var(--text-dim)"
+                  strokeWidth="0.8"
+                />
+              )}
+              {/* canopy */}
+              {stage === 0 && (
+                <path
+                  d="M75 86 C68 84 65 78 65 78 C72 78 75 84 75 86Z"
+                  fill="var(--growth)"
+                  opacity="0.9"
+                  className={wilt ? "wilt" : undefined}
+                />
+              )}
+              {stage >= 1 && (
+                <g
+                  fill="var(--growth)"
+                  opacity={resting ? 0.4 : 0.9}
+                  className={wilt ? "wilt" : undefined}
+                >
+                  <circle cx="75" cy={78 - stage * 5} r={(10 + stage * 5) * canopyScale} />
+                  {stage >= 2 && (
+                    <circle cx={62 - stage} cy={84 - stage * 3} r={(7 + stage * 3) * canopyScale} />
+                  )}
+                  {stage >= 2 && (
+                    <circle cx={88 + stage} cy={84 - stage * 3} r={(7 + stage * 3) * canopyScale} />
+                  )}
+                  {stage >= 4 && <circle cx="75" cy={62 - stage * 4} r={9 + stage * 2} />}
+                </g>
+              )}
+              {stage >= 5 && !resting && !sick && (
+                <g fill="var(--accent)">
+                  <circle cx="64" cy="52" r="2.4" />
+                  <circle cx="86" cy="46" r="2.4" />
+                  <circle cx="75" cy="38" r="2.4" />
+                  <circle cx="92" cy="60" r="2.4" />
+                </g>
+              )}
+              {/* drooping / shed leaves */}
+              {(resting || wilt) && stage >= 1 && (
+                <g fill="var(--growth)" opacity="0.7">
+                  <ellipse className="leaf leaf1" cx="55" cy="92" rx="3" ry="1.7" />
+                  <ellipse className="leaf leaf2" cx="96" cy="88" rx="3" ry="1.7" />
+                  <ellipse className="leaf leaf3" cx="78" cy="96" rx="3" ry="1.7" />
+                </g>
+              )}
+            </g>
             {/* lumberjacks */}
             {LUMBERJACKS.slice(0, sick >= 3 ? 2 : sick >= 2 ? 1 : 0).map((lj) => (
               <Lumberjack
