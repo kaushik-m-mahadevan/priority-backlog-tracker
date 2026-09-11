@@ -17,11 +17,14 @@ function stageFor(n: number): number {
 }
 
 /** Same absolute placement in both the compact and full Grove — like the canopy/trunk,
- *  it's the differing crop + render size between the two that changes how big it looks. */
+ *  it's the differing crop + render size between the two that changes how big it looks.
+ *  The x values are set so each figure's blade lands on the trunk at x=75 on the swing's
+ *  impact frame; moving the trunk means re-deriving them. The second one's swing is
+ *  offset half a cycle so the pair don't chop in lockstep. */
 const LUMBERJACK_HEIGHT = 20;
 const LUMBERJACKS = [
-  { x: 54, flip: false }, // approaches from the left, axe swings toward the trunk
-  { x: 93, flip: true }, // approaches from the right
+  { x: 61.7, flip: false, delay: undefined }, // stands left of the trunk, swings right
+  { x: 74, flip: true, delay: "-0.37s" }, // mirrored, stands right of the trunk
 ];
 
 export default function Grove({
@@ -87,39 +90,44 @@ export default function Grove({
 
   const sufferStyle = `
     .wilt{filter:saturate(.3) brightness(.8);transition:filter .6s ease}
-    /* animate the arm sub-group only — an ancestor .lumberjack <g> carries an SVG
-       transform="translate(...) scale(...)" attribute, and a CSS transform (including
-       one driven by an animation) on that SAME element overrides the attribute outright,
-       snapping the whole figure to the origin instead of rotating it in place. */
-    .lj-arm-swing{
-      animation: chop 1.4s cubic-bezier(.65,0,.35,1) infinite;
-      transform-box: view-box; transform-origin: 27.5px 18.5px;
+    /* The swing is three drawn poses cross-cut on the beat (see Lumberjack.tsx), so all
+       that animates here is which one is visible: wound back and held, one fast pass
+       frame, then impact held. Animating opacity also keeps this clear of the trap that
+       bit the wilt animation — a CSS transform on an element that carries an SVG
+       transform attribute drops the attribute outright. */
+    .pose-a{animation:ljPoseA .75s linear var(--lj-delay,0s) infinite}
+    .pose-b{animation:ljPoseB .75s linear var(--lj-delay,0s) infinite;opacity:0}
+    .pose-c{animation:ljPoseC .75s linear var(--lj-delay,0s) infinite;opacity:0}
+    @keyframes ljPoseA{0%,39.9%{opacity:1}40%,89.9%{opacity:0}90%,100%{opacity:1}}
+    @keyframes ljPoseB{0%,39.9%{opacity:0}40%,47.9%{opacity:1}48%,77.9%{opacity:0}78%,89.9%{opacity:1}90%,100%{opacity:0}}
+    @keyframes ljPoseC{0%,47.9%{opacity:0}48%,77.9%{opacity:1}78%,100%{opacity:0}}
+    /* flash at the bite, on the impact frame only */
+    .lj-spark{
+      animation: ljSpark .75s ease-out var(--lj-delay,0s) infinite;
+      transform-box: fill-box; transform-origin: center; opacity: 0;
     }
-    /* wind the axe back, then swing it down hard into the trunk and hold a beat on
-       impact before resetting — a rotate(0) "raised by the shoulder" idle reads as a
-       wave; the axe needs a real backswing and a downstroke to read as a chop. */
-    @keyframes chop {
-      0%   { transform: rotate(0deg); }
-      18%  { transform: rotate(-32deg); }
-      46%  { transform: rotate(98deg); }
-      58%  { transform: rotate(98deg); }
-      100% { transform: rotate(0deg); }
+    @keyframes ljSpark{
+      0%,47%{opacity:0;transform:scale(.4)}
+      50%   {opacity:1;transform:scale(1)}
+      58%   {opacity:1;transform:scale(1.15)}
+      68%   {opacity:0;transform:scale(1.3)}
+      100%  {opacity:0;transform:scale(.4)}
     }
-    /* the trunk + canopy shake together right on impact, timed to the same cycle so
-       every lumberjack's downstroke lands in sync with a hit. */
+    /* trunk + canopy jolt as the blade lands, then settle before the next swing */
     .tree-shake{
-      animation: treeHit 1.4s cubic-bezier(.65,0,.35,1) infinite;
+      animation: treeHit .75s ease-out infinite;
       transform-box: view-box; transform-origin: 75px 104px;
     }
     @keyframes treeHit {
-      0%, 44% { transform: translate(0,0) rotate(0); }
-      47% { transform: translate(1.4px,-0.3px) rotate(1.3deg); }
-      50% { transform: translate(-1.1px,0.2px) rotate(-1deg); }
-      53% { transform: translate(0.6px,0) rotate(0.5deg); }
-      58%, 100% { transform: translate(0,0) rotate(0); }
+      0%, 47%   { transform: translate(0,0) rotate(0); }
+      50%   { transform: translate(0.9px,-0.2px) rotate(0.8deg); }
+      56%   { transform: translate(-0.6px,0.1px) rotate(-0.5deg); }
+      62%, 100% { transform: translate(0,0) rotate(0); }
     }
     @media (prefers-reduced-motion:reduce){
-      .lj-arm-swing,.tree-shake{animation:none}.leaf{animation:none}
+      .pose-a,.pose-b,.pose-c,.lj-spark,.tree-shake{animation:none}
+      .pose-b,.pose-c,.lj-spark{opacity:0}
+      .leaf{animation:none}
     }
   `;
 
@@ -156,7 +164,14 @@ export default function Grove({
               ))}
           </g>
           {LUMBERJACKS.slice(0, sick >= 3 ? 2 : sick >= 2 ? 1 : 0).map((lj) => (
-            <Lumberjack key={lj.x} x={lj.x} y={104 - LUMBERJACK_HEIGHT} height={LUMBERJACK_HEIGHT} flip={lj.flip} />
+            <Lumberjack
+              key={lj.x}
+              x={lj.x}
+              y={104 - LUMBERJACK_HEIGHT}
+              height={LUMBERJACK_HEIGHT}
+              flip={lj.flip}
+              delay={lj.delay}
+            />
           ))}
           <style>{sufferStyle}</style>
         </svg>
@@ -195,15 +210,6 @@ export default function Grove({
                 strokeLinecap="round"
                 fill="none"
               />
-              {/* chop notch */}
-              {sick >= 2 && (
-                <path
-                  d="M75 101 l7 -3.5 l0 7 Z"
-                  fill="var(--bg-elev)"
-                  stroke="var(--text-dim)"
-                  strokeWidth="0.8"
-                />
-              )}
               {/* canopy */}
               {stage === 0 && (
                 <path
@@ -254,6 +260,7 @@ export default function Grove({
                 y={104 - LUMBERJACK_HEIGHT}
                 height={LUMBERJACK_HEIGHT}
                 flip={lj.flip}
+                delay={lj.delay}
               />
             ))}
           </>
