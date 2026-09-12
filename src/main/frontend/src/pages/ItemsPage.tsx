@@ -20,7 +20,7 @@ const SIZE = 25;
 export default function ItemsPage() {
   const config = useConfig();
   const { nameOf } = useUsers();
-  const { currentGroupId } = useGroups();
+  const { currentGroup, currentGroupId } = useGroups();
   const [items, setItems] = useState<Item[]>([]);
   const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
@@ -107,7 +107,7 @@ export default function ItemsPage() {
         <input placeholder="Search title…" value={q} onChange={(e) => setQ(e.target.value)} />
         <select value={fCat} onChange={(e) => setFCat(e.target.value)}>
           <option value="">All categories</option>
-          {config?.categories.map((c) => (
+          {currentGroup?.categories.map((c) => (
             <option key={c}>{c}</option>
           ))}
         </select>

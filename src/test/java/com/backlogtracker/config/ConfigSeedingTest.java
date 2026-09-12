@@ -30,7 +30,6 @@ class ConfigSeedingTest {
         assertThat(config.getPriorityValues())
                 .containsEntry("Critical", 4)
                 .containsEntry("Low", 1);
-        assertThat(config.getCategories()).contains("Research", "Project", "Other");
         assertThat(config.getBuriedPriorityLevels()).containsExactly("Low");
         assertThat(config.getUrgencyWindowDays()).isEqualTo(14);
         assertThat(config.getStaleThresholdDays()).isEqualTo(14);

@@ -12,6 +12,7 @@ import org.springframework.web.server.ResponseStatusException;
 import com.backlogtracker.config.domain.AppConfig;
 import com.backlogtracker.config.service.ConfigService;
 import com.backlogtracker.counter.CounterService;
+import com.backlogtracker.group.domain.Group;
 import com.backlogtracker.group.service.GroupService;
 import com.backlogtracker.item.domain.Item;
 import com.backlogtracker.item.domain.ItemStatus;
@@ -42,9 +43,9 @@ public class ItemService {
     private final Clock clock;
 
     public Item create(CreateItemRequest r, AuthUser actor) {
-        groupService.requireMember(r.groupId(), actor.id());
+        Group group = groupService.requireMember(r.groupId(), actor.id());
         AppConfig cfg = configService.getConfig();
-        validateCategory(cfg, r.category());
+        validateCategory(group, r.category());
         validatePriority(cfg, r.priority());
         validateOwner(r.ownerId());
 
@@ -73,8 +74,9 @@ public class ItemService {
 
     public Item update(String id, UpdateItemRequest r, AuthUser actor) {
         Item item = requireMemberItem(id, actor);
+        Group group = groupService.requireMember(item.getGroupId(), actor.id());
         AppConfig cfg = configService.getConfig();
-        validateCategory(cfg, r.category());
+        validateCategory(group, r.category());
         validatePriority(cfg, r.priority());
         validateOwner(r.ownerId());
 
@@ -142,10 +144,10 @@ public class ItemService {
         return item;
     }
 
-    private static void validateCategory(AppConfig cfg, String category) {
-        if (!cfg.getCategories().contains(category)) {
+    private static void validateCategory(Group group, String category) {
+        if (!group.getCategories().contains(category)) {
             throw new IllegalArgumentException(
-                    "Unknown category '" + category + "'. Allowed: " + cfg.getCategories());
+                    "Unknown category '" + category + "'. Allowed: " + group.getCategories());
         }
     }
 

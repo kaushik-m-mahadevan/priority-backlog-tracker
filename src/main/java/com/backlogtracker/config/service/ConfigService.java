@@ -26,9 +26,11 @@ import lombok.RequiredArgsConstructor;
 
 /**
  * Read, seed, and edit the single {@link AppConfig} (design §7). Every change is written
- * to {@code configHistory} (§15). Category / priority list edits follow the §2 safety
- * rules: more than one item uses the value → blocked; exactly one → reassignment
- * required; none → removed outright.
+ * to {@code configHistory} (§15). Priority list edits follow the §2 safety rules: more
+ * than one item uses the value → blocked; exactly one → reassignment required; none →
+ * removed outright. Category editing follows the same rules but lives on
+ * {@link com.backlogtracker.group.service.GroupService} instead — categories are
+ * per-group, not part of this shared config.
  */
 @Service
 @RequiredArgsConstructor
@@ -89,48 +91,6 @@ public class ConfigService {
         return saved;
     }
 
-    // ---- categories -------------------------------------------------------------
-
-    public AppConfig addCategory(String name) {
-        AppConfig cfg = getConfig();
-        String n = require(name, "category");
-        if (cfg.getCategories().contains(n)) {
-            throw new IllegalArgumentException("Category '" + n + "' already exists");
-        }
-        Map<String, Object> before = snapshot(cfg);
-        cfg.getCategories().add(n);
-        AppConfig saved = repository.save(cfg);
-        record(null, "added category '" + n + "'", before, snapshot(saved));
-        return saved;
-    }
-
-    public AppConfig removeCategory(String name, String reassignTo, String actorId) {
-        AppConfig cfg = getConfig();
-        String n = require(name, "category");
-        if (!cfg.getCategories().contains(n)) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "No such category: " + n);
-        }
-        if (cfg.getCategories().size() <= 1) {
-            throw new IllegalArgumentException("At least one category must remain");
-        }
-        long used = items.countByCategory(n);
-        if (used > 1) {
-            throw conflict("category", n, used);
-        }
-        if (used == 1) {
-            String target = validReassign(reassignTo, cfg.getCategories(), n, "category");
-            mongo.updateMulti(Query.query(Criteria.where("category").is(n)),
-                    new Update().set("category", target), Item.class);
-        }
-        Map<String, Object> before = snapshot(cfg);
-        cfg.getCategories().remove(n);
-        AppConfig saved = repository.save(cfg);
-        record(actorId, "removed category '" + n + "'"
-                + (used == 1 ? " (1 item reassigned to '" + reassignTo + "')" : ""),
-                before, snapshot(saved));
-        return saved;
-    }
-
     // ---- priorities -----------------------------------------------------------
 
     public AppConfig addPriority(String name, Integer valueWeight) {
@@ -161,7 +121,7 @@ public class ConfigService {
         }
         long used = items.countByPriority(n);
         if (used > 1) {
-            throw conflict("priority", n, used);
+            throw conflict(n, used);
         }
         if (used == 1) {
             String target = validReassign(reassignTo, cfg.getPriorities(), n, "priority");
@@ -200,14 +160,14 @@ public class ConfigService {
         return reassignTo;
     }
 
-    private ResponseStatusException conflict(String what, String name, long used) {
+    private ResponseStatusException conflict(String name, long used) {
         List<String> titles = items.findAll().stream()
-                .filter(i -> name.equals(what.equals("category") ? i.getCategory() : i.getPriority()))
+                .filter(i -> name.equals(i.getPriority()))
                 .map(Item::getTitle)
                 .limit(8)
                 .toList();
         return new ResponseStatusException(HttpStatus.CONFLICT,
-                used + " items use the " + what + " '" + name + "' — reassign them first: " + titles);
+                used + " items use the priority '" + name + "' — reassign them first: " + titles);
     }
 
     private static Map<String, Object> snapshot(AppConfig c) {
@@ -221,7 +181,6 @@ public class ConfigService {
         m.put("defaultDueDateOffsetDays", c.getDefaultDueDateOffsetDays());
         m.put("effortCapDays", c.getEffortCapDays());
         m.put("buriedPriorityLevels", new ArrayList<>(c.getBuriedPriorityLevels()));
-        m.put("categories", new ArrayList<>(c.getCategories()));
         m.put("priorities", new ArrayList<>(c.getPriorities()));
         m.put("priorityValues", new LinkedHashMap<>(c.getPriorityValues()));
         return m;

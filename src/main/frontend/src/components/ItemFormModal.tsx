@@ -51,7 +51,7 @@ const UNIT_RULES: Record<
 export default function ItemFormModal({ existing, onClose, onSaved, onComplete }: Props) {
   const config = useConfig();
   const { users, nameOf } = useUsers();
-  const { currentGroupId } = useGroups();
+  const { currentGroup, currentGroupId } = useGroups();
   const editing = !!existing;
 
   const plus30 = () => {
@@ -225,7 +225,7 @@ export default function ItemFormModal({ existing, onClose, onSaved, onComplete }
                 <option value="" disabled>
                   Select…
                 </option>
-                {config?.categories.map((c) => (
+                {currentGroup?.categories.map((c) => (
                   <option key={c} value={c}>
                     {c}
                   </option>

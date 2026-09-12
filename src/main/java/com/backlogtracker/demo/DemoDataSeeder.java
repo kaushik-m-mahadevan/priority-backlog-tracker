@@ -77,6 +77,7 @@ public class DemoDataSeeder implements ApplicationRunner {
         User sam = ensureUser("Sam Lee", "sam@demo.test", "SAM");
         String test123 = users.findByEmailIgnoreCase("test123").map(User::getId).orElse(null);
 
+        // .categories left unset — Group's @Builder.Default seeds the standard starter list.
         String groupId = groups.save(com.backlogtracker.group.domain.Group.builder()
                 .name("Founders")
                 .createdByUserId(test123)

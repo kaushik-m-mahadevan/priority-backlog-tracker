@@ -48,20 +48,6 @@ public class ConfigController {
         return configService.history();
     }
 
-    @PostMapping("/categories")
-    @RequiresAdmin
-    public AppConfig addCategory(@RequestBody NameRequest body) {
-        return configService.addCategory(body.name());
-    }
-
-    @DeleteMapping("/categories/{name}")
-    @RequiresAdmin
-    public AppConfig removeCategory(@org.springframework.web.bind.annotation.PathVariable String name,
-                                   @RequestParam(required = false) String reassignTo,
-                                   @AuthenticationPrincipal AuthUser actor) {
-        return configService.removeCategory(name, reassignTo, actor == null ? null : actor.id());
-    }
-
     @PostMapping("/priorities")
     @RequiresAdmin
     public AppConfig addPriority(@RequestBody PriorityRequest body) {
@@ -74,9 +60,6 @@ public class ConfigController {
                                    @RequestParam(required = false) String reassignTo,
                                    @AuthenticationPrincipal AuthUser actor) {
         return configService.removePriority(name, reassignTo, actor == null ? null : actor.id());
-    }
-
-    public record NameRequest(String name) {
     }
 
     public record PriorityRequest(String name, Integer value) {

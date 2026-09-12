@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { api, ApiError } from "../api/client";
 import { useConfigCtx } from "../config/ConfigContext";
+import { useGroups } from "../groups/GroupContext";
 import { useTheme } from "../theme/ThemeContext";
 import { useAuth } from "../auth/AuthContext";
 import { notifyItemsChanged } from "../lib/events";
@@ -48,6 +49,7 @@ function toDraft(c: AppConfig): Draft {
 
 export default function SettingsPage() {
   const { config, refresh } = useConfigCtx();
+  const { currentGroup, refresh: refreshGroups } = useGroups();
   const { theme, setTheme } = useTheme();
   const { user, refresh: refreshAuth } = useAuth();
   const isAdmin = user?.role === "ADMIN";
@@ -86,6 +88,7 @@ export default function SettingsPage() {
       await p;
       setMsg(ok);
       refresh();
+      refreshGroups();
       notifyItemsChanged();
     } catch (e) {
       setErr(e instanceof ApiError ? e.message : "Something went wrong");
@@ -147,7 +150,11 @@ export default function SettingsPage() {
     );
     if (reassignTo === null) return;
     const q = reassignTo ? `?reassignTo=${encodeURIComponent(reassignTo)}` : "";
-    call(api.delete(`/config/${kind}/${encodeURIComponent(name)}${q}`), `"${name}" removed.`);
+    const path =
+      kind === "categories"
+        ? `/groups/${currentGroup?.id}/categories/${encodeURIComponent(name)}${q}`
+        : `/config/priorities/${encodeURIComponent(name)}${q}`;
+    call(api.delete(path), `"${name}" removed.`);
   }
 
   return (
@@ -272,6 +279,50 @@ export default function SettingsPage() {
           </p>
         </div>
 
+        {currentGroup && (
+          <div className="card">
+            <h2>Categories</h2>
+            <p className="hint" style={{ marginTop: -4, marginBottom: 10 }}>
+              Just for "{currentGroup.name}" — other groups keep their own list. Any member
+              can edit these.
+            </p>
+            <div className="kv">
+              {currentGroup.categories.map((c) => (
+                <span className="chip" key={c}>
+                  {c}
+                  <button
+                    className="chip-x"
+                    aria-label={`Remove ${c}`}
+                    onClick={() =>
+                      removeChip("categories", c, currentGroup.categories.filter((x) => x !== c))
+                    }
+                  >
+                    ×
+                  </button>
+                </span>
+              ))}
+            </div>
+            <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+              <input
+                placeholder="New category"
+                value={newCat}
+                onChange={(e) => setNewCat(e.target.value)}
+              />
+              <button
+                disabled={busy || !newCat.trim()}
+                onClick={() =>
+                  call(
+                    api.post(`/groups/${currentGroup.id}/categories`, { name: newCat.trim() }),
+                    "Category added.",
+                  ).then(() => setNewCat(""))
+                }
+              >
+                Add
+              </button>
+            </div>
+          </div>
+        )}
+
         {isAdmin && (
           <>
             <div className="card">
@@ -295,44 +346,6 @@ export default function SettingsPage() {
               <div className="modal-actions" style={{ marginTop: 12 }}>
                 <button className="primary" disabled={busy || !weightsOk} onClick={saveWeights}>
                   Save
-                </button>
-              </div>
-            </div>
-
-            <div className="card">
-              <h2>Categories</h2>
-              <div className="kv">
-                {config.categories.map((c) => (
-                  <span className="chip" key={c}>
-                    {c}
-                    <button
-                      className="chip-x"
-                      aria-label={`Remove ${c}`}
-                      onClick={() =>
-                        removeChip("categories", c, config.categories.filter((x) => x !== c))
-                      }
-                    >
-                      ×
-                    </button>
-                  </span>
-                ))}
-              </div>
-              <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
-                <input
-                  placeholder="New category"
-                  value={newCat}
-                  onChange={(e) => setNewCat(e.target.value)}
-                />
-                <button
-                  disabled={busy || !newCat.trim()}
-                  onClick={() =>
-                    call(
-                      api.post("/config/categories", { name: newCat.trim() }),
-                      "Category added.",
-                    ).then(() => setNewCat(""))
-                  }
-                >
-                  Add
                 </button>
               </div>
             </div>

@@ -17,6 +17,11 @@ import lombok.Setter;
 /**
  * Single-document application configuration (see docs/design.md §2, §7).
  * Always stored with a fixed id so there is exactly one config row.
+ *
+ * <p>Categories are NOT here — they live on {@link com.backlogtracker.group.domain.Group}
+ * instead, one list per group, since what a finance tracker and a personal to-do list
+ * are tracking has nothing in common. Priorities and the weights/thresholds below are
+ * still shared across every group.
  */
 @Document("config")
 @Getter
@@ -48,9 +53,6 @@ public class AppConfig {
     /** Priority labels considered "buried" when they linger in the backlog (§5). */
     private List<String> buriedPriorityLevels;
 
-    /** Ordered list of valid category labels. */
-    private List<String> categories;
-
     private int defaultDueDateOffsetDays;
     private int effortCapDays;
 
@@ -79,9 +81,6 @@ public class AppConfig {
                 .staleThresholdDays(14)
                 .buriedThresholdDays(30)
                 .buriedPriorityLevels(new ArrayList<>(List.of("Low")))
-                .categories(new ArrayList<>(List.of(
-                        "Research", "Skill-Building", "Project",
-                        "Technical Discussion", "Admin-Ops", "Other")))
                 .defaultDueDateOffsetDays(30)
                 .effortCapDays(30)
                 .maxGroupsPerUser(5)

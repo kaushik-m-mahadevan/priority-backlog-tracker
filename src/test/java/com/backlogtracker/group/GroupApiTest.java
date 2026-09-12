@@ -82,7 +82,8 @@ class GroupApiTest {
                 .andExpect(jsonPath("$.length()").value(1))
                 .andExpect(jsonPath("$[0].name").value("Ann Workspace"))
                 .andExpect(jsonPath("$[0].members.length()").value(1))
-                .andExpect(jsonPath("$[0].members[0].handle").value("ann"));
+                .andExpect(jsonPath("$[0].members[0].handle").value("ann"))
+                .andExpect(jsonPath("$[0].categories", org.hamcrest.Matchers.hasItem("Research")));
 
         // Bo sees none of Ann's groups
         mvc.perform(get("/api/groups").header("Authorization", "Bearer " + tokenB))

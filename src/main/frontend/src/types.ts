@@ -15,6 +15,8 @@ export interface GroupView {
   name: string;
   createdAt: string | null;
   members: UserSummary[];
+  /** This group's own category labels — not shared with other groups. */
+  categories: string[];
 }
 
 export interface User {
@@ -137,7 +139,6 @@ export interface AppConfig {
   staleThresholdDays: number;
   buriedThresholdDays: number;
   buriedPriorityLevels: string[];
-  categories: string[];
   defaultDueDateOffsetDays: number;
   effortCapDays: number;
   maxGroupsPerUser: number;
