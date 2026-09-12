@@ -25,7 +25,13 @@ export default function RegisterPage() {
     setBusy(true);
     setError(null);
     try {
-      await register({ name: name.trim(), handle: handle.trim().toLowerCase(), email: email.trim(), password });
+      await register({
+        name: name.trim(),
+        handle: handle.trim().toLowerCase(),
+        email: email.trim(),
+        password,
+        confirmPassword: confirm,
+      });
       // AuthContext now holds a PENDING user → App routes to the waiting screen
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Could not create your account");

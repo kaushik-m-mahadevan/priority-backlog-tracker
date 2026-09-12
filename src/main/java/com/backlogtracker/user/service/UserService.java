@@ -42,6 +42,9 @@ public class UserService {
 
     /** Self-registration: a USER account in PENDING state. */
     public User register(RegisterRequest r) {
+        if (!r.password().equals(r.confirmPassword())) {
+            throw new IllegalArgumentException("Passwords don't match");
+        }
         String email = r.email().trim();
         String handle = r.handle().trim().toLowerCase();
         if (repository.existsByEmailIgnoreCase(email)) {

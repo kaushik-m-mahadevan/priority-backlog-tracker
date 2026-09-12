@@ -15,6 +15,7 @@ public record RegisterRequest(
         @Pattern(regexp = "^[a-z0-9_-]{1,30}$",
                 message = "Handle must be 1-30 characters: lowercase letters, digits, - or _")
         String handle,
-        @NotBlank @Email String email,
-        @NotBlank @Size(min = 8, message = "Password must be at least 8 characters") String password) {
+        @NotBlank @Email(message = "Enter a valid email address") String email,
+        @NotBlank @Size(min = 8, message = "Password must be at least 8 characters") String password,
+        @NotBlank String confirmPassword) {
 }

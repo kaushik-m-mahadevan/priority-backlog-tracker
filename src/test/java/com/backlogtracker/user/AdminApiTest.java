@@ -44,7 +44,8 @@ class AdminApiTest {
     private String registerAndToken(String handle, String email) throws Exception {
         String body = mvc.perform(post("/api/auth/register").contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"name":"Cand","handle":"%s","email":"%s","password":"changeme123"}"""
+                                {"name":"Cand","handle":"%s","email":"%s","password":"changeme123",
+                                 "confirmPassword":"changeme123"}"""
                                 .formatted(handle, email)))
                 .andExpect(status().isCreated())
                 .andReturn().getResponse().getContentAsString();
@@ -87,7 +88,7 @@ class AdminApiTest {
         mvc.perform(post("/api/auth/register").contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"name":"Cand","handle":"cand2b","email":"cand2@demo.test",
-                                 "password":"changeme123"}"""))
+                                 "password":"changeme123","confirmPassword":"changeme123"}"""))
                 .andExpect(status().isCreated());
     }
 

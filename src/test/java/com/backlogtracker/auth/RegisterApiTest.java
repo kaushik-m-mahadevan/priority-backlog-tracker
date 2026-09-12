@@ -34,10 +34,15 @@ class RegisterApiTest {
 
     private MockHttpServletRequestBuilder register(String name, String handle, String email,
                                                   String password) {
+        return register(name, handle, email, password, password);
+    }
+
+    private MockHttpServletRequestBuilder register(String name, String handle, String email,
+                                                  String password, String confirmPassword) {
         return post("/api/auth/register").contentType(MediaType.APPLICATION_JSON)
                 .content("""
-                        {"name":"%s","handle":"%s","email":"%s","password":"%s"}"""
-                        .formatted(name, handle, email, password));
+                        {"name":"%s","handle":"%s","email":"%s","password":"%s","confirmPassword":"%s"}"""
+                        .formatted(name, handle, email, password, confirmPassword));
     }
 
     @Test
@@ -79,6 +84,19 @@ class RegisterApiTest {
         mvc.perform(register("X", "x".repeat(31), "reg@demo.test", "changeme123"))
                 .andExpect(status().isBadRequest());
         mvc.perform(register("X", "okhandle", "reg@demo.test", "short"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void rejectsMismatchedPasswordConfirmation() throws Exception {
+        mvc.perform(register("X", "mismatch", "reg@demo.test", "changeme123", "somethingelse"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("Passwords don't match"));
+    }
+
+    @Test
+    void rejectsAMalformedEmail() throws Exception {
+        mvc.perform(register("X", "bademail", "not-an-email", "changeme123"))
                 .andExpect(status().isBadRequest());
     }
 
