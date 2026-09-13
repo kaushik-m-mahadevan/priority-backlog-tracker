@@ -54,9 +54,6 @@ public class User {
     private Instant approvedAt;
     private String approvedByUserId;
 
-    /** Opt-in: let the grove visibly wilt / get chopped as work piles up (design: animations). */
-    private boolean animationsEnabled;
-
     /** Legacy nulls mean the account predates the onboarding lifecycle → active. */
     public boolean isActive() {
         return status == null || status == AccountStatus.ACTIVE;

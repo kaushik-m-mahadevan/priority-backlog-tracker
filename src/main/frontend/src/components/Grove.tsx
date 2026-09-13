@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { api } from "../api/client";
 import { useGroups } from "../groups/GroupContext";
-import { useAuth } from "../auth/AuthContext";
+import { useGroveSettings } from "../grove/GroveSettingsContext";
 import { useItemsChanged } from "../lib/events";
 import { Creature } from "./Creature";
 import { Lumberjack } from "./Lumberjack";
@@ -37,8 +37,7 @@ export default function Grove({
   refreshKey?: number;
 }) {
   const { currentGroupId } = useGroups();
-  const { user } = useAuth();
-  const animations = !!user?.animationsEnabled;
+  const { enabled: animations } = useGroveSettings();
   const [stats, setStats] = useState<CompletionStats | null>(null);
   const [sick, setSick] = useState(0);
   const [tick, setTick] = useState(0);

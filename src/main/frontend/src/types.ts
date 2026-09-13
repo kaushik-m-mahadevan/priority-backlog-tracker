@@ -15,8 +15,6 @@ export interface GroupView {
   name: string;
   createdAt: string | null;
   members: UserSummary[];
-  /** This group's own category labels — not shared with other groups. */
-  categories: string[];
 }
 
 export interface User {
@@ -26,7 +24,6 @@ export interface User {
   email: string;
   role: Role;
   status: AccountStatus;
-  animationsEnabled?: boolean;
 }
 
 export interface GroveHealth {

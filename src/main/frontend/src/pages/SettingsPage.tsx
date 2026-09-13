@@ -2,8 +2,10 @@ import { useEffect, useState } from "react";
 import { api, ApiError } from "../api/client";
 import { useConfigCtx } from "../config/ConfigContext";
 import { useGroups } from "../groups/GroupContext";
+import { useGroupCategories } from "../groups/GroupCategoriesContext";
 import { useTheme } from "../theme/ThemeContext";
 import { useAuth } from "../auth/AuthContext";
+import { useGroveSettings } from "../grove/GroveSettingsContext";
 import { notifyItemsChanged } from "../lib/events";
 import { TZ_CHOICES, getTzPref, setTzPref } from "../lib/tz";
 import PasswordInput from "../components/PasswordInput";
@@ -50,8 +52,10 @@ function toDraft(c: AppConfig): Draft {
 export default function SettingsPage() {
   const { config, refresh } = useConfigCtx();
   const { currentGroup, refresh: refreshGroups } = useGroups();
+  const { categories: groupCategories, refresh: refreshGroupCategories } = useGroupCategories();
   const { theme, setTheme } = useTheme();
   const { user, refresh: refreshAuth } = useAuth();
+  const { enabled: animationsEnabled, setEnabled: setAnimationsEnabled } = useGroveSettings();
   const isAdmin = user?.role === "ADMIN";
   const [displayName, setDisplayName] = useState(user?.name ?? "");
   const [curPw, setCurPw] = useState("");
@@ -89,6 +93,7 @@ export default function SettingsPage() {
       setMsg(ok);
       refresh();
       refreshGroups();
+      refreshGroupCategories();
       notifyItemsChanged();
     } catch (e) {
       setErr(e instanceof ApiError ? e.message : "Something went wrong");
@@ -124,9 +129,9 @@ export default function SettingsPage() {
   }
 
   function toggleAnimations() {
-    const next = !user?.animationsEnabled;
+    const next = !animationsEnabled;
     call(
-      api.patch("/users/me", { animationsEnabled: next }).then(() => refreshAuth()),
+      setAnimationsEnabled(next),
       next ? "Grove animations on." : "Grove animations off.",
     );
   }
@@ -241,7 +246,7 @@ export default function SettingsPage() {
           <label style={{ display: "flex", gap: 10, alignItems: "center", cursor: "pointer" }}>
             <input
               type="checkbox"
-              checked={!!user?.animationsEnabled}
+              checked={animationsEnabled}
               onChange={toggleAnimations}
               disabled={busy}
               style={{ width: "auto" }}
@@ -287,14 +292,14 @@ export default function SettingsPage() {
               can edit these.
             </p>
             <div className="kv">
-              {currentGroup.categories.map((c) => (
+              {groupCategories.map((c) => (
                 <span className="chip" key={c}>
                   {c}
                   <button
                     className="chip-x"
                     aria-label={`Remove ${c}`}
                     onClick={() =>
-                      removeChip("categories", c, currentGroup.categories.filter((x) => x !== c))
+                      removeChip("categories", c, groupCategories.filter((x) => x !== c))
                     }
                   >
                     ×

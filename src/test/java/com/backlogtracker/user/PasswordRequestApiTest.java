@@ -145,18 +145,4 @@ class PasswordRequestApiTest {
                 .andExpect(status().isUnauthorized());
     }
 
-    @Test
-    void animationsPreferenceTogglesAndShowsUpOnMe() throws Exception {
-        mvc.perform(get("/api/auth/me").header("Authorization", "Bearer " + userToken))
-                .andExpect(jsonPath("$.animationsEnabled").value(false));
-
-        mvc.perform(patch("/api/users/me").header("Authorization", "Bearer " + userToken)
-                        .contentType(MediaType.APPLICATION_JSON).content("{\"animationsEnabled\":true}"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.animationsEnabled").value(true))
-                .andExpect(jsonPath("$.name").value("Pat")); // name untouched
-
-        mvc.perform(get("/api/auth/me").header("Authorization", "Bearer " + userToken))
-                .andExpect(jsonPath("$.animationsEnabled").value(true));
-    }
 }

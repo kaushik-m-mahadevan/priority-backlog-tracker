@@ -3,6 +3,8 @@ import { useAuth } from "./auth/AuthContext";
 import { ConfigProvider } from "./config/ConfigContext";
 import { UsersProvider } from "./users/UsersContext";
 import { GroupProvider } from "./groups/GroupContext";
+import { GroupCategoriesProvider } from "./groups/GroupCategoriesContext";
+import { GroveSettingsProvider } from "./grove/GroveSettingsContext";
 import { DockProvider } from "./dock/DockContext";
 import Layout from "./components/Layout";
 import LoginPage from "./pages/LoginPage";
@@ -45,25 +47,29 @@ export default function App() {
     <ConfigProvider>
       <UsersProvider>
         <GroupProvider>
-          <DockProvider>
-            <Routes>
-              <Route element={<Layout />}>
-                <Route path="/" element={<DashboardPage />} />
-                <Route path="/quick-wins" element={<QuickWinsPage />} />
-                <Route path="/attention" element={<AttentionPage />} />
-                <Route path="/team" element={<TeamPage />} />
-                <Route path="/items" element={<ItemsPage />} />
-                <Route path="/archive" element={<ArchivePage />} />
-                <Route path="/groups" element={<GroupsPage />} />
-                <Route path="/settings" element={<SettingsPage />} />
-                <Route
-                  path="/admin"
-                  element={user.role === "ADMIN" ? <AdminPage /> : <Navigate to="/" replace />}
-                />
-              </Route>
-              <Route path="*" element={<Navigate to="/" replace />} />
-            </Routes>
-          </DockProvider>
+          <GroupCategoriesProvider>
+          <GroveSettingsProvider>
+            <DockProvider>
+              <Routes>
+                <Route element={<Layout />}>
+                  <Route path="/" element={<DashboardPage />} />
+                  <Route path="/quick-wins" element={<QuickWinsPage />} />
+                  <Route path="/attention" element={<AttentionPage />} />
+                  <Route path="/team" element={<TeamPage />} />
+                  <Route path="/items" element={<ItemsPage />} />
+                  <Route path="/archive" element={<ArchivePage />} />
+                  <Route path="/groups" element={<GroupsPage />} />
+                  <Route path="/settings" element={<SettingsPage />} />
+                  <Route
+                    path="/admin"
+                    element={user.role === "ADMIN" ? <AdminPage /> : <Navigate to="/" replace />}
+                  />
+                </Route>
+                <Route path="*" element={<Navigate to="/" replace />} />
+              </Routes>
+            </DockProvider>
+          </GroveSettingsProvider>
+          </GroupCategoriesProvider>
         </GroupProvider>
       </UsersProvider>
     </ConfigProvider>

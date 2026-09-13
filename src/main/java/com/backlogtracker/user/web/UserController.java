@@ -40,12 +40,11 @@ public class UserController {
                 .toList();
     }
 
-    /** The caller updates their own display name and/or animations preference. */
+    /** The caller updates their own display name. */
     @PatchMapping("/me")
     @RequiresUser
     public UserView updateMe(@Valid @RequestBody UpdateProfileRequest request,
                              @AuthenticationPrincipal AuthUser actor) {
-        return UserView.of(userService.updateProfile(
-                actor.id(), request.name(), request.animationsEnabled()));
+        return UserView.of(userService.updateProfile(actor.id(), request.name()));
     }
 }
