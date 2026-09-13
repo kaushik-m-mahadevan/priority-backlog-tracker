@@ -326,6 +326,16 @@ label {
   color: var(--text-dim);
   margin: 0 0 24px;
 }
+.settings-section {
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-dim);
+  border-top: 1px solid var(--border-soft);
+  padding-top: 22px;
+  margin: 24px 0 16px;
+}
 
 .grid {
   display: grid;

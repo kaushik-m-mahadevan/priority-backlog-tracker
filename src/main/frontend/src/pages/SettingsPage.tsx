@@ -165,9 +165,7 @@ export default function SettingsPage() {
   return (
     <div>
       <h1 className="page-title">Settings</h1>
-      <p className="page-sub">
-        {isAdmin ? "Theme, timezone, and the ranking configuration." : "Theme and timezone."}
-      </p>
+      <p className="page-sub">Your account, plus each applet's own configuration below.</p>
 
       {err && <div className="error">{err}</div>}
       {msg && <div className="hint" style={{ color: "var(--growth)", marginBottom: 12 }}>{msg}</div>}
@@ -242,25 +240,6 @@ export default function SettingsPage() {
         </div>
 
         <div className="card">
-          <h2>Animations</h2>
-          <label style={{ display: "flex", gap: 10, alignItems: "center", cursor: "pointer" }}>
-            <input
-              type="checkbox"
-              checked={animationsEnabled}
-              onChange={toggleAnimations}
-              disabled={busy}
-              style={{ width: "auto" }}
-            />
-            <span>Let the grove react to the backlog</span>
-          </label>
-          <p className="hint" style={{ marginTop: 8 }}>
-            When on, the tree wilts and gets chopped as overdue and long-untouched items
-            pile up in your current group, and recovers as you clear them. Off by default;
-            the red overdue marker on rows is always shown regardless.
-          </p>
-        </div>
-
-        <div className="card">
           <h2>Display timezone</h2>
           <div className="form-row">
             <label>Show dates in</label>
@@ -281,6 +260,31 @@ export default function SettingsPage() {
           </div>
           <p className="hint" style={{ marginTop: 8 }}>
             Instants are stored in UTC; this only changes how they read here (§22).
+          </p>
+        </div>
+      </div>
+
+      {/* Everything below is Priority Backlog Tracker's own settings — Order Tracker
+          (once it exists) gets its own section here, same shape, not a rewrite of this
+          one (design: platform integration, "one shared Settings hub with sections"). */}
+      <h2 className="settings-section">Priority Backlog Tracker</h2>
+      <div className="grid cols-2">
+        <div className="card">
+          <h2>Animations</h2>
+          <label style={{ display: "flex", gap: 10, alignItems: "center", cursor: "pointer" }}>
+            <input
+              type="checkbox"
+              checked={animationsEnabled}
+              onChange={toggleAnimations}
+              disabled={busy}
+              style={{ width: "auto" }}
+            />
+            <span>Let the grove react to the backlog</span>
+          </label>
+          <p className="hint" style={{ marginTop: 8 }}>
+            When on, the tree wilts and gets chopped as overdue and long-untouched items
+            pile up in your current group, and recovers as you clear them. Off by default;
+            the red overdue marker on rows is always shown regardless.
           </p>
         </div>
 
