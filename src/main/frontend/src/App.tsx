@@ -18,6 +18,11 @@ import SettingsPage from "./pages/SettingsPage";
 import AdminPage from "./pages/AdminPage";
 import GroupsPage from "./pages/GroupsPage";
 import { QuickWinsPage, AttentionPage, TeamPage } from "./pages/RailPages";
+import OrderTrackerRoot from "./ordertracker/OrderTrackerRoot";
+import CustomersPage from "./ordertracker/pages/CustomersPage";
+import OrdersPage from "./ordertracker/pages/OrdersPage";
+import BulkOrdersPage from "./ordertracker/pages/BulkOrdersPage";
+import BusinessSettingsPage from "./ordertracker/pages/BusinessSettingsPage";
 
 export default function App() {
   const { user, loading } = useAuth();
@@ -70,6 +75,13 @@ export default function App() {
                     path="/backlog/admin"
                     element={user.role === "ADMIN" ? <AdminPage /> : <Navigate to="/backlog" replace />}
                   />
+                </Route>
+                <Route path="/ordertracker" element={<OrderTrackerRoot />}>
+                  <Route index element={<Navigate to="orders" replace />} />
+                  <Route path="orders" element={<OrdersPage />} />
+                  <Route path="bulk-orders" element={<BulkOrdersPage />} />
+                  <Route path="customers" element={<CustomersPage />} />
+                  <Route path="business-settings" element={<BusinessSettingsPage />} />
                 </Route>
                 <Route path="*" element={<Navigate to="/" replace />} />
               </Routes>

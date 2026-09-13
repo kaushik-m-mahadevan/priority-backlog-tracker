@@ -3,9 +3,6 @@ import { useAuth } from "../auth/AuthContext";
 
 /**
  * Post-login landing page — pick which applet to open (design: platform integration).
- * Order Tracker doesn't exist yet (Phase 6); its box is shown but disabled so the launcher
- * doesn't need reshaping again once it lands, and so the eventual "more applets" story is
- * visible now rather than looking like an afterthought later.
  */
 export default function LauncherPage() {
   const { user } = useAuth();
@@ -26,13 +23,13 @@ export default function LauncherPage() {
           <p>Rank the backlog, track who's on what, and see what's slipping.</p>
         </Link>
 
-        <div className="applet-card is-disabled" aria-disabled="true">
+        <Link to="/ordertracker" className="applet-card">
           <span className="applet-icon" aria-hidden="true">
             ✂
           </span>
           <h2>Order Tracker</h2>
-          <p>Coming soon.</p>
-        </div>
+          <p>Track customers, orders, and payments for a crochet business.</p>
+        </Link>
 
         <Link to="/settings" className="applet-card">
           <span className="applet-icon" aria-hidden="true">
