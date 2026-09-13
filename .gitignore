@@ -13,6 +13,10 @@ src/main/frontend/dist/
 # frontend-maven-plugin installs Node under target/ (already ignored) but be explicit
 node/
 
+# Playwright output
+src/main/frontend/test-results/
+src/main/frontend/playwright-report/
+
 # Local env / secrets
 application-local.yml
 *.env

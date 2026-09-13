@@ -16,4 +16,9 @@ export default defineConfig({
       "/actuator": "http://localhost:8080",
     },
   },
+  test: {
+    // Playwright owns e2e/ (its `test` global isn't vitest's) — keep the two
+    // runners from tripping over each other's spec files.
+    exclude: ["e2e/**", "node_modules/**"],
+  },
 });
