@@ -62,6 +62,19 @@ public class OrderCalculator {
         return createdAt.plus(days, ChronoUnit.DAYS);
     }
 
+    /** Bulk orders use the max-across-every-assigned-creator offset (design §9), unlike
+     *  individual orders' single-primary-creator rule — the batch isn't done until its
+     *  slowest-loaded creator finishes their own split. */
+    public Instant computedBulkDueDate(Instant createdAt, List<CreatorWorkload> workloads) {
+        long maxDays = workloads.stream()
+                .mapToLong(w -> Math.max(1, (long) Math.ceil(w.hours() / w.hoursPerDay())))
+                .max().orElse(1);
+        return createdAt.plus(maxDays, ChronoUnit.DAYS);
+    }
+
+    public record CreatorWorkload(double hours, double hoursPerDay) {
+    }
+
     /**
      * Net paid = sum of payments (a refund is recorded as a negative-amount Payment).
      * {@link PaymentStatus#FULLY_REFUNDED} is distinguished from {@link PaymentStatus#UNPAID}
