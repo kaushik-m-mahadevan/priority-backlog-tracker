@@ -165,4 +165,38 @@ class OrderApiTest {
         assertThat(payment.getString("amount")).isNotEqualTo(Double.toString(totalCost));
         assertThat(payment.getString("note")).isNotEqualTo("Full payment via UPI");
     }
+
+    @Test
+    void statusCanBeSetFreelyAndEachChangeIsRecordedInTheChangeLog() throws Exception {
+        String body = mvc.perform(auth(post("/api/ordertracker/groups/" + groupId + "/orders"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"customerId":"%s","primaryCreatorId":"%s",
+                                 "stages":[{"stageKey":"crocheting","estimatedHours":1},
+                                           {"stageKey":"assembly","estimatedHours":0},
+                                           {"stageKey":"packaging","estimatedHours":0},
+                                           {"stageKey":"shipment","estimatedHours":0}],
+                                 "materialsCost":0}""".formatted(customerId, creatorId)))
+                .andReturn().getResponse().getContentAsString();
+        String orderId = mapper.readTree(body).get("id").asText();
+
+        // free-form: jump straight from RECEIVED to SHIPPED, no guard rejects the skip
+        mvc.perform(auth(patch("/api/ordertracker/groups/" + groupId + "/orders/" + orderId + "/status"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"status":"SHIPPED"}"""))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("SHIPPED"))
+                .andExpect(jsonPath("$.changeLog.length()").value(1))
+                .andExpect(jsonPath("$.changeLog[0].field").value("status"))
+                .andExpect(jsonPath("$.changeLog[0].oldValue").value("RECEIVED"))
+                .andExpect(jsonPath("$.changeLog[0].newValue").value("SHIPPED"));
+
+        mvc.perform(auth(patch("/api/ordertracker/groups/" + groupId + "/orders/" + orderId + "/stages/crocheting"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"completionFraction":1.0}"""))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.changeLog.length()").value(2));
+    }
 }

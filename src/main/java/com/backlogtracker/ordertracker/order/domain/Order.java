@@ -67,6 +67,9 @@ public class Order {
     private OrderStatus status;
     private Instant computedDueDate;
 
+    @Builder.Default
+    private List<ChangeLogEntry> changeLog = new ArrayList<>();
+
     private Instant createdAt;
     private Instant updatedAt;
 }

@@ -4,6 +4,7 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 
+import com.backlogtracker.ordertracker.order.domain.ChangeLogEntry;
 import com.backlogtracker.ordertracker.order.domain.Order;
 import com.backlogtracker.ordertracker.order.domain.OrderStatus;
 import com.backlogtracker.ordertracker.order.domain.PaymentStatus;
@@ -15,7 +16,8 @@ public record OrderView(String id, String orderNumber, String customerId, String
                         List<StageProgress> stageProgress, double overallCompletionPercent,
                         double materialsCost, double packagingCost, double totalCost,
                         List<PaymentView> payments, PaymentStatus paymentStatus,
-                        OrderStatus status, Instant computedDueDate, Instant createdAt, Instant updatedAt) {
+                        OrderStatus status, Instant computedDueDate, List<ChangeLogEntry> changeLog,
+                        Instant createdAt, Instant updatedAt) {
 
     public static OrderView of(Order o, OrderCalculator calc) {
         double totalCost = calc.totalCost(o);
@@ -24,6 +26,6 @@ public record OrderView(String id, String orderNumber, String customerId, String
                 o.getStageProgress(), calc.overallCompletionFraction(o.getStageProgress()) * 100,
                 o.getMaterialsCost(), o.getPackaging() == null ? 0 : o.getPackaging().cost(), totalCost,
                 o.getPayments().stream().map(PaymentView::of).toList(), o.getPaymentStatus(),
-                o.getStatus(), o.getComputedDueDate(), o.getCreatedAt(), o.getUpdatedAt());
+                o.getStatus(), o.getComputedDueDate(), o.getChangeLog(), o.getCreatedAt(), o.getUpdatedAt());
     }
 }

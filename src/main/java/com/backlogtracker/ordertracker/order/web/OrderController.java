@@ -16,6 +16,7 @@ import com.backlogtracker.commons.security.RequiresUser;
 import com.backlogtracker.ordertracker.order.dto.AddPaymentRequest;
 import com.backlogtracker.ordertracker.order.dto.CreateOrderRequest;
 import com.backlogtracker.ordertracker.order.dto.OrderView;
+import com.backlogtracker.ordertracker.order.dto.UpdateOrderStatusRequest;
 import com.backlogtracker.ordertracker.order.dto.UpdateStageRequest;
 import com.backlogtracker.ordertracker.order.service.OrderService;
 
@@ -57,5 +58,11 @@ public class OrderController {
     public OrderView addPayment(@PathVariable String groupId, @PathVariable String orderId,
                                 @RequestBody AddPaymentRequest request, @AuthenticationPrincipal AuthUser actor) {
         return orderService.addPayment(groupId, actor.id(), orderId, request);
+    }
+
+    @PatchMapping("/{orderId}/status")
+    public OrderView updateStatus(@PathVariable String groupId, @PathVariable String orderId,
+                                  @RequestBody UpdateOrderStatusRequest request, @AuthenticationPrincipal AuthUser actor) {
+        return orderService.updateStatus(groupId, actor.id(), orderId, request);
     }
 }

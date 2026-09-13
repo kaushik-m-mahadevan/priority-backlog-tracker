@@ -18,13 +18,16 @@ import com.backlogtracker.ordertracker.master.domain.PresetOption;
 import com.backlogtracker.ordertracker.master.service.BusinessConfigService;
 import com.backlogtracker.ordertracker.master.service.CreatorService;
 import com.backlogtracker.ordertracker.master.service.MasterDataService;
+import com.backlogtracker.ordertracker.order.domain.ChangeLogEntry;
 import com.backlogtracker.ordertracker.order.domain.Order;
+import com.backlogtracker.ordertracker.order.domain.OrderStatus;
 import com.backlogtracker.ordertracker.order.domain.Packaging;
 import com.backlogtracker.ordertracker.order.domain.Payment;
 import com.backlogtracker.ordertracker.order.domain.StageProgress;
 import com.backlogtracker.ordertracker.order.dto.AddPaymentRequest;
 import com.backlogtracker.ordertracker.order.dto.CreateOrderRequest;
 import com.backlogtracker.ordertracker.order.dto.OrderView;
+import com.backlogtracker.ordertracker.order.dto.UpdateOrderStatusRequest;
 import com.backlogtracker.ordertracker.order.dto.UpdateStageRequest;
 import com.backlogtracker.ordertracker.order.repository.OrderRepository;
 
@@ -86,7 +89,7 @@ public class OrderService {
                 .profitMarginPercentage(cfg.getProfitMarginPercentage())
                 .payments(new ArrayList<>())
                 .paymentStatus(calculator.derivePaymentStatus(List.of(), 0))
-                .status(com.backlogtracker.ordertracker.order.domain.OrderStatus.RECEIVED)
+                .status(OrderStatus.RECEIVED)
                 .computedDueDate(calculator.computedDueDate(now, stages, packaging.timeHours(),
                         primaryCreator.getHoursAvailablePerDay()))
                 .createdAt(now)
@@ -107,7 +110,10 @@ public class OrderService {
                 .filter(s -> s.getStageKey().equals(stageKey))
                 .findFirst()
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Stage not found on this order"));
+        String oldValue = Double.toString(stage.getCompletionFraction());
         stage.setCompletionFraction(request.completionFraction());
+        logChange(order, userId, "stageProgress." + stageKey, oldValue,
+                Double.toString(request.completionFraction()));
         order.setUpdatedAt(clock.instant());
         return OrderView.of(repository.save(order), calculator);
     }
@@ -118,9 +124,29 @@ public class OrderService {
         order.getPayments().add(Payment.of(request.amount(), request.mode(), request.note(),
                 request.paidAt() == null ? clock.instant() : request.paidAt()));
         double totalCost = calculator.totalCost(order);
+        String oldStatus = order.getPaymentStatus() == null ? null : order.getPaymentStatus().name();
         order.setPaymentStatus(calculator.derivePaymentStatus(order.getPayments(), totalCost));
+        logChange(order, userId, "paymentStatus", oldStatus, order.getPaymentStatus().name());
+        logChange(order, userId, "payments", null, request.mode() + " " + request.amount());
         order.setUpdatedAt(clock.instant());
         return OrderView.of(repository.save(order), calculator);
+    }
+
+    public OrderView updateStatus(String groupId, String userId, String orderId, UpdateOrderStatusRequest request) {
+        groupService.requireMember(groupId, userId);
+        Order order = requireById(groupId, orderId);
+        String oldStatus = order.getStatus() == null ? null : order.getStatus().name();
+        order.setStatus(request.status());
+        logChange(order, userId, "status", oldStatus, request.status().name());
+        order.setUpdatedAt(clock.instant());
+        return OrderView.of(repository.save(order), calculator);
+    }
+
+    private void logChange(Order order, String userId, String field, String oldValue, String newValue) {
+        order.getChangeLog().add(ChangeLogEntry.builder()
+                .field(field).oldValue(oldValue).newValue(newValue)
+                .changedByUserId(userId).changedAt(clock.instant())
+                .build());
     }
 
     private Packaging buildPackaging(String groupId, String userId, CreateOrderRequest request) {
