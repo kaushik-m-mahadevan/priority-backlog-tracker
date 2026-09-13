@@ -11,8 +11,10 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.server.ResponseStatusException;
 
 import com.backlogtracker.commons.group.domain.Group;
 import com.backlogtracker.commons.group.dto.CreateGroupRequest;
@@ -40,18 +42,31 @@ public class GroupController {
         return GroupView.of(g, groupService.members(g));
     }
 
-    /** Groups the caller belongs to. */
+    /** Groups the caller belongs to, scoped to one applet. Defaults to Backlog Tracker so
+     *  every existing caller (no query param) keeps seeing exactly what it saw before Order
+     *  Tracker existed. */
     @GetMapping
-    public List<GroupView> mine(@AuthenticationPrincipal AuthUser actor) {
-        return groupService.myGroups(actor.id()).stream().map(this::view).toList();
+    public List<GroupView> mine(@RequestParam(required = false) String appletKey,
+                                @AuthenticationPrincipal AuthUser actor) {
+        return groupService.myGroups(actor.id(), resolveAppletKey(appletKey)).stream().map(this::view).toList();
     }
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public GroupView create(@Valid @RequestBody CreateGroupRequest request,
+                            @RequestParam(required = false) String appletKey,
                             @AuthenticationPrincipal AuthUser actor) {
-        // Only one applet exists today; Order Tracker passes its own key in Phase 6.
-        return view(groupService.create(request.name(), actor.id(), Group.APPLET_BACKLOG_TRACKER));
+        return view(groupService.create(request.name(), actor.id(), resolveAppletKey(appletKey)));
+    }
+
+    private static String resolveAppletKey(String appletKey) {
+        if (appletKey == null || appletKey.isBlank()) {
+            return Group.APPLET_BACKLOG_TRACKER;
+        }
+        if (!appletKey.equals(Group.APPLET_BACKLOG_TRACKER) && !appletKey.equals(Group.APPLET_ORDER_TRACKER)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Unknown appletKey");
+        }
+        return appletKey;
     }
 
     @GetMapping("/{id}")

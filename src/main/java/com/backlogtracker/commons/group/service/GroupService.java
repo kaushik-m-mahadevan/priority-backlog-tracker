@@ -41,8 +41,12 @@ public class GroupService {
                 .orElseGet(() -> platformConfig.save(PlatformConfig.defaults()));
     }
 
-    public List<Group> myGroups(String userId) {
-        return groups.findByMemberIdsContaining(userId).stream()
+    /** Groups the caller belongs to, scoped to one applet — a group is a separate
+     *  "business"/workspace per applet, so a caller's Order Tracker groups must never leak
+     *  into their Backlog Tracker group switcher or vice versa (platform integration
+     *  decision). */
+    public List<Group> myGroups(String userId, String appletKey) {
+        return groups.findByMemberIdsContainingAndAppletKey(userId, appletKey).stream()
                 .sorted(Comparator.comparing(Group::getName, String.CASE_INSENSITIVE_ORDER))
                 .toList();
     }

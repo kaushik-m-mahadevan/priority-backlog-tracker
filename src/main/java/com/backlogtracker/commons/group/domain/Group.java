@@ -28,8 +28,8 @@ import lombok.Setter;
 @AllArgsConstructor
 public class Group {
 
-    /** The only applet that exists today; Order Tracker adds its own key in Phase 6. */
     public static final String APPLET_BACKLOG_TRACKER = "backlogtracker";
+    public static final String APPLET_ORDER_TRACKER = "ordertracker";
 
     @Id
     private String id;
