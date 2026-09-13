@@ -11,7 +11,6 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -51,7 +50,8 @@ public class GroupController {
     @ResponseStatus(HttpStatus.CREATED)
     public GroupView create(@Valid @RequestBody CreateGroupRequest request,
                             @AuthenticationPrincipal AuthUser actor) {
-        return view(groupService.create(request.name(), actor.id()));
+        // Only one applet exists today; Order Tracker passes its own key in Phase 6.
+        return view(groupService.create(request.name(), actor.id(), Group.APPLET_BACKLOG_TRACKER));
     }
 
     @GetMapping("/{id}")
@@ -83,21 +83,6 @@ public class GroupController {
         groupService.leave(id, actor.id());
     }
 
-    /** Add a category to this group's own list. Any member may. */
-    @PostMapping("/{id}/categories")
-    public GroupView addCategory(@PathVariable String id, @RequestBody NameRequest request,
-                                 @AuthenticationPrincipal AuthUser actor) {
-        return view(groupService.addCategory(id, actor.id(), request.name()));
-    }
-
-    /** Remove a category. 409 if items still use it without a {@code reassignTo}. */
-    @DeleteMapping("/{id}/categories/{name}")
-    public GroupView removeCategory(@PathVariable String id, @PathVariable String name,
-                                    @RequestParam(required = false) String reassignTo,
-                                    @AuthenticationPrincipal AuthUser actor) {
-        return view(groupService.removeCategory(id, actor.id(), name, reassignTo));
-    }
-
-    public record NameRequest(String name) {
-    }
+    // Categories moved to config.web.GroupCategoryController (backlogtracker-owned) at
+    // the same URL prefix — a group's category list is applet data, not commons.
 }

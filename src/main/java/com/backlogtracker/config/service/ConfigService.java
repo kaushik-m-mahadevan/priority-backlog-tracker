@@ -19,6 +19,8 @@ import com.backlogtracker.config.domain.ConfigHistory;
 import com.backlogtracker.config.dto.UpdateConfigRequest;
 import com.backlogtracker.config.repository.ConfigHistoryRepository;
 import com.backlogtracker.config.repository.ConfigRepository;
+import com.backlogtracker.group.domain.Group;
+import com.backlogtracker.group.service.GroupService;
 import com.backlogtracker.item.domain.Item;
 import com.backlogtracker.item.repository.ItemRepository;
 
@@ -29,8 +31,8 @@ import lombok.RequiredArgsConstructor;
  * to {@code configHistory} (§15). Priority list edits follow the §2 safety rules: more
  * than one item uses the value → blocked; exactly one → reassignment required; none →
  * removed outright. Category editing follows the same rules but lives on
- * {@link com.backlogtracker.group.service.GroupService} instead — categories are
- * per-group, not part of this shared config.
+ * {@code GroupCategoryService} instead — categories are per-group, not part of this
+ * shared config.
  */
 @Service
 @RequiredArgsConstructor
@@ -39,12 +41,17 @@ public class ConfigService {
     private final ConfigRepository repository;
     private final ConfigHistoryRepository history;
     private final ItemRepository items;
+    private final GroupService groupService;
     private final MongoOperations mongo;
     private final Clock clock;
 
     public AppConfig getConfig() {
-        return repository.findById(AppConfig.SINGLETON_ID)
+        AppConfig cfg = repository.findById(AppConfig.SINGLETON_ID)
                 .orElseGet(() -> repository.save(AppConfig.defaults()));
+        // joined in from the platform-wide cap, not persisted on this document — see
+        // AppConfig.maxGroupsPerUser's javadoc.
+        cfg.setMaxGroupsPerUser(groupService.maxGroupsPerApplet(Group.APPLET_BACKLOG_TRACKER));
+        return cfg;
     }
 
     public AppConfig seedIfAbsent() {
@@ -83,10 +90,11 @@ public class ConfigService {
         cfg.setBuriedThresholdDays(r.buriedThresholdDays());
         cfg.setDefaultDueDateOffsetDays(r.defaultDueDateOffsetDays());
         cfg.setEffortCapDays(r.effortCapDays());
-        cfg.setMaxGroupsPerUser(r.maxGroupsPerUser());
         cfg.setBuriedPriorityLevels(new ArrayList<>(r.buriedPriorityLevels()));
         cfg.setPriorityValues(new LinkedHashMap<>(r.priorityValues()));
         AppConfig saved = repository.save(cfg);
+        groupService.setMaxGroupsPerApplet(Group.APPLET_BACKLOG_TRACKER, r.maxGroupsPerUser());
+        saved.setMaxGroupsPerUser(r.maxGroupsPerUser());
         record(actorId, "weights & thresholds updated", before, snapshot(saved));
         return saved;
     }
@@ -180,6 +188,7 @@ public class ConfigService {
         m.put("buriedThresholdDays", c.getBuriedThresholdDays());
         m.put("defaultDueDateOffsetDays", c.getDefaultDueDateOffsetDays());
         m.put("effortCapDays", c.getEffortCapDays());
+        m.put("maxGroupsPerUser", c.getMaxGroupsPerUser());
         m.put("buriedPriorityLevels", new ArrayList<>(c.getBuriedPriorityLevels()));
         m.put("priorities", new ArrayList<>(c.getPriorities()));
         m.put("priorityValues", new LinkedHashMap<>(c.getPriorityValues()));

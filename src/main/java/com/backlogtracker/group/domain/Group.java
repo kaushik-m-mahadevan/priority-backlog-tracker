@@ -28,6 +28,9 @@ import lombok.Setter;
 @AllArgsConstructor
 public class Group {
 
+    /** The only applet that exists today; Order Tracker adds its own key in Phase 6. */
+    public static final String APPLET_BACKLOG_TRACKER = "backlogtracker";
+
     @Id
     private String id;
 
@@ -36,28 +39,18 @@ public class Group {
     /** Audit only — confers no special powers. */
     private String createdByUserId;
 
+    /** Which applet this group belongs to (design: platform integration — a group is a
+     *  separate "business"/workspace scoped to exactly one applet, never shared). */
+    private String appletKey;
+
     @Indexed
     @Builder.Default
     private List<String> memberIds = new ArrayList<>();
-
-    /**
-     * This group's own category labels — deliberately not shared across groups. A
-     * finance tracker and a personal to-do list have nothing in common here, so each
-     * group starts from {@link #defaultCategories()} and edits its own list from there.
-     */
-    @Builder.Default
-    private List<String> categories = defaultCategories();
 
     @CreatedDate
     private Instant createdAt;
 
     public boolean hasMember(String userId) {
         return memberIds != null && memberIds.contains(userId);
-    }
-
-    /** Starting point for a newly created group; freely edited afterward. */
-    public static List<String> defaultCategories() {
-        return new ArrayList<>(List.of(
-                "Research", "Skill-Building", "Project", "Technical Discussion", "Admin-Ops", "Other"));
     }
 }

@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.Map;
 
 import org.springframework.data.annotation.Id;
+import org.springframework.data.annotation.Transient;
 import org.springframework.data.mongodb.core.mapping.Document;
 
 import lombok.AllArgsConstructor;
@@ -18,10 +19,12 @@ import lombok.Setter;
  * Single-document application configuration (see docs/design.md §2, §7).
  * Always stored with a fixed id so there is exactly one config row.
  *
- * <p>Categories are NOT here — they live on {@link com.backlogtracker.group.domain.Group}
- * instead, one list per group, since what a finance tracker and a personal to-do list
- * are tracking has nothing in common. Priorities and the weights/thresholds below are
- * still shared across every group.
+ * <p>Categories are NOT here — they live in {@code GroupCategories}, one document per
+ * group, since what a finance tracker and a personal to-do list are tracking has nothing
+ * in common. {@code maxGroupsPerUser} isn't here either — it moved to the platform-wide
+ * {@link com.backlogtracker.group.domain.PlatformConfig}, since a group cap is a
+ * commons/platform concept, not part of this applet's own ranking formula. Priorities
+ * and the weights/thresholds below are still shared across every group.
  */
 @Document("config")
 @Getter
@@ -56,7 +59,10 @@ public class AppConfig {
     private int defaultDueDateOffsetDays;
     private int effortCapDays;
 
-    /** How many groups one account may belong to. */
+    /** Not persisted here — joined in from the platform-wide {@code PlatformConfig} at
+     *  read time by {@code ConfigService}, purely so the existing single `/api/config`
+     *  contract (and the Settings screen built on it) doesn't have to change. */
+    @Transient
     private int maxGroupsPerUser;
 
     /**
@@ -83,7 +89,6 @@ public class AppConfig {
                 .buriedPriorityLevels(new ArrayList<>(List.of("Low")))
                 .defaultDueDateOffsetDays(30)
                 .effortCapDays(30)
-                .maxGroupsPerUser(5)
                 .build();
     }
 }

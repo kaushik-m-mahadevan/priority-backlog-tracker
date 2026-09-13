@@ -3,6 +3,7 @@ import { api, ApiError } from "../api/client";
 import { useConfig } from "../config/ConfigContext";
 import { useUsers } from "../users/UsersContext";
 import { useGroups } from "../groups/GroupContext";
+import { useGroupCategories } from "../groups/GroupCategoriesContext";
 import { notifyItemsChanged } from "../lib/events";
 import { formatDateTime } from "../lib/format";
 import MarkdownField from "./MarkdownField";
@@ -51,7 +52,8 @@ const UNIT_RULES: Record<
 export default function ItemFormModal({ existing, onClose, onSaved, onComplete }: Props) {
   const config = useConfig();
   const { users, nameOf } = useUsers();
-  const { currentGroup, currentGroupId } = useGroups();
+  const { currentGroupId } = useGroups();
+  const { categories } = useGroupCategories();
   const editing = !!existing;
 
   const plus30 = () => {
@@ -225,7 +227,7 @@ export default function ItemFormModal({ existing, onClose, onSaved, onComplete }
                 <option value="" disabled>
                   Select…
                 </option>
-                {currentGroup?.categories.map((c) => (
+                {categories.map((c) => (
                   <option key={c} value={c}>
                     {c}
                   </option>

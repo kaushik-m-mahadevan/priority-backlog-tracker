@@ -125,8 +125,8 @@ public class NotificationService {
             throw new ResponseStatusException(HttpStatus.CONFLICT,
                     target.getName() + " is already in this group");
         }
-        int cap = groupService.maxGroupsPerUser();
-        if (cap > 0 && groupService.groupCount(target.getId()) >= cap) {
+        int cap = groupService.maxGroupsPerApplet(g.getAppletKey());
+        if (cap > 0 && groupService.groupCount(target.getId(), g.getAppletKey()) >= cap) {
             throw new ResponseStatusException(HttpStatus.CONFLICT,
                     target.getName() + " is already in the maximum number of groups");
         }

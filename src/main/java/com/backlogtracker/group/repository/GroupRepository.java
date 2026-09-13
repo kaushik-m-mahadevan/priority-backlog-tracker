@@ -11,4 +11,6 @@ public interface GroupRepository extends MongoRepository<Group, String> {
     List<Group> findByMemberIdsContaining(String userId);
 
     long countByMemberIdsContaining(String userId);
+
+    long countByMemberIdsContainingAndAppletKey(String userId, String appletKey);
 }

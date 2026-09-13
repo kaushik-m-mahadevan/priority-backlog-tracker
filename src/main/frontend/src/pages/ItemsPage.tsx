@@ -10,6 +10,7 @@ import ItemFormModal from "../components/ItemFormModal";
 import EmptyLeaf from "../components/EmptyLeaf";
 import NoGroupNotice from "../components/NoGroupNotice";
 import { useGroups } from "../groups/GroupContext";
+import { useGroupCategories } from "../groups/GroupCategoriesContext";
 import { useConfig } from "../config/ConfigContext";
 import { useItemsChanged, notifyItemsChanged } from "../lib/events";
 import { effortLabel, formatDate } from "../lib/format";
@@ -20,7 +21,8 @@ const SIZE = 25;
 export default function ItemsPage() {
   const config = useConfig();
   const { nameOf } = useUsers();
-  const { currentGroup, currentGroupId } = useGroups();
+  const { currentGroupId } = useGroups();
+  const { categories } = useGroupCategories();
   const [items, setItems] = useState<Item[]>([]);
   const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
@@ -107,7 +109,7 @@ export default function ItemsPage() {
         <input placeholder="Search title…" value={q} onChange={(e) => setQ(e.target.value)} />
         <select value={fCat} onChange={(e) => setFCat(e.target.value)}>
           <option value="">All categories</option>
-          {currentGroup?.categories.map((c) => (
+          {categories.map((c) => (
             <option key={c}>{c}</option>
           ))}
         </select>

@@ -134,7 +134,7 @@ class ConfigApiTest {
                                 {"name":"Only In First"}"""))
                 .andExpect(status().isOk());
 
-        mvc.perform(auth(get("/api/groups/" + otherGroupId)))
+        mvc.perform(auth(get("/api/groups/" + otherGroupId + "/categories")))
                 .andExpect(jsonPath("$.categories", org.hamcrest.Matchers.not(
                         org.hamcrest.Matchers.hasItem("Only In First"))));
     }
