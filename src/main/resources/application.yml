@@ -36,6 +36,11 @@ app:
   jwt:
     secret: ${JWT_SECRET:test123}
     expiration-minutes: ${JWT_EXPIRATION_MINUTES:1440}
+  encryption:
+    # Order Tracker field-level encryption (design §4.5). Same shape as JWT_SECRET above —
+    # this dev default is short and obviously fake on purpose; stretched to a 256-bit key
+    # by AesGcmCipher, so a strong generated production secret is a drop-in replacement.
+    key: ${ENCRYPTION_KEY:dev-only-not-a-real-key}
   # Seed a realistic sample backlog on startup. Off by default; the `demo` profile
   # (application-demo.yml) turns it on. Idempotent — skips if items already exist.
   demo-data:

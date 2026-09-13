@@ -10,7 +10,9 @@ services:
     region: singapore            # closest Render region to Atlas ap-south-1 (Mumbai)
     dockerfilePath: ./Dockerfile
     healthCheckPath: /actuator/health
-    autoDeploy: true             # redeploy on every push to the default branch
+    # Turned off in the dashboard (2026-09) — pushes to main no longer auto-deploy;
+    # this blueprint field is stale until the next full service recreation, harmless.
+    autoDeploy: false
     envVars:
       - key: SPRING_PROFILES_ACTIVE
         value: prod
@@ -18,6 +20,8 @@ services:
         value: "true"
       - key: JWT_SECRET
         generateValue: true       # Render generates a strong value once and keeps it
+      - key: ENCRYPTION_KEY
+        generateValue: true       # Order Tracker field-level encryption (design §4.5)
       - key: MONGODB_URI
         sync: false               # secret — set it in the dashboard, no trailing /database
       # No first-boot admin env vars: on an existing DB, LegacyDataMigration promotes the
