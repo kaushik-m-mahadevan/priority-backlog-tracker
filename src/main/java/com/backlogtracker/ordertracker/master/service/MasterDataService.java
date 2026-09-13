@@ -38,6 +38,17 @@ public class MasterDataService {
                 .build());
     }
 
+    /** Used by Order Tracker's order-creation flow to snapshot a preset's cost/time onto
+     *  the order at creation, so a later preset edit never retroactively changes past
+     *  orders. */
+    public PresetOption requirePackagingPreset(String groupId, String userId, String presetId) {
+        groupService.requireMember(groupId, userId);
+        PresetOption p = presetOptions.findById(presetId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Preset not found"));
+        requireOwnedByGroup(p.getGroupId(), groupId);
+        return p;
+    }
+
     public void removePackagingPreset(String groupId, String userId, String presetId) {
         groupService.requireMember(groupId, userId);
         PresetOption p = presetOptions.findById(presetId)

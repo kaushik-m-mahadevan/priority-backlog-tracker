@@ -63,6 +63,12 @@ public class CustomerService {
         return CustomerView.of(repository.save(customer));
     }
 
+    /** Existence + group-scoping check only — used by other Order Tracker services that
+     *  need to validate a customerId without needing the decrypted view. */
+    public void requireExists(String groupId, String customerId) {
+        requireById(groupId, customerId);
+    }
+
     private Customer requireById(String groupId, String customerId) {
         Customer customer = repository.findById(customerId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Customer not found"));
