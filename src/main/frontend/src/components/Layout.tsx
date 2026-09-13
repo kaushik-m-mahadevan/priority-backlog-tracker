@@ -16,12 +16,18 @@ import {
 
 /** Group-scoped pages that carry the Grove as a first-class visual (the dashboard
  *  renders its own). Settings / Admin / Manage-groups deliberately don't. */
-const GROVE_ROUTES = ["/quick-wins", "/attention", "/team", "/items", "/archive"];
+const GROVE_ROUTES = [
+  "/backlog/quick-wins",
+  "/backlog/attention",
+  "/backlog/team",
+  "/backlog/items",
+  "/backlog/archive",
+];
 
 export default function Layout() {
   const { shown, setShown } = useDock();
   const pathname = useLocation().pathname;
-  const onDashboard = pathname === "/";
+  const onDashboard = pathname === "/backlog";
   const withGrove = GROVE_ROUTES.includes(pathname);
   useKeepAlive();
 
@@ -38,11 +44,13 @@ export default function Layout() {
             <SidebarIcon />
           </button>
         )}
+        {/* Goes to the applet launcher, not the Backlog Tracker dashboard — this is also
+            rendered on /settings, which isn't under /backlog (Phase 4 reshapes that). */}
         <Link to="/" className="brand">
           ◆ Backlog Tracker
         </Link>
         <div className="nav-links">
-          <NavLink to="/items">Items</NavLink>
+          <NavLink to="/backlog/items">Items</NavLink>
         </div>
         <span className="spacer" />
         <GroupSwitcher />
@@ -66,19 +74,19 @@ export default function Layout() {
       </div>
 
       <nav className="tabbar">
-        <NavLink to="/" end aria-label="Priority">
+        <NavLink to="/backlog" end aria-label="Priority">
           <PriorityGlyph size={22} />
         </NavLink>
-        <NavLink to="/quick-wins" aria-label="Quick wins">
+        <NavLink to="/backlog/quick-wins" aria-label="Quick wins">
           <QuickGlyph size={22} />
         </NavLink>
-        <NavLink to="/attention" aria-label="Needs attention">
+        <NavLink to="/backlog/attention" aria-label="Needs attention">
           <AttentionGlyph size={22} />
         </NavLink>
-        <NavLink to="/groups" aria-label="Groups">
+        <NavLink to="/backlog/groups" aria-label="Groups">
           <TeamGlyph size={22} />
         </NavLink>
-        <NavLink to="/items" aria-label="Items">
+        <NavLink to="/backlog/items" aria-label="Items">
           <ItemsGlyph size={22} />
         </NavLink>
       </nav>

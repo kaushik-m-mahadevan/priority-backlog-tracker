@@ -50,11 +50,11 @@ export default function NavMenu() {
             {name}
             {user?.handle && <span className="muted"> · @{user.handle}</span>}
           </div>
-          <Link to="/archive" role="menuitem" onClick={() => setOpen(false)}>
+          <Link to="/backlog/archive" role="menuitem" onClick={() => setOpen(false)}>
             Completed
           </Link>
           {user?.role === "ADMIN" && (
-            <Link to="/admin" role="menuitem" onClick={() => setOpen(false)}>
+            <Link to="/backlog/admin" role="menuitem" onClick={() => setOpen(false)}>
               Admin console
             </Link>
           )}

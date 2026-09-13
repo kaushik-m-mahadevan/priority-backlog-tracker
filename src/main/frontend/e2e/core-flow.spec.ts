@@ -42,8 +42,9 @@ async function login(page: Page, email: string, password: string) {
   await page.getByRole("button", { name: "Sign in" }).click();
   // wait for the login POST to resolve and the SPA to actually route away —
   // without this, an immediate page.goto() right after can race the in-flight
-  // request and land back on a blank /login.
-  await page.getByRole("button", { name: "Account menu" }).waitFor();
+  // request and land back on a blank /login. Login now lands on the applet
+  // launcher (design: platform integration), not a Backlog Tracker page.
+  await page.getByText("Pick where you want to work.").waitFor();
 }
 
 async function signOut(page: Page) {
@@ -75,7 +76,7 @@ test("register, get approved, create a group, invite, accept, create an item, se
 
   // --- admin approves --------------------------------------------------------
   await login(page, ADMIN_EMAIL, ADMIN_PASSWORD);
-  await page.goto("/admin");
+  await page.goto("/backlog/admin");
   const pendingRow = page.locator(".team-row", { hasText: email }).first();
   await pendingRow.getByRole("button", { name: "Approve" }).click();
   await expect(page.getByText(email)).toHaveCount(0, { timeout: 10_000 }).catch(() => {
@@ -86,7 +87,7 @@ test("register, get approved, create a group, invite, accept, create an item, se
 
   // --- the approved user creates a group and invites someone ---------------
   await login(page, email, password);
-  await page.goto("/groups");
+  await page.goto("/backlog/groups");
   await page.getByPlaceholder("Group name").fill(groupName);
   await page.getByRole("button", { name: "Create" }).click();
   await expect(page.getByText(groupName).first()).toBeVisible();
@@ -101,16 +102,17 @@ test("register, get approved, create a group, invite, accept, create an item, se
 
   // --- invitee accepts ---------------------------------------------------
   await login(page, INVITEE_EMAIL, INVITEE_PASSWORD);
+  await page.goto("/backlog"); // the bell only renders inside Backlog Tracker's own Layout
   await page.getByRole("button", { name: /Notifications/ }).click();
   await page.getByRole("button", { name: "Accept" }).first().click();
-  await page.goto("/groups");
+  await page.goto("/backlog/groups");
   await expect(page.getByText(groupName).first()).toBeVisible();
 
   // --- create an item in the new group -------------------------------------
   // accepting an invite auto-switches the current group to the one just
   // joined (confirmed live: the new group's card already shows "Selected"
   // immediately after accept) — no explicit switch step needed.
-  await page.goto("/items");
+  await page.goto("/backlog/items");
   await page.getByRole("button", { name: "+ New item" }).click();
   await formField(page, "Title").fill(itemTitle);
   await formField(page, "Category").selectOption({ label: "Project" });
@@ -118,8 +120,10 @@ test("register, get approved, create a group, invite, accept, create an item, se
   await page.getByRole("button", { name: "Create item" }).click();
   await expect(page.getByText(itemTitle).first()).toBeVisible();
 
-  // --- see it ranked on the dashboard ---------------------------------------
+  // --- launcher shows the applet, and the item is ranked on its dashboard ---
   await page.goto("/");
+  await expect(page.getByRole("link", { name: /Priority Backlog Tracker/ })).toBeVisible();
+  await page.getByRole("link", { name: /Priority Backlog Tracker/ }).click();
   await expect(page.getByText("The Pecking Order")).toBeVisible();
   await expect(page.getByText(itemTitle).first()).toBeVisible();
 });

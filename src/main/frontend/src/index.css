@@ -1466,3 +1466,59 @@ input[aria-invalid="true"] {
     color: var(--accent);
   }
 }
+
+/* Applet launcher (design: platform integration) */
+.launcher {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 48px 24px;
+}
+.launcher-head {
+  text-align: center;
+  margin-bottom: 36px;
+}
+.applet-grid {
+  display: grid;
+  gap: 18px;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+.applet-card {
+  display: block;
+  background: var(--bg-elev);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius);
+  padding: 28px 22px;
+  text-align: center;
+  color: var(--text);
+  text-decoration: none;
+  transition: border-color 0.15s ease, transform 0.15s ease;
+}
+a.applet-card:hover {
+  border-color: var(--accent);
+  transform: translateY(-2px);
+}
+.applet-card .applet-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 999px;
+  background: var(--bg-elev-2);
+  font-size: 22px;
+  margin-bottom: 14px;
+}
+.applet-card h2 {
+  margin: 0 0 8px;
+  font-size: 16px;
+}
+.applet-card p {
+  margin: 0;
+  color: var(--text-dim);
+  font-size: 13.5px;
+  line-height: 1.5;
+}
+.applet-card.is-disabled {
+  opacity: 0.5;
+  cursor: default;
+}

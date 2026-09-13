@@ -62,7 +62,7 @@ export default function GroupSwitcher() {
             style={{ borderTop: "1px solid var(--border-soft)", marginTop: 4 }}
             onClick={() => {
               setOpen(false);
-              nav("/groups");
+              nav("/backlog/groups");
             }}
           >
             Manage groups…

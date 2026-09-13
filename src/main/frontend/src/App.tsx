@@ -10,6 +10,7 @@ import Layout from "./components/Layout";
 import LoginPage from "./pages/LoginPage";
 import RegisterPage from "./pages/RegisterPage";
 import PendingApprovalPage from "./pages/PendingApprovalPage";
+import LauncherPage from "./pages/LauncherPage";
 import DashboardPage from "./pages/DashboardPage";
 import ItemsPage from "./pages/ItemsPage";
 import ArchivePage from "./pages/ArchivePage";
@@ -51,18 +52,23 @@ export default function App() {
           <GroveSettingsProvider>
             <DockProvider>
               <Routes>
+                {/* Post-login landing page (design: platform integration) — sits outside
+                    Layout entirely, since the app-picker isn't Backlog Tracker chrome. */}
+                <Route path="/" element={<LauncherPage />} />
                 <Route element={<Layout />}>
-                  <Route path="/" element={<DashboardPage />} />
-                  <Route path="/quick-wins" element={<QuickWinsPage />} />
-                  <Route path="/attention" element={<AttentionPage />} />
-                  <Route path="/team" element={<TeamPage />} />
-                  <Route path="/items" element={<ItemsPage />} />
-                  <Route path="/archive" element={<ArchivePage />} />
-                  <Route path="/groups" element={<GroupsPage />} />
+                  <Route path="/backlog" element={<DashboardPage />} />
+                  <Route path="/backlog/quick-wins" element={<QuickWinsPage />} />
+                  <Route path="/backlog/attention" element={<AttentionPage />} />
+                  <Route path="/backlog/team" element={<TeamPage />} />
+                  <Route path="/backlog/items" element={<ItemsPage />} />
+                  <Route path="/backlog/archive" element={<ArchivePage />} />
+                  <Route path="/backlog/groups" element={<GroupsPage />} />
+                  {/* Still rendered with Backlog Tracker's own Layout/nav for now — Phase 4
+                      (migrate Settings) is what actually reshapes this into a shared hub. */}
                   <Route path="/settings" element={<SettingsPage />} />
                   <Route
-                    path="/admin"
-                    element={user.role === "ADMIN" ? <AdminPage /> : <Navigate to="/" replace />}
+                    path="/backlog/admin"
+                    element={user.role === "ADMIN" ? <AdminPage /> : <Navigate to="/backlog" replace />}
                   />
                 </Route>
                 <Route path="*" element={<Navigate to="/" replace />} />
