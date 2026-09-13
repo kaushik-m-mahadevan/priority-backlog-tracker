@@ -199,4 +199,48 @@ class OrderApiTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.changeLog.length()").value(2));
     }
+
+    @Test
+    void multiStopShipmentPlanRoundTripsWithTrackingNumberEncryptedAtRest() throws Exception {
+        String body = mvc.perform(auth(post("/api/ordertracker/groups/" + groupId + "/orders"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"customerId":"%s","primaryCreatorId":"%s",
+                                 "stages":[{"stageKey":"crocheting","estimatedHours":1},
+                                           {"stageKey":"assembly","estimatedHours":0},
+                                           {"stageKey":"packaging","estimatedHours":0},
+                                           {"stageKey":"shipment","estimatedHours":0}],
+                                 "materialsCost":0}""".formatted(customerId, creatorId)))
+                .andReturn().getResponse().getContentAsString();
+        String orderId = mapper.readTree(body).get("id").asText();
+
+        mvc.perform(auth(post("/api/ordertracker/groups/" + groupId + "/orders/" + orderId + "/shipment-plan"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                [{"originLocationCode":"001","destinationLocationCode":"002",
+                                  "carrier":"Local Courier","trackingNumber":"TRK-AAA-111",
+                                  "estimatedCost":80,"estimatedTimeHours":6},
+                                 {"originLocationCode":"002","destinationLocationCode":"003",
+                                  "carrier":"India Post","trackingNumber":"TRK-BBB-222",
+                                  "estimatedCost":120,"estimatedTimeHours":48}]"""))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.shipmentPlan.length()").value(2))
+                .andExpect(jsonPath("$.shipmentPlan[0].trackingNumber").value("TRK-AAA-111"))
+                .andExpect(jsonPath("$.shipmentPlan[1].trackingNumber").value("TRK-BBB-222"));
+
+        mvc.perform(auth(patch("/api/ordertracker/groups/" + groupId + "/orders/" + orderId + "/shipment-plan/0"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"shippedAt":"2026-01-02T00:00:00Z"}"""))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.shipmentPlan[0].shippedAt").value("2026-01-02T00:00:00Z"))
+                .andExpect(jsonPath("$.shipmentPlan[0].deliveredAt").doesNotExist());
+
+        Document raw = mongo.findOne(Query.query(Criteria.where("_id").is(orderId)), Document.class, "orderTrackerOrders");
+        assertThat(raw).isNotNull();
+        java.util.List<?> legs = raw.getList("shipmentPlan", Document.class);
+        Document firstLeg = (Document) legs.get(0);
+        assertThat(firstLeg.getString("trackingNumber")).isNotEqualTo("TRK-AAA-111");
+        assertThat(firstLeg.getString("originLocationCode")).isEqualTo("001");
+    }
 }

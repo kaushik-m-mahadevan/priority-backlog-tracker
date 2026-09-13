@@ -70,6 +70,10 @@ public class Order {
     @Builder.Default
     private List<ChangeLogEntry> changeLog = new ArrayList<>();
 
+    /** Multi-stop shipment plan (design §7) — empty until the order is ready to ship. */
+    @Builder.Default
+    private List<ShipmentLeg> shipmentPlan = new ArrayList<>();
+
     private Instant createdAt;
     private Instant updatedAt;
 }

@@ -16,8 +16,8 @@ public record OrderView(String id, String orderNumber, String customerId, String
                         List<StageProgress> stageProgress, double overallCompletionPercent,
                         double materialsCost, double packagingCost, double totalCost,
                         List<PaymentView> payments, PaymentStatus paymentStatus,
-                        OrderStatus status, Instant computedDueDate, List<ChangeLogEntry> changeLog,
-                        Instant createdAt, Instant updatedAt) {
+                        OrderStatus status, Instant computedDueDate, List<ShipmentLegView> shipmentPlan,
+                        List<ChangeLogEntry> changeLog, Instant createdAt, Instant updatedAt) {
 
     public static OrderView of(Order o, OrderCalculator calc) {
         double totalCost = calc.totalCost(o);
@@ -26,6 +26,7 @@ public record OrderView(String id, String orderNumber, String customerId, String
                 o.getStageProgress(), calc.overallCompletionFraction(o.getStageProgress()) * 100,
                 o.getMaterialsCost(), o.getPackaging() == null ? 0 : o.getPackaging().cost(), totalCost,
                 o.getPayments().stream().map(PaymentView::of).toList(), o.getPaymentStatus(),
-                o.getStatus(), o.getComputedDueDate(), o.getChangeLog(), o.getCreatedAt(), o.getUpdatedAt());
+                o.getStatus(), o.getComputedDueDate(), o.getShipmentPlan().stream().map(ShipmentLegView::of).toList(),
+                o.getChangeLog(), o.getCreatedAt(), o.getUpdatedAt());
     }
 }

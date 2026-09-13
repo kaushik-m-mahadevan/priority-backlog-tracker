@@ -23,13 +23,17 @@ import com.backlogtracker.ordertracker.order.domain.Order;
 import com.backlogtracker.ordertracker.order.domain.OrderStatus;
 import com.backlogtracker.ordertracker.order.domain.Packaging;
 import com.backlogtracker.ordertracker.order.domain.Payment;
+import com.backlogtracker.ordertracker.order.domain.ShipmentLeg;
 import com.backlogtracker.ordertracker.order.domain.StageProgress;
 import com.backlogtracker.ordertracker.order.dto.AddPaymentRequest;
 import com.backlogtracker.ordertracker.order.dto.CreateOrderRequest;
+import com.backlogtracker.ordertracker.order.dto.MarkLegRequest;
 import com.backlogtracker.ordertracker.order.dto.OrderView;
+import com.backlogtracker.ordertracker.order.dto.ShipmentLegRequest;
 import com.backlogtracker.ordertracker.order.dto.UpdateOrderStatusRequest;
 import com.backlogtracker.ordertracker.order.dto.UpdateStageRequest;
 import com.backlogtracker.ordertracker.order.repository.OrderRepository;
+import com.backlogtracker.commons.crypto.EncryptedString;
 
 import lombok.RequiredArgsConstructor;
 
@@ -138,6 +142,44 @@ public class OrderService {
         String oldStatus = order.getStatus() == null ? null : order.getStatus().name();
         order.setStatus(request.status());
         logChange(order, userId, "status", oldStatus, request.status().name());
+        order.setUpdatedAt(clock.instant());
+        return OrderView.of(repository.save(order), calculator);
+    }
+
+    public OrderView setShipmentPlan(String groupId, String userId, String orderId, List<ShipmentLegRequest> legs) {
+        groupService.requireMember(groupId, userId);
+        Order order = requireById(groupId, orderId);
+        List<ShipmentLeg> plan = legs.stream().map(l -> ShipmentLeg.builder()
+                .originLocationCode(l.originLocationCode())
+                .destinationLocationCode(l.destinationLocationCode())
+                .carrier(l.carrier())
+                .trackingNumber(EncryptedString.of(l.trackingNumber()))
+                .estimatedCost(l.estimatedCost())
+                .estimatedTimeHours(l.estimatedTimeHours())
+                .build()).toList();
+        order.setShipmentPlan(new ArrayList<>(plan));
+        logChange(order, userId, "shipmentPlan", null, legs.size() + " leg(s) set");
+        order.setUpdatedAt(clock.instant());
+        return OrderView.of(repository.save(order), calculator);
+    }
+
+    public OrderView markShipmentLeg(String groupId, String userId, String orderId, int legIndex,
+                                     MarkLegRequest request) {
+        groupService.requireMember(groupId, userId);
+        Order order = requireById(groupId, orderId);
+        if (legIndex < 0 || legIndex >= order.getShipmentPlan().size()) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Shipment leg not found on this order");
+        }
+        ShipmentLeg leg = order.getShipmentPlan().get(legIndex);
+        if (request.shippedAt() != null) {
+            leg.setShippedAt(request.shippedAt());
+            logChange(order, userId, "shipmentPlan[" + legIndex + "].shippedAt", null, request.shippedAt().toString());
+        }
+        if (request.deliveredAt() != null) {
+            leg.setDeliveredAt(request.deliveredAt());
+            logChange(order, userId, "shipmentPlan[" + legIndex + "].deliveredAt", null,
+                    request.deliveredAt().toString());
+        }
         order.setUpdatedAt(clock.instant());
         return OrderView.of(repository.save(order), calculator);
     }

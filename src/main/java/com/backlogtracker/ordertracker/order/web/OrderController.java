@@ -15,7 +15,9 @@ import com.backlogtracker.commons.security.AuthUser;
 import com.backlogtracker.commons.security.RequiresUser;
 import com.backlogtracker.ordertracker.order.dto.AddPaymentRequest;
 import com.backlogtracker.ordertracker.order.dto.CreateOrderRequest;
+import com.backlogtracker.ordertracker.order.dto.MarkLegRequest;
 import com.backlogtracker.ordertracker.order.dto.OrderView;
+import com.backlogtracker.ordertracker.order.dto.ShipmentLegRequest;
 import com.backlogtracker.ordertracker.order.dto.UpdateOrderStatusRequest;
 import com.backlogtracker.ordertracker.order.dto.UpdateStageRequest;
 import com.backlogtracker.ordertracker.order.service.OrderService;
@@ -64,5 +66,18 @@ public class OrderController {
     public OrderView updateStatus(@PathVariable String groupId, @PathVariable String orderId,
                                   @RequestBody UpdateOrderStatusRequest request, @AuthenticationPrincipal AuthUser actor) {
         return orderService.updateStatus(groupId, actor.id(), orderId, request);
+    }
+
+    @PostMapping("/{orderId}/shipment-plan")
+    public OrderView setShipmentPlan(@PathVariable String groupId, @PathVariable String orderId,
+                                     @RequestBody List<ShipmentLegRequest> legs, @AuthenticationPrincipal AuthUser actor) {
+        return orderService.setShipmentPlan(groupId, actor.id(), orderId, legs);
+    }
+
+    @PatchMapping("/{orderId}/shipment-plan/{legIndex}")
+    public OrderView markShipmentLeg(@PathVariable String groupId, @PathVariable String orderId,
+                                     @PathVariable int legIndex, @RequestBody MarkLegRequest request,
+                                     @AuthenticationPrincipal AuthUser actor) {
+        return orderService.markShipmentLeg(groupId, actor.id(), orderId, legIndex, request);
     }
 }
