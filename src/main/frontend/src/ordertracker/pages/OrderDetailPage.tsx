@@ -2,6 +2,15 @@ import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { orderTrackerApi } from "../api";
 import { useBusiness } from "../BusinessContext";
+import {
+  AddOnsFields,
+  MandatoryItemsFields,
+  duplicateVariant,
+  validateSplits,
+  type LineItemDraft,
+  type MandatoryItemDraft,
+  type VariantDraft,
+} from "../OrderFormFields";
 import type { BusinessConfig, Creator, Customer, OrderStatus, OrderView, PaymentType, PresetOption } from "../types";
 
 const STATUSES: OrderStatus[] = ["INQUIRY", "CONFIRMED", "IN_PROGRESS", "READY_TO_SHIP", "SHIPPED", "DELIVERED", "CANCELLED"];
@@ -28,8 +37,13 @@ function EditOrderForm({
   const [templateName, setTemplateName] = useState(order.pattern?.templateName ?? "");
   const [customPatternNotes, setCustomPatternNotes] = useState(order.pattern?.customPatternNotes ?? "");
   const [recipeStepsText, setRecipeStepsText] = useState(order.recipeSteps.join("\n"));
-  const [mandatoryItems, setMandatoryItems] = useState<Record<string, string>>(
-    Object.fromEntries(order.mandatoryItems.map((m) => [m.itemKey, m.value]))
+  const [mandatoryItems, setMandatoryItems] = useState<MandatoryItemDraft[]>(
+    order.mandatoryItems.length > 0
+      ? order.mandatoryItems.map((m) => ({ itemKey: m.itemKey, value: m.value, quantity: m.quantity, unitCost: m.unitCost }))
+      : config.mandatoryItemTypes.map((it) => ({ itemKey: it.itemKey, value: "", quantity: 1, unitCost: 0 }))
+  );
+  const [addOns, setAddOns] = useState<LineItemDraft[]>(
+    order.addOns.map((a) => ({ name: a.name, quantity: a.quantity, unitCost: a.unitCost, unitTimeHours: a.unitTimeHours ?? 0 }))
   );
   const [craftingTimeHours, setCraftingTimeHours] = useState(order.craftingTimeHours);
   const [packagingPresetId, setPackagingPresetId] = useState(order.packaging?.tentativePresetId ?? "");
@@ -49,10 +63,8 @@ function EditOrderForm({
           : null,
         researchItems: order.researchItems,
         recipeSteps: recipeStepsText.split("\n").map((s) => s.trim()).filter(Boolean),
-        mandatoryItems: Object.entries(mandatoryItems).filter(([, v]) => v).map(([itemKey, value]) => ({
-          itemKey, value, quantity: 1, unitCost: 0,
-        })),
-        addOns: order.addOns,
+        mandatoryItems: mandatoryItems.filter((m) => m.value.trim()),
+        addOns: addOns.filter((a) => a.name.trim()),
         packagingPresetId: packagingPresetId || null,
         itemizedPackaging: [],
         craftingTimeHours,
@@ -99,21 +111,18 @@ function EditOrderForm({
         <label>Recipe (one step per line)</label>
         <textarea value={recipeStepsText} onChange={(e) => setRecipeStepsText(e.target.value)} />
       </div>
-      <div className="form-row">
-        <label>Mandatory items</label>
-        <div className="form-grid">
-          {config.mandatoryItemTypes.map((it) => (
-            <div key={it.itemKey}>
-              <label className="muted" style={{ fontSize: 12 }}>
-                {it.label}
-              </label>
-              <input value={mandatoryItems[it.itemKey] ?? ""} onChange={(e) =>
-                setMandatoryItems((prev) => ({ ...prev, [it.itemKey]: e.target.value }))} />
-            </div>
-          ))}
-        </div>
-      </div>
-      <div className="form-grid">
+
+      <label className="muted" style={{ fontSize: 12, display: "block", marginBottom: 6 }}>
+        Mandatory items
+      </label>
+      <MandatoryItemsFields items={mandatoryItems} onChange={setMandatoryItems} />
+
+      <label className="muted" style={{ fontSize: 12, display: "block", margin: "12px 0 6px" }}>
+        Add-ons
+      </label>
+      <AddOnsFields addOns={addOns} onChange={setAddOns} />
+
+      <div className="form-grid" style={{ marginTop: 12 }}>
         <div className="form-row">
           <label>Packaging preset</label>
           <select value={packagingPresetId} onChange={(e) => setPackagingPresetId(e.target.value)}>
@@ -137,6 +146,182 @@ function EditOrderForm({
       <button type="button" onClick={onCancel} style={{ marginLeft: 8 }}>
         Cancel
       </button>
+    </form>
+  );
+}
+
+function EditBulkDetailsForm({
+  groupId,
+  order,
+  creators,
+  onSaved,
+  onCancel,
+}: {
+  groupId: string;
+  order: OrderView;
+  creators: Creator[];
+  onSaved: (o: OrderView) => void;
+  onCancel: () => void;
+}) {
+  const [variants, setVariants] = useState<VariantDraft[]>(
+    (order.bulkDetails?.variants ?? []).map((v) => ({
+      variantId: v.variantId,
+      label: v.label,
+      quantity: v.quantity,
+      mandatoryItems: v.mandatoryItems.map((m) => ({ itemKey: m.itemKey, value: m.value, quantity: m.quantity, unitCost: m.unitCost })),
+      addOns: v.addOns.map((a) => ({ name: a.name, quantity: a.quantity, unitCost: a.unitCost, unitTimeHours: a.unitTimeHours ?? 0 })),
+      craftingTimeHours: v.craftingTimeHours,
+      splitAllocation: v.splitAllocation.map((s) => ({ creatorId: s.creatorId, quantityAssigned: s.quantityAssigned })),
+    }))
+  );
+  const [coordinatingCreatorId, setCoordinatingCreatorId] = useState(order.bulkDetails?.coordinatingCreatorId ?? "");
+  const [logisticsBufferDays, setLogisticsBufferDays] = useState(order.bulkDetails?.logisticsBufferDays ?? 0);
+  const [error, setError] = useState<string | null>(null);
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    const splitError = validateSplits(variants);
+    if (splitError) {
+      setError(splitError);
+      return;
+    }
+    try {
+      const updated = await orderTrackerApi.updateBulkDetails(groupId, order.id, {
+        variants: variants
+          .filter((v) => v.label.trim())
+          .map((v) => ({
+            variantId: v.variantId ?? null,
+            label: v.label,
+            quantity: v.quantity,
+            mandatoryItems: v.mandatoryItems.filter((m) => m.value.trim()),
+            addOns: v.addOns.filter((a) => a.name.trim()),
+            craftingTimeHours: v.craftingTimeHours,
+            splitAllocation: v.splitAllocation.filter((s) => s.creatorId),
+          })),
+        coordinatingCreatorId: coordinatingCreatorId || null,
+        logisticsBufferDays,
+      });
+      onSaved(updated);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to save");
+    }
+  };
+
+  return (
+    <form className="card" onSubmit={submit} style={{ marginBottom: 16 }}>
+      {error && <div className="error">{error}</div>}
+
+      <div className="form-grid">
+        <div className="form-row">
+          <label>Coordinating creator</label>
+          <select value={coordinatingCreatorId} onChange={(e) => setCoordinatingCreatorId(e.target.value)}>
+            <option value="">None</option>
+            {creators.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="form-row">
+          <label>Logistics buffer (days)</label>
+          <input type="number" min={0} value={logisticsBufferDays} onChange={(e) => setLogisticsBufferDays(Number(e.target.value))} />
+        </div>
+      </div>
+
+      {variants.map((v, i) => {
+        const assigned = v.splitAllocation.filter((s) => s.creatorId).reduce((sum, s) => sum + s.quantityAssigned, 0);
+        const mismatch = v.splitAllocation.length > 0 && assigned !== v.quantity;
+        return (
+          <div className="card" key={i} style={{ marginBottom: 16, background: "var(--bg-elev-2)" }}>
+            <div className="form-grid">
+              <div className="form-row">
+                <label>Label</label>
+                <input value={v.label} onChange={(e) =>
+                  setVariants((prev) => prev.map((x, j) => (j === i ? { ...x, label: e.target.value } : x)))} />
+              </div>
+              <div className="form-row">
+                <label>Quantity</label>
+                <input type="number" min={1} value={v.quantity} onChange={(e) =>
+                  setVariants((prev) => prev.map((x, j) => (j === i ? { ...x, quantity: Number(e.target.value) } : x)))} />
+              </div>
+            </div>
+
+            <label className="muted" style={{ fontSize: 12 }}>
+              Mandatory items (per unit)
+            </label>
+            <MandatoryItemsFields
+              items={v.mandatoryItems}
+              onChange={(items) => setVariants((prev) => prev.map((x, j) => (j === i ? { ...x, mandatoryItems: items } : x)))}
+            />
+
+            <label className="muted" style={{ fontSize: 12, marginTop: 12, display: "block" }}>
+              Add-ons (per unit)
+            </label>
+            <AddOnsFields
+              addOns={v.addOns}
+              onChange={(a) => setVariants((prev) => prev.map((x, j) => (j === i ? { ...x, addOns: a } : x)))}
+            />
+
+            <div className="form-row" style={{ marginTop: 12, maxWidth: 220 }}>
+              <label className="muted" style={{ fontSize: 12 }}>
+                Crafting time/unit (hours)
+              </label>
+              <input type="number" min={0} step={0.1} value={v.craftingTimeHours} onChange={(e) =>
+                setVariants((prev) => prev.map((x, j) => (j === i ? { ...x, craftingTimeHours: Number(e.target.value) } : x)))} />
+            </div>
+
+            <label className="muted" style={{ fontSize: 12, marginTop: 12, display: "block" }}>
+              Split across creators — must add up to the quantity above ({v.quantity})
+            </label>
+            {v.splitAllocation.map((s, k) => (
+              <div className="toolbar" key={k}>
+                <select value={s.creatorId} onChange={(e) =>
+                  setVariants((prev) => prev.map((x, j) => j === i ? {
+                    ...x, splitAllocation: x.splitAllocation.map((sp, l) => l === k ? { ...sp, creatorId: e.target.value } : sp)
+                  } : x))}>
+                  <option value="">Select creator</option>
+                  {creators.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
+                <input type="number" min={1} placeholder="Qty" value={s.quantityAssigned} onChange={(e) =>
+                  setVariants((prev) => prev.map((x, j) => j === i ? {
+                    ...x, splitAllocation: x.splitAllocation.map((sp, l) => l === k ? { ...sp, quantityAssigned: Number(e.target.value) } : sp)
+                  } : x))} />
+                <button type="button" onClick={() =>
+                  setVariants((prev) => prev.map((x, j) => j === i
+                    ? { ...x, splitAllocation: x.splitAllocation.filter((_, l) => l !== k) } : x))}>
+                  Remove
+                </button>
+              </div>
+            ))}
+            <button type="button" onClick={() =>
+              setVariants((prev) => prev.map((x, j) => j === i
+                ? { ...x, splitAllocation: [...x.splitAllocation, { creatorId: "", quantityAssigned: 1 }] } : x))}>
+              + Add creator split
+            </button>
+            <p className={mismatch ? "hint bad" : "hint"} style={{ marginTop: 6 }}>
+              Assigned so far: {assigned} / {v.quantity}
+            </p>
+          </div>
+        );
+      })}
+      <button type="button" onClick={() => setVariants((prev) => [...prev, duplicateVariant(prev[prev.length - 1])])}>
+        + Add variant (copies the last one)
+      </button>
+
+      <div style={{ marginTop: 16 }}>
+        <button className="primary" type="submit">
+          Save
+        </button>
+        <button type="button" onClick={onCancel} style={{ marginLeft: 8 }}>
+          Cancel
+        </button>
+      </div>
     </form>
   );
 }
@@ -175,9 +360,12 @@ export default function OrderDetailPage() {
   if (!order || !config) return <p className="muted">Loading…</p>;
 
   const customer = customers.find((c) => c.id === order.customerId);
-  const creatorName = (id: string | null) => (id ? creators.find((c) => c.id === id)?.name ?? id : "—");
+  const creatorName = (id: string | null | undefined) => {
+    if (!id) return <span className="muted">Unassigned</span>;
+    return creators.find((c) => c.id === id)?.name ?? <span className="muted">Unknown creator</span>;
+  };
   const dueDate = order.orderType === "INDIVIDUAL" ? order.costEstimate?.computedDueDate : order.bulkDetails?.computedDueDate;
-  const finalCost = order.orderType === "INDIVIDUAL" ? order.costEstimate?.finalCost ?? 0 : order.bulkDetails?.totalFinalCost ?? 0;
+  const splitTrackedStageKeys = config.workStages.filter((s) => s.splitTracked).map((s) => s.stageKey);
 
   return (
     <div>
@@ -198,11 +386,20 @@ export default function OrderDetailPage() {
         </select>
         <span className="badge">{order.paymentStatus}</span>
         <span className="spacer" />
-        {!editing && order.orderType === "INDIVIDUAL" && (
+        {!editing && (
           <button onClick={() => setEditing(true)}>Edit order</button>
         )}
       </div>
       <p className="page-sub">{order.itemName}</p>
+
+      <div className="toolbar" style={{ marginBottom: 20 }}>
+        <div className="order-progress-track">
+          <div className="order-progress-fill" style={{ width: `${Math.min(100, order.completionPercentage)}%` }} />
+        </div>
+        <span className="mono" style={{ fontSize: 13, minWidth: 44, textAlign: "right" }}>
+          {order.completionPercentage.toFixed(0)}%
+        </span>
+      </div>
 
       {editing && order.orderType === "INDIVIDUAL" && (
         <EditOrderForm
@@ -217,8 +414,20 @@ export default function OrderDetailPage() {
           onCancel={() => setEditing(false)}
         />
       )}
+      {editing && order.orderType === "BULK" && (
+        <EditBulkDetailsForm
+          groupId={groupId}
+          order={order}
+          creators={creators}
+          onSaved={(o) => {
+            setOrder(o);
+            setEditing(false);
+          }}
+          onCancel={() => setEditing(false)}
+        />
+      )}
 
-      <div className="grid">
+      <div className="grid cols-3">
         <div className="card">
           <h2>Customer</h2>
           <div className="row"><span className="k">Name</span><span className="v">{customer?.name ?? "—"}</span></div>
@@ -258,7 +467,7 @@ export default function OrderDetailPage() {
       </div>
 
       {order.orderType === "INDIVIDUAL" ? (
-        <div className="grid">
+        <div className="grid cols-3">
           <div className="card">
             <h2>Mandatory items</h2>
             {order.mandatoryItems.length === 0 ? (
@@ -266,8 +475,8 @@ export default function OrderDetailPage() {
             ) : (
               order.mandatoryItems.map((m) => (
                 <div className="row" key={m.itemKey}>
-                  <span className="k">{m.itemKey}</span>
-                  <span className="v">{m.value}</span>
+                  <span className="k">{m.itemKey}: {m.value}</span>
+                  <span className="v">{m.quantity} × ₹{m.unitCost.toFixed(2)}</span>
                 </div>
               ))
             )}
@@ -277,13 +486,12 @@ export default function OrderDetailPage() {
             {order.addOns.length === 0 ? (
               <p className="empty">None.</p>
             ) : (
-              <div className="kv">
-                {order.addOns.map((a, i) => (
-                  <span key={i} className="chip">
-                    {a.name} × {a.quantity}
-                  </span>
-                ))}
-              </div>
+              order.addOns.map((a, i) => (
+                <div className="row" key={i}>
+                  <span className="k">{a.name}</span>
+                  <span className="v">{a.quantity} × ₹{a.unitCost.toFixed(2)}</span>
+                </div>
+              ))
             )}
           </div>
           <div className="card">
@@ -296,7 +504,7 @@ export default function OrderDetailPage() {
         <>
           <h2 className="settings-section">Variants</h2>
           {order.bulkDetails?.variants.map((v) => (
-            <div className="variant-block card" key={v.variantId} style={{ marginBottom: 12 }}>
+            <div className="card" key={v.variantId} style={{ marginBottom: 12 }}>
               <div className="toolbar">
                 <strong>{v.label}</strong>
                 <span className="muted">Qty {v.quantity}</span>
@@ -304,46 +512,68 @@ export default function OrderDetailPage() {
                 <span>₹{v.perUnitCost.toFixed(2)}/unit</span>
                 <span>Total ₹{v.totalCost.toFixed(2)}</span>
               </div>
-              <div className="grid">
+              <div className="grid cols-3">
                 <div className="card" style={{ background: "var(--bg-elev-2)" }}>
                   <h2>Mandatory items</h2>
-                  {v.mandatoryItems.map((m) => (
-                    <div className="row" key={m.itemKey}><span className="k">{m.itemKey}</span><span className="v">{m.value}</span></div>
-                  ))}
+                  {v.mandatoryItems.length === 0 ? (
+                    <p className="empty">None.</p>
+                  ) : (
+                    v.mandatoryItems.map((m) => (
+                      <div className="row" key={m.itemKey}>
+                        <span className="k">{m.itemKey}: {m.value}</span>
+                        <span className="v">{m.quantity} × ₹{m.unitCost.toFixed(2)}</span>
+                      </div>
+                    ))
+                  )}
                 </div>
                 <div className="card" style={{ background: "var(--bg-elev-2)" }}>
                   <h2>Split across creators</h2>
-                  {v.splitAllocation.map((s) => (
-                    <div className="row" key={s.creatorId}>
-                      <span className="k">{creatorName(s.creatorId)}</span>
-                      <span className="v">{s.quantityAssigned}</span>
-                    </div>
-                  ))}
+                  {v.splitAllocation.length === 0 ? (
+                    <p className="empty">Nobody assigned yet.</p>
+                  ) : (
+                    v.splitAllocation.map((s) => (
+                      <div className="row" key={s.creatorId}>
+                        <span className="k">{creatorName(s.creatorId)}</span>
+                        <span className="v">{s.quantityAssigned}</span>
+                      </div>
+                    ))
+                  )}
                 </div>
                 <div className="card" style={{ background: "var(--bg-elev-2)" }}>
-                  <h2>Crocheting progress</h2>
-                  {v.splitAllocation.map((s) => {
-                    const entry = s.stageProgress.find((sp) => sp.stageKey === "crocheting");
-                    return (
-                      <div key={s.creatorId} className="row">
-                        <span className="k">{creatorName(s.creatorId)}</span>
-                        <input
-                          type="number"
-                          min={0}
-                          max={s.quantityAssigned}
-                          style={{ width: 70 }}
-                          value={entry?.unitsCompleted ?? 0}
-                          onChange={async (e) =>
-                            setOrder(
-                              await orderTrackerApi.updateBulkSplitProgress(
-                                groupId, order.id, v.variantId, s.creatorId, "crocheting", Number(e.target.value)
-                              )
-                            )
-                          }
-                        />
+                  <h2>Progress</h2>
+                  {v.splitAllocation.length === 0 ? (
+                    <p className="empty">Nobody assigned yet.</p>
+                  ) : (
+                    splitTrackedStageKeys.map((stageKey) => (
+                      <div key={stageKey}>
+                        <label className="muted" style={{ fontSize: 11, textTransform: "uppercase" }}>
+                          {stageKey}
+                        </label>
+                        {v.splitAllocation.map((s) => {
+                          const entry = s.stageProgress.find((sp) => sp.stageKey === stageKey);
+                          return (
+                            <div key={s.creatorId} className="row">
+                              <span className="k">{creatorName(s.creatorId)}</span>
+                              <input
+                                type="number"
+                                min={0}
+                                max={s.quantityAssigned}
+                                style={{ width: 70 }}
+                                value={entry?.unitsCompleted ?? 0}
+                                onChange={async (e) =>
+                                  setOrder(
+                                    await orderTrackerApi.updateBulkSplitProgress(
+                                      groupId, order.id, v.variantId, s.creatorId, stageKey, Number(e.target.value)
+                                    )
+                                  )
+                                }
+                              />
+                            </div>
+                          );
+                        })}
                       </div>
-                    );
-                  })}
+                    ))
+                  )}
                 </div>
               </div>
             </div>
@@ -354,17 +584,19 @@ export default function OrderDetailPage() {
             {order.bulkDetails?.stageProgress.map((sp) => (
               <div className="row" key={sp.stageKey}>
                 <span className="k">{sp.stageKey}</span>
-                <input
-                  type="number"
-                  min={0}
-                  max={sp.totalUnits}
-                  style={{ width: 90 }}
-                  value={sp.unitsCompleted}
-                  onChange={async (e) =>
-                    setOrder(await orderTrackerApi.updateBulkStageProgress(groupId, order.id, sp.stageKey, Number(e.target.value)))
-                  }
-                />
-                <span className="muted">/ {sp.totalUnits}</span>
+                <span className="v">
+                  <input
+                    type="number"
+                    min={0}
+                    max={sp.totalUnits}
+                    style={{ width: 90 }}
+                    value={sp.unitsCompleted}
+                    onChange={async (e) =>
+                      setOrder(await orderTrackerApi.updateBulkStageProgress(groupId, order.id, sp.stageKey, Number(e.target.value)))
+                    }
+                  />
+                  <span className="muted"> / {sp.totalUnits}</span>
+                </span>
               </div>
             ))}
           </div>
@@ -393,30 +625,25 @@ export default function OrderDetailPage() {
               </label>
             </div>
           ))}
-          <p className="muted" style={{ fontSize: 13, marginTop: 8 }}>{order.completionPercentage.toFixed(0)}% complete</p>
         </div>
       )}
 
       <div className="grid cols-2">
-        <div className="card" style={{ background: "var(--bg-elev-2)" }}>
+        <div className="card cost-card" style={{ background: "var(--bg-elev-2)" }}>
           <h2>Cost &amp; time</h2>
           {order.orderType === "INDIVIDUAL" && order.costEstimate ? (
             <>
               {order.costEstimate.itemizedBreakdown.map((b) => (
                 <div className="row" key={b.label}><span className="k">{b.label}</span><span className="v">₹{b.amount.toFixed(2)}</span></div>
               ))}
-              <div className="row" style={{ fontWeight: 700 }}>
-                <span className="k">Final price</span><span className="v">₹{order.costEstimate.finalCost.toFixed(2)}</span>
-              </div>
-              <div className="row"><span className="k">Crafting time</span><span className="v">{order.costEstimate.grossTimeHours}h</span></div>
+              <div className="cost-total"><span className="k">Final price</span><span className="v">₹{order.costEstimate.finalCost.toFixed(2)}</span></div>
+              <div className="row" style={{ marginTop: 8 }}><span className="k">Crafting time</span><span className="v">{order.costEstimate.grossTimeHours}h</span></div>
             </>
           ) : (
             <>
               <div className="row"><span className="k">Total quantity</span><span className="v">{order.bulkDetails?.totalQuantity}</span></div>
-              <div className="row" style={{ fontWeight: 700 }}>
-                <span className="k">Total cost</span><span className="v">₹{order.bulkDetails?.totalFinalCost.toFixed(2)}</span>
-              </div>
-              <div className="row"><span className="k">Total time</span><span className="v">{order.bulkDetails?.totalTimeHours}h</span></div>
+              <div className="cost-total"><span className="k">Total cost</span><span className="v">₹{order.bulkDetails?.totalFinalCost.toFixed(2)}</span></div>
+              <div className="row" style={{ marginTop: 8 }}><span className="k">Total time</span><span className="v">{order.bulkDetails?.totalTimeHours}h</span></div>
             </>
           )}
           <div className="row"><span className="k">Promised delivery</span>

@@ -2,15 +2,18 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { orderTrackerApi } from "../api";
 import { useBusiness } from "../BusinessContext";
+import {
+  AddOnsFields,
+  MandatoryItemsFields,
+  blankMandatoryItems,
+  blankVariant,
+  duplicateVariant,
+  validateSplits,
+  type LineItemDraft,
+  type MandatoryItemDraft,
+  type VariantDraft,
+} from "../OrderFormFields";
 import type { BusinessConfig, Creator, Customer, OrderType, PatternType, PresetOption } from "../types";
-
-interface VariantDraft {
-  label: string;
-  quantity: number;
-  mandatoryItems: Record<string, string>;
-  craftingTimeHours: number;
-  splitAllocation: { creatorId: string; quantityAssigned: number }[];
-}
 
 export default function NewOrderPage() {
   const { currentGroupId } = useBusiness();
@@ -35,14 +38,13 @@ export default function NewOrderPage() {
   const [recipeStepsText, setRecipeStepsText] = useState("");
 
   // individual-only
-  const [mandatoryItems, setMandatoryItems] = useState<Record<string, string>>({});
+  const [mandatoryItems, setMandatoryItems] = useState<MandatoryItemDraft[]>([]);
+  const [addOns, setAddOns] = useState<LineItemDraft[]>([]);
   const [craftingTimeHours, setCraftingTimeHours] = useState(0);
   const [packagingPresetId, setPackagingPresetId] = useState("");
 
   // bulk-only
-  const [variants, setVariants] = useState<VariantDraft[]>([
-    { label: "", quantity: 1, mandatoryItems: {}, craftingTimeHours: 0, splitAllocation: [] },
-  ]);
+  const [variants, setVariants] = useState<VariantDraft[]>([]);
 
   useEffect(() => {
     Promise.all([
@@ -54,9 +56,11 @@ export default function NewOrderPage() {
       setConfig(cfg);
       setCustomers(c);
       setCreators(cr);
-      setPresets(p);
       setCustomerId(c[0]?.id ?? "");
       setCreatedByCreatorId(cr[0]?.id ?? "");
+      setPresets(p);
+      setMandatoryItems(blankMandatoryItems(cfg));
+      setVariants([blankVariant(cfg)]);
     });
   }, [groupId]);
 
@@ -73,6 +77,14 @@ export default function NewOrderPage() {
       : null;
     const recipeSteps = recipeStepsText.split("\n").map((s) => s.trim()).filter(Boolean);
 
+    if (orderType === "BULK") {
+      const splitError = validateSplits(variants);
+      if (splitError) {
+        setError(splitError);
+        return;
+      }
+    }
+
     try {
       const body: Record<string, unknown> = {
         customerId,
@@ -86,10 +98,8 @@ export default function NewOrderPage() {
         recipeSteps,
       };
       if (orderType === "INDIVIDUAL") {
-        body.mandatoryItems = Object.entries(mandatoryItems)
-          .filter(([, v]) => v)
-          .map(([itemKey, value]) => ({ itemKey, value, quantity: 1, unitCost: 0 }));
-        body.addOns = [];
+        body.mandatoryItems = mandatoryItems.filter((m) => m.value.trim());
+        body.addOns = addOns.filter((a) => a.name.trim());
         body.packagingPresetId = packagingPresetId || null;
         body.craftingTimeHours = craftingTimeHours;
       } else {
@@ -98,10 +108,8 @@ export default function NewOrderPage() {
           .map((v) => ({
             label: v.label,
             quantity: v.quantity,
-            mandatoryItems: Object.entries(v.mandatoryItems)
-              .filter(([, val]) => val)
-              .map(([itemKey, value]) => ({ itemKey, value, quantity: 1, unitCost: 0 })),
-            addOns: [],
+            mandatoryItems: v.mandatoryItems.filter((m) => m.value.trim()),
+            addOns: v.addOns.filter((a) => a.name.trim()),
             craftingTimeHours: v.craftingTimeHours,
             splitAllocation: v.splitAllocation.filter((s) => s.creatorId),
           }));
@@ -200,20 +208,10 @@ export default function NewOrderPage() {
         {orderType === "INDIVIDUAL" ? (
           <>
             <h2 className="settings-section">Mandatory items</h2>
-            <div className="form-grid">
-              {config.mandatoryItemTypes.map((it) => (
-                <div key={it.itemKey}>
-                  <label className="muted" style={{ fontSize: 12 }}>
-                    {it.label}
-                  </label>
-                  <input
-                    value={mandatoryItems[it.itemKey] ?? ""}
-                    onChange={(e) => setMandatoryItems((prev) => ({ ...prev, [it.itemKey]: e.target.value }))}
-                    placeholder={it.label}
-                  />
-                </div>
-              ))}
-            </div>
+            <MandatoryItemsFields items={mandatoryItems} onChange={setMandatoryItems} />
+
+            <h2 className="settings-section">Add-ons</h2>
+            <AddOnsFields addOns={addOns} onChange={setAddOns} />
 
             <h2 className="settings-section">Packaging &amp; crafting time</h2>
             <div className="form-grid">
@@ -238,78 +236,89 @@ export default function NewOrderPage() {
         ) : (
           <>
             <h2 className="settings-section">Variants</h2>
-            {variants.map((v, i) => (
-              <div className="card" key={i} style={{ marginBottom: 12, background: "var(--bg-elev-2)" }}>
-                <div className="form-grid">
-                  <div className="form-row">
-                    <label>Label</label>
-                    <input value={v.label} onChange={(e) =>
-                      setVariants((prev) => prev.map((x, j) => (j === i ? { ...x, label: e.target.value } : x)))} />
-                  </div>
-                  <div className="form-row">
-                    <label>Quantity</label>
-                    <input type="number" min={1} value={v.quantity} onChange={(e) =>
-                      setVariants((prev) => prev.map((x, j) => (j === i ? { ...x, quantity: Number(e.target.value) } : x)))} />
-                  </div>
-                </div>
-                <div className="form-grid">
-                  {config.mandatoryItemTypes.map((it) => (
-                    <div key={it.itemKey}>
-                      <label className="muted" style={{ fontSize: 12 }}>
-                        {it.label}
-                      </label>
-                      <input
-                        value={v.mandatoryItems[it.itemKey] ?? ""}
-                        onChange={(e) =>
-                          setVariants((prev) =>
-                            prev.map((x, j) =>
-                              j === i ? { ...x, mandatoryItems: { ...x.mandatoryItems, [it.itemKey]: e.target.value } } : x
-                            )
-                          )
-                        }
-                      />
+            {variants.map((v, i) => {
+              const assigned = v.splitAllocation.filter((s) => s.creatorId).reduce((sum, s) => sum + s.quantityAssigned, 0);
+              const mismatch = v.splitAllocation.length > 0 && assigned !== v.quantity;
+              return (
+                <div className="card" key={i} style={{ marginBottom: 16 }}>
+                  <div className="form-grid">
+                    <div className="form-row">
+                      <label>Label</label>
+                      <input value={v.label} onChange={(e) =>
+                        setVariants((prev) => prev.map((x, j) => (j === i ? { ...x, label: e.target.value } : x)))} />
                     </div>
-                  ))}
-                  <div>
+                    <div className="form-row">
+                      <label>Quantity</label>
+                      <input type="number" min={1} value={v.quantity} onChange={(e) =>
+                        setVariants((prev) => prev.map((x, j) => (j === i ? { ...x, quantity: Number(e.target.value) } : x)))} />
+                    </div>
+                  </div>
+
+                  <label className="muted" style={{ fontSize: 12 }}>
+                    Mandatory items (per unit)
+                  </label>
+                  <MandatoryItemsFields
+                    items={v.mandatoryItems}
+                    onChange={(items) => setVariants((prev) => prev.map((x, j) => (j === i ? { ...x, mandatoryItems: items } : x)))}
+                  />
+
+                  <label className="muted" style={{ fontSize: 12, marginTop: 12, display: "block" }}>
+                    Add-ons (per unit)
+                  </label>
+                  <AddOnsFields
+                    addOns={v.addOns}
+                    onChange={(a) => setVariants((prev) => prev.map((x, j) => (j === i ? { ...x, addOns: a } : x)))}
+                  />
+
+                  <div className="form-row" style={{ marginTop: 12, maxWidth: 220 }}>
                     <label className="muted" style={{ fontSize: 12 }}>
                       Crafting time/unit (hours)
                     </label>
                     <input type="number" min={0} step={0.1} value={v.craftingTimeHours} onChange={(e) =>
                       setVariants((prev) => prev.map((x, j) => (j === i ? { ...x, craftingTimeHours: Number(e.target.value) } : x)))} />
                   </div>
+
+                  <label className="muted" style={{ fontSize: 12, marginTop: 12, display: "block" }}>
+                    Split across creators — must add up to the quantity above ({v.quantity})
+                  </label>
+                  {v.splitAllocation.map((s, k) => (
+                    <div className="toolbar" key={k}>
+                      <select value={s.creatorId} onChange={(e) =>
+                        setVariants((prev) => prev.map((x, j) => j === i ? {
+                          ...x, splitAllocation: x.splitAllocation.map((sp, l) => l === k ? { ...sp, creatorId: e.target.value } : sp)
+                        } : x))}>
+                        <option value="">Select creator</option>
+                        {creators.map((c) => (
+                          <option key={c.id} value={c.id}>
+                            {c.name}
+                          </option>
+                        ))}
+                      </select>
+                      <input type="number" min={1} placeholder="Qty" value={s.quantityAssigned} onChange={(e) =>
+                        setVariants((prev) => prev.map((x, j) => j === i ? {
+                          ...x, splitAllocation: x.splitAllocation.map((sp, l) => l === k ? { ...sp, quantityAssigned: Number(e.target.value) } : sp)
+                        } : x))} />
+                      <button type="button" onClick={() =>
+                        setVariants((prev) => prev.map((x, j) => j === i
+                          ? { ...x, splitAllocation: x.splitAllocation.filter((_, l) => l !== k) } : x))}>
+                        Remove
+                      </button>
+                    </div>
+                  ))}
+                  <button type="button" onClick={() =>
+                    setVariants((prev) => prev.map((x, j) => j === i
+                      ? { ...x, splitAllocation: [...x.splitAllocation, { creatorId: "", quantityAssigned: 1 }] } : x))}>
+                    + Add creator split
+                  </button>
+                  <p className={mismatch ? "hint bad" : "hint"} style={{ marginTop: 6 }}>
+                    Assigned so far: {assigned} / {v.quantity}
+                  </p>
                 </div>
-                <label className="muted" style={{ fontSize: 12 }}>
-                  Split across creators
-                </label>
-                {v.splitAllocation.map((s, k) => (
-                  <div className="toolbar" key={k}>
-                    <select value={s.creatorId} onChange={(e) =>
-                      setVariants((prev) => prev.map((x, j) => j === i ? {
-                        ...x, splitAllocation: x.splitAllocation.map((sp, l) => l === k ? { ...sp, creatorId: e.target.value } : sp)
-                      } : x))}>
-                      <option value="">Select creator</option>
-                      {creators.map((c) => (
-                        <option key={c.id} value={c.id}>
-                          {c.name}
-                        </option>
-                      ))}
-                    </select>
-                    <input type="number" min={1} placeholder="Qty" value={s.quantityAssigned} onChange={(e) =>
-                      setVariants((prev) => prev.map((x, j) => j === i ? {
-                        ...x, splitAllocation: x.splitAllocation.map((sp, l) => l === k ? { ...sp, quantityAssigned: Number(e.target.value) } : sp)
-                      } : x))} />
-                  </div>
-                ))}
-                <button type="button" onClick={() =>
-                  setVariants((prev) => prev.map((x, j) => j === i
-                    ? { ...x, splitAllocation: [...x.splitAllocation, { creatorId: "", quantityAssigned: 1 }] } : x))}>
-                  + Add creator split
-                </button>
-              </div>
-            ))}
+              );
+            })}
             <button type="button" onClick={() =>
-              setVariants((prev) => [...prev, { label: "", quantity: 1, mandatoryItems: {}, craftingTimeHours: 0, splitAllocation: [] }])}>
-              + Add variant
+              setVariants((prev) => [...prev, duplicateVariant(prev[prev.length - 1] ?? blankVariant(config))])}>
+              + Add variant (copies the last one)
             </button>
           </>
         )}
