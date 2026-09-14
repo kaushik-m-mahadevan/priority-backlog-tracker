@@ -99,21 +99,21 @@ export default function CustomersPage() {
         <form className="card" onSubmit={submit} style={{ marginBottom: 16 }}>
           {error && <div className="error">{error}</div>}
           <div className="form-row">
-            <label>Name</label>
-            <input value={name} onChange={(e) => setName(e.target.value)} required />
+            <label htmlFor="cust-name">Name</label>
+            <input id="cust-name" value={name} onChange={(e) => setName(e.target.value)} required />
           </div>
           <div className="form-row">
-            <label>Contact number</label>
-            <input value={contactNumber} onChange={(e) => setContactNumber(e.target.value)} />
+            <label htmlFor="cust-contact">Contact number</label>
+            <input id="cust-contact" value={contactNumber} onChange={(e) => setContactNumber(e.target.value)} />
           </div>
           <div className="form-grid">
             <div className="form-row">
-              <label>Email</label>
-              <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} onBlur={checkForExisting} />
+              <label htmlFor="cust-email">Email</label>
+              <input id="cust-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} onBlur={checkForExisting} />
             </div>
             <div className="form-row">
-              <label>Instagram handle</label>
-              <input value={instagramHandle} onChange={(e) => setInstagramHandle(e.target.value)} onBlur={checkForExisting} />
+              <label htmlFor="cust-instagram">Instagram handle</label>
+              <input id="cust-instagram" value={instagramHandle} onChange={(e) => setInstagramHandle(e.target.value)} onBlur={checkForExisting} />
             </div>
           </div>
           {existingMatch && (
@@ -125,8 +125,8 @@ export default function CustomersPage() {
             </div>
           )}
           <div className="form-row">
-            <label>Acquisition channel</label>
-            <select value={channel} onChange={(e) => setChannel(e.target.value as AcquisitionChannel)}>
+            <label htmlFor="cust-channel">Acquisition channel</label>
+            <select id="cust-channel" value={channel} onChange={(e) => setChannel(e.target.value as AcquisitionChannel)}>
               {CHANNELS.map((c) => (
                 <option key={c} value={c}>
                   {c.replace(/_/g, " ")}

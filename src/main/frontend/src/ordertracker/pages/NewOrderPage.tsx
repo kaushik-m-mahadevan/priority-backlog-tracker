@@ -222,8 +222,8 @@ export default function NewOrderPage() {
         <div className="form-grid">
           {customerMode === "existing" ? (
             <div className="form-row">
-              <label>Customer</label>
-              <select value={customerId} onChange={(e) => setCustomerId(e.target.value)} required>
+              <label htmlFor="no-customer">Customer</label>
+              <select id="no-customer" value={customerId} onChange={(e) => setCustomerId(e.target.value)} required>
                 <option value="" disabled>
                   Select…
                 </option>
@@ -236,13 +236,13 @@ export default function NewOrderPage() {
             </div>
           ) : (
             <div className="form-row">
-              <label>Customer name</label>
-              <input value={newCustomerName} onChange={(e) => setNewCustomerName(e.target.value)} required />
+              <label htmlFor="no-customer-name">Customer name</label>
+              <input id="no-customer-name" value={newCustomerName} onChange={(e) => setNewCustomerName(e.target.value)} required />
             </div>
           )}
           <div className="form-row">
-            <label>Logged by (creator)</label>
-            <select value={createdByCreatorId} onChange={(e) => setCreatedByCreatorId(e.target.value)} required>
+            <label htmlFor="no-logged-by">Logged by (creator)</label>
+            <select id="no-logged-by" value={createdByCreatorId} onChange={(e) => setCreatedByCreatorId(e.target.value)} required>
               {creators.map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.name}
@@ -256,12 +256,12 @@ export default function NewOrderPage() {
           <>
             <div className="form-grid">
               <div className="form-row">
-                <label>Contact number</label>
-                <input value={newCustomerContact} onChange={(e) => setNewCustomerContact(e.target.value)} />
+                <label htmlFor="no-contact">Contact number</label>
+                <input id="no-contact" value={newCustomerContact} onChange={(e) => setNewCustomerContact(e.target.value)} />
               </div>
               <div className="form-row">
-                <label>Acquisition channel</label>
-                <select value={newCustomerChannel} onChange={(e) => setNewCustomerChannel(e.target.value as AcquisitionChannel)}>
+                <label htmlFor="no-channel">Acquisition channel</label>
+                <select id="no-channel" value={newCustomerChannel} onChange={(e) => setNewCustomerChannel(e.target.value as AcquisitionChannel)}>
                   {CHANNELS.map((c) => (
                     <option key={c} value={c}>
                       {c.replace(/_/g, " ")}
@@ -272,13 +272,13 @@ export default function NewOrderPage() {
             </div>
             <div className="form-grid">
               <div className="form-row">
-                <label>Email</label>
-                <input type="email" value={newCustomerEmail} onChange={(e) => setNewCustomerEmail(e.target.value)}
+                <label htmlFor="no-email">Email</label>
+                <input id="no-email" type="email" value={newCustomerEmail} onChange={(e) => setNewCustomerEmail(e.target.value)}
                   onBlur={checkForExistingCustomer} />
               </div>
               <div className="form-row">
-                <label>Instagram handle</label>
-                <input value={newCustomerInstagram} onChange={(e) => setNewCustomerInstagram(e.target.value)}
+                <label htmlFor="no-instagram">Instagram handle</label>
+                <input id="no-instagram" value={newCustomerInstagram} onChange={(e) => setNewCustomerInstagram(e.target.value)}
                   onBlur={checkForExistingCustomer} />
               </div>
             </div>
@@ -294,24 +294,27 @@ export default function NewOrderPage() {
         )}
 
         <div className="form-row">
-          <label>Item name</label>
-          <input value={itemName} onChange={(e) => setItemName(e.target.value)} placeholder="e.g. Amigurumi bear" required />
+          <label htmlFor="no-item-name">Item name</label>
+          <input id="no-item-name" value={itemName} onChange={(e) => setItemName(e.target.value)} placeholder="e.g. Amigurumi bear" required />
         </div>
 
         <div className="form-grid">
           <div className="form-row">
-            <label>Order received</label>
-            <input type="date" value={orderReceivedDate} onChange={(e) => setOrderReceivedDate(e.target.value)} required />
+            <label htmlFor="no-order-received">Order received</label>
+            <input id="no-order-received" type="date" value={orderReceivedDate} onChange={(e) => setOrderReceivedDate(e.target.value)} required />
           </div>
           <div className="form-row">
-            <label>Quoted delivery (promised to customer)</label>
-            <input type="date" value={quotedDeliveryDate} onChange={(e) => setQuotedDeliveryDate(e.target.value)} />
+            <label htmlFor="no-quoted-delivery">Quoted delivery (promised to customer)</label>
+            <input id="no-quoted-delivery" type="date" value={quotedDeliveryDate} onChange={(e) => setQuotedDeliveryDate(e.target.value)} />
           </div>
         </div>
 
         <h2 className="settings-section">Pattern</h2>
         <div className="form-row">
-          <select value={patternType} onChange={(e) => setPatternType(e.target.value as PatternType | "")}>
+          <label htmlFor="no-pattern-type" className="sr-only">
+            Pattern type
+          </label>
+          <select id="no-pattern-type" value={patternType} onChange={(e) => setPatternType(e.target.value as PatternType | "")}>
             <option value="">No pattern recorded</option>
             <option value="TEMPLATE">Template</option>
             <option value="CUSTOM">Custom</option>
@@ -319,19 +322,28 @@ export default function NewOrderPage() {
         </div>
         {patternType === "TEMPLATE" && (
           <div className="form-row">
-            <input value={templateName} onChange={(e) => setTemplateName(e.target.value)} placeholder="Template name" />
+            <label htmlFor="no-template-name" className="sr-only">
+              Template name
+            </label>
+            <input id="no-template-name" value={templateName} onChange={(e) => setTemplateName(e.target.value)} placeholder="Template name" />
           </div>
         )}
         {patternType === "CUSTOM" && (
           <div className="form-row">
-            <textarea value={customPatternNotes} onChange={(e) => setCustomPatternNotes(e.target.value)}
+            <label htmlFor="no-custom-pattern-notes" className="sr-only">
+              Custom pattern notes
+            </label>
+            <textarea id="no-custom-pattern-notes" value={customPatternNotes} onChange={(e) => setCustomPatternNotes(e.target.value)}
               placeholder="Notes kept for recreation" />
           </div>
         )}
 
         <h2 className="settings-section">Recipe</h2>
         <div className="form-row">
-          <textarea value={recipeStepsText} onChange={(e) => setRecipeStepsText(e.target.value)}
+          <label htmlFor="no-recipe-steps" className="sr-only">
+            Recipe steps, one per line
+          </label>
+          <textarea id="no-recipe-steps" value={recipeStepsText} onChange={(e) => setRecipeStepsText(e.target.value)}
             placeholder={"One step per line, e.g.\nCrochet body, attach petals\nInsert safety eyes and stuff"} />
         </div>
 
@@ -346,8 +358,8 @@ export default function NewOrderPage() {
             <h2 className="settings-section">Packaging &amp; crafting time</h2>
             <div className="form-grid">
               <div className="form-row">
-                <label>Packaging preset</label>
-                <select value={packagingPresetId} onChange={(e) => setPackagingPresetId(e.target.value)}>
+                <label htmlFor="no-packaging-preset">Packaging preset</label>
+                <select id="no-packaging-preset" value={packagingPresetId} onChange={(e) => setPackagingPresetId(e.target.value)}>
                   <option value="">None</option>
                   {presets.map((p) => (
                     <option key={p.id} value={p.id}>
@@ -357,8 +369,8 @@ export default function NewOrderPage() {
                 </select>
               </div>
               <div className="form-row">
-                <label>Crafting time (hours)</label>
-                <input type="number" min={0} step={0.25} value={craftingTimeHours}
+                <label htmlFor="no-crafting-time">Crafting time (hours)</label>
+                <input id="no-crafting-time" type="number" min={0} step={0.25} value={craftingTimeHours}
                   onChange={(e) => setCraftingTimeHours(Number(e.target.value))} />
               </div>
             </div>
@@ -373,48 +385,48 @@ export default function NewOrderPage() {
                 <div className="card" key={i} style={{ marginBottom: 16 }}>
                   <div className="form-grid">
                     <div className="form-row">
-                      <label>Label</label>
-                      <input value={v.label} onChange={(e) =>
+                      <label htmlFor={`no-variant-${i}-label`}>Label</label>
+                      <input id={`no-variant-${i}-label`} value={v.label} onChange={(e) =>
                         setVariants((prev) => prev.map((x, j) => (j === i ? { ...x, label: e.target.value } : x)))} />
                     </div>
                     <div className="form-row">
-                      <label>Quantity</label>
-                      <input type="number" min={1} value={v.quantity} onChange={(e) =>
+                      <label htmlFor={`no-variant-${i}-quantity`}>Quantity</label>
+                      <input id={`no-variant-${i}-quantity`} type="number" min={1} value={v.quantity} onChange={(e) =>
                         setVariants((prev) => prev.map((x, j) => (j === i ? { ...x, quantity: Number(e.target.value) } : x)))} />
                     </div>
                   </div>
 
-                  <label className="muted" style={{ fontSize: 12 }}>
+                  <div className="muted" style={{ fontSize: 12 }}>
                     Mandatory items (per unit)
-                  </label>
+                  </div>
                   <MandatoryItemsFields
                     items={v.mandatoryItems}
                     types={config.mandatoryItemTypes}
                     onChange={(items) => setVariants((prev) => prev.map((x, j) => (j === i ? { ...x, mandatoryItems: items } : x)))}
                   />
 
-                  <label className="muted" style={{ fontSize: 12, marginTop: 12, display: "block" }}>
+                  <div className="muted" style={{ fontSize: 12, marginTop: 12 }}>
                     Add-ons (per unit)
-                  </label>
+                  </div>
                   <AddOnsFields
                     addOns={v.addOns}
                     onChange={(a) => setVariants((prev) => prev.map((x, j) => (j === i ? { ...x, addOns: a } : x)))}
                   />
 
                   <div className="form-row" style={{ marginTop: 12, maxWidth: 220 }}>
-                    <label className="muted" style={{ fontSize: 12 }}>
+                    <label htmlFor={`no-variant-${i}-crafting-time`} className="muted" style={{ fontSize: 12 }}>
                       Crafting time/unit (hours)
                     </label>
-                    <input type="number" min={0} step={0.1} value={v.craftingTimeHours} onChange={(e) =>
+                    <input id={`no-variant-${i}-crafting-time`} type="number" min={0} step={0.1} value={v.craftingTimeHours} onChange={(e) =>
                       setVariants((prev) => prev.map((x, j) => (j === i ? { ...x, craftingTimeHours: Number(e.target.value) } : x)))} />
                   </div>
 
-                  <label className="muted" style={{ fontSize: 12, marginTop: 12, display: "block" }}>
+                  <div className="muted" style={{ fontSize: 12, marginTop: 12 }}>
                     Split across creators — must add up to the quantity above ({v.quantity})
-                  </label>
+                  </div>
                   {v.splitAllocation.map((s, k) => (
                     <div className="toolbar" key={k}>
-                      <select value={s.creatorId} onChange={(e) =>
+                      <select aria-label={`Creator for split entry ${k + 1}`} value={s.creatorId} onChange={(e) =>
                         setVariants((prev) => prev.map((x, j) => j === i ? {
                           ...x, splitAllocation: x.splitAllocation.map((sp, l) => l === k ? { ...sp, creatorId: e.target.value } : sp)
                         } : x))}>
@@ -425,11 +437,11 @@ export default function NewOrderPage() {
                           </option>
                         ))}
                       </select>
-                      <input type="number" min={1} placeholder="Qty" value={s.quantityAssigned} onChange={(e) =>
+                      <input aria-label={`Quantity for split entry ${k + 1}`} type="number" min={1} placeholder="Qty" value={s.quantityAssigned} onChange={(e) =>
                         setVariants((prev) => prev.map((x, j) => j === i ? {
                           ...x, splitAllocation: x.splitAllocation.map((sp, l) => l === k ? { ...sp, quantityAssigned: Number(e.target.value) } : sp)
                         } : x))} />
-                      <button type="button" onClick={() =>
+                      <button type="button" aria-label={`Remove split entry ${k + 1}`} onClick={() =>
                         setVariants((prev) => prev.map((x, j) => j === i
                           ? { ...x, splitAllocation: x.splitAllocation.filter((_, l) => l !== k) } : x))}>
                         Remove
@@ -441,9 +453,11 @@ export default function NewOrderPage() {
                       ? { ...x, splitAllocation: [...x.splitAllocation, { creatorId: "", quantityAssigned: 1 }] } : x))}>
                     + Add creator split
                   </button>
-                  <p className={mismatch ? "hint bad" : "hint"} style={{ marginTop: 6 }}>
-                    Assigned so far: {assigned} / {v.quantity}
-                  </p>
+                  <div className="form-row">
+                    <p className={mismatch ? "hint bad" : "hint"} style={{ marginTop: 6 }}>
+                      Assigned so far: {assigned} / {v.quantity}
+                    </p>
+                  </div>
                 </div>
               );
             })}

@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import type { BusinessConfig, MandatoryItemType } from "./types";
 
 export interface MandatoryItemDraft {
@@ -76,21 +77,38 @@ export function MandatoryItemsFields({
   types: MandatoryItemType[];
   onChange: (items: MandatoryItemDraft[]) => void;
 }) {
+  if (types.length === 0) {
+    return (
+      <p className="empty">
+        No mandatory item types configured yet — add some in{" "}
+        <Link to="/ordertracker/business-settings">Business Settings</Link> to track materials and tools per order.
+      </p>
+    );
+  }
+
   return (
     <div>
       {types.map((type) => {
         const entries = items.filter((it) => it.itemKey === type.itemKey);
         return (
-          <div key={type.itemKey} style={{ marginBottom: 16 }}>
-            <label className="muted" style={{ fontSize: 12 }}>
+          <fieldset key={type.itemKey} style={{ marginBottom: 16, border: "none", padding: 0 }}>
+            <legend className="muted" style={{ fontSize: 12 }}>
               {type.label} {type.isTool && <span className="hint">(tool)</span>}
-            </label>
+            </legend>
             <div className="grid cols-3">
               {entries.map((it, entryIndex) => {
                 const globalIndex = items.indexOf(it);
+                const valueId = `mi-${type.itemKey}-${globalIndex}-value`;
+                const qtyId = `mi-${type.itemKey}-${globalIndex}-qty`;
+                const costId = `mi-${type.itemKey}-${globalIndex}-cost`;
+                const notesId = `mi-${type.itemKey}-${globalIndex}-notes`;
                 return (
                   <div className="card" key={globalIndex} style={{ background: "var(--bg-elev-2)" }}>
+                    <label htmlFor={valueId} className="sr-only">
+                      {type.label} entry {entryIndex + 1} value
+                    </label>
                     <input
+                      id={valueId}
                       value={it.value}
                       onChange={(e) =>
                         onChange(items.map((x, j) => (j === globalIndex ? { ...x, value: e.target.value } : x)))
@@ -101,10 +119,11 @@ export function MandatoryItemsFields({
                     {!type.isTool && (
                       <div className="form-grid">
                         <div>
-                          <label className="muted" style={{ fontSize: 11 }}>
+                          <label htmlFor={qtyId} className="muted" style={{ fontSize: 11 }}>
                             Quantity
                           </label>
                           <input
+                            id={qtyId}
                             type="number"
                             min={0}
                             step={0.5}
@@ -115,10 +134,11 @@ export function MandatoryItemsFields({
                           />
                         </div>
                         <div>
-                          <label className="muted" style={{ fontSize: 11 }}>
+                          <label htmlFor={costId} className="muted" style={{ fontSize: 11 }}>
                             Unit cost
                           </label>
                           <input
+                            id={costId}
                             type="number"
                             min={0}
                             value={it.unitCost}
@@ -129,10 +149,11 @@ export function MandatoryItemsFields({
                         </div>
                       </div>
                     )}
-                    <label className="muted" style={{ fontSize: 11, marginTop: 8, display: "block" }}>
+                    <label htmlFor={notesId} className="muted" style={{ fontSize: 11, marginTop: 8, display: "block" }}>
                       Notes (optional)
                     </label>
                     <input
+                      id={notesId}
                       value={it.notes}
                       onChange={(e) => onChange(items.map((x, j) => (j === globalIndex ? { ...x, notes: e.target.value } : x)))}
                       placeholder="Why is this mandatory?"
@@ -141,6 +162,7 @@ export function MandatoryItemsFields({
                       <button
                         type="button"
                         style={{ marginTop: 8 }}
+                        aria-label={`Remove ${type.label} entry ${entryIndex + 1}`}
                         onClick={() => onChange(items.filter((_, j) => j !== globalIndex))}
                       >
                         Remove
@@ -150,6 +172,7 @@ export function MandatoryItemsFields({
                       <button
                         type="button"
                         style={{ marginTop: 8, marginLeft: entries.length > 1 ? 8 : 0 }}
+                        aria-label={`Add another ${type.label} entry`}
                         onClick={() => onChange([...items, blankMandatoryItemEntry(type.itemKey)])}
                       >
                         + Add another
@@ -159,7 +182,7 @@ export function MandatoryItemsFields({
                 );
               })}
             </div>
-          </div>
+          </fieldset>
         );
       })}
     </div>
@@ -169,20 +192,26 @@ export function MandatoryItemsFields({
 export function AddOnsFields({ addOns, onChange }: { addOns: LineItemDraft[]; onChange: (a: LineItemDraft[]) => void }) {
   return (
     <div>
-      {addOns.map((a, i) => (
+      {addOns.map((a, i) => {
+        const nameId = `addon-${i}-name`;
+        const qtyId = `addon-${i}-qty`;
+        const costId = `addon-${i}-cost`;
+        const timeId = `addon-${i}-time`;
+        return (
         <div className="card" key={i} style={{ background: "var(--bg-elev-2)", marginBottom: 8 }}>
           <div className="form-grid">
             <div className="form-row">
-              <label className="muted" style={{ fontSize: 11 }}>
+              <label htmlFor={nameId} className="muted" style={{ fontSize: 11 }}>
                 Name
               </label>
-              <input value={a.name} onChange={(e) => onChange(addOns.map((x, j) => (j === i ? { ...x, name: e.target.value } : x)))} />
+              <input id={nameId} value={a.name} onChange={(e) => onChange(addOns.map((x, j) => (j === i ? { ...x, name: e.target.value } : x)))} />
             </div>
             <div className="form-row">
-              <label className="muted" style={{ fontSize: 11 }}>
+              <label htmlFor={qtyId} className="muted" style={{ fontSize: 11 }}>
                 Quantity
               </label>
               <input
+                id={qtyId}
                 type="number"
                 min={0}
                 step={0.5}
@@ -191,10 +220,11 @@ export function AddOnsFields({ addOns, onChange }: { addOns: LineItemDraft[]; on
               />
             </div>
             <div className="form-row">
-              <label className="muted" style={{ fontSize: 11 }}>
+              <label htmlFor={costId} className="muted" style={{ fontSize: 11 }}>
                 Unit cost
               </label>
               <input
+                id={costId}
                 type="number"
                 min={0}
                 value={a.unitCost}
@@ -202,10 +232,11 @@ export function AddOnsFields({ addOns, onChange }: { addOns: LineItemDraft[]; on
               />
             </div>
             <div className="form-row">
-              <label className="muted" style={{ fontSize: 11 }}>
+              <label htmlFor={timeId} className="muted" style={{ fontSize: 11 }}>
                 Time/unit (hours)
               </label>
               <input
+                id={timeId}
                 type="number"
                 min={0}
                 step={0.05}
@@ -214,11 +245,16 @@ export function AddOnsFields({ addOns, onChange }: { addOns: LineItemDraft[]; on
               />
             </div>
           </div>
-          <button type="button" onClick={() => onChange(addOns.filter((_, j) => j !== i))}>
+          <button
+            type="button"
+            aria-label={`Remove add-on ${i + 1}${a.name ? `: ${a.name}` : ""}`}
+            onClick={() => onChange(addOns.filter((_, j) => j !== i))}
+          >
             Remove
           </button>
         </div>
-      ))}
+        );
+      })}
       <button type="button" onClick={() => onChange([...addOns, { name: "", quantity: 1, unitCost: 0, unitTimeHours: 0 }])}>
         + Add add-on
       </button>

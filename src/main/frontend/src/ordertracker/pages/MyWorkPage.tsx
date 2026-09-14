@@ -47,13 +47,13 @@ export default function MyWorkPage() {
           My Work
         </h1>
         <span className="spacer" />
-        <select value={completionFilter} onChange={(e) => setCompletionFilter(e.target.value as CompletionFilter)}>
+        <select aria-label="Completion filter" value={completionFilter} onChange={(e) => setCompletionFilter(e.target.value as CompletionFilter)}>
           <option value="pending">Pending</option>
           <option value="done">Done</option>
           <option value="all">All</option>
         </select>
-        <input type="date" value={from} onChange={(e) => setFrom(e.target.value)} title="From" />
-        <input type="date" value={to} onChange={(e) => setTo(e.target.value)} title="To" />
+        <input aria-label="From date" type="date" value={from} onChange={(e) => setFrom(e.target.value)} title="From" />
+        <input aria-label="To date" type="date" value={to} onChange={(e) => setTo(e.target.value)} title="To" />
       </div>
 
       {loading ? (

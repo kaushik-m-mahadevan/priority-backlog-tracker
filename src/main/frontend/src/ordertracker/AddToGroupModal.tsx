@@ -125,8 +125,8 @@ export default function AddToGroupModal({ order, onClose }: { order: OrderView; 
         ) : (
           <form onSubmit={submit}>
             <div className="form-row">
-              <label>Group</label>
-              <select value={groupId} onChange={(e) => setGroupId(e.target.value)} required>
+              <label htmlFor="atg-group">Group</label>
+              <select id="atg-group" value={groupId} onChange={(e) => setGroupId(e.target.value)} required>
                 <option value="" disabled>
                   Select a group…
                 </option>
@@ -159,13 +159,13 @@ export default function AddToGroupModal({ order, onClose }: { order: OrderView; 
               !error && (
                 <>
                   <div className="form-row">
-                    <label>Title</label>
-                    <input value={title} onChange={(e) => setTitle(e.target.value)} required />
+                    <label htmlFor="atg-title">Title</label>
+                    <input id="atg-title" value={title} onChange={(e) => setTitle(e.target.value)} required />
                   </div>
                   <div className="form-grid">
                     <div className="form-row">
-                      <label>Category</label>
-                      <select value={category} onChange={(e) => setCategory(e.target.value)} required>
+                      <label htmlFor="atg-category">Category</label>
+                      <select id="atg-category" value={category} onChange={(e) => setCategory(e.target.value)} required>
                         <option value="" disabled>
                           Select…
                         </option>
@@ -177,8 +177,8 @@ export default function AddToGroupModal({ order, onClose }: { order: OrderView; 
                       </select>
                     </div>
                     <div className="form-row">
-                      <label>Priority</label>
-                      <select value={priority} onChange={(e) => setPriority(e.target.value)} required>
+                      <label htmlFor="atg-priority">Priority</label>
+                      <select id="atg-priority" value={priority} onChange={(e) => setPriority(e.target.value)} required>
                         <option value="" disabled>
                           Select…
                         </option>
@@ -191,25 +191,37 @@ export default function AddToGroupModal({ order, onClose }: { order: OrderView; 
                     </div>
                   </div>
                   <div className="form-row">
-                    <label>Effort</label>
+                    <label htmlFor="atg-effort-value">Effort</label>
                     <div className="effort-input">
-                      <input type="number" min={1} value={value} onChange={(e) => setValue(e.target.value)} />
-                      <select value={unit} onChange={(e) => setUnit(e.target.value as Unit)}>
+                      <input
+                        id="atg-effort-value"
+                        type="number"
+                        min={1}
+                        value={value}
+                        onChange={(e) => setValue(e.target.value)}
+                        aria-describedby="atg-effort-hint"
+                      />
+                      <label htmlFor="atg-effort-unit" className="sr-only">
+                        Effort unit
+                      </label>
+                      <select id="atg-effort-unit" value={unit} onChange={(e) => setUnit(e.target.value as Unit)}>
                         <option value="MINUTES">min</option>
                         <option value="HOURS">hr</option>
                         <option value="DAYS">days</option>
                       </select>
                     </div>
-                    <div className={`hint${effortInvalid ? " bad" : ""}`}>{UNIT_RULES[unit].hint}</div>
+                    <div id="atg-effort-hint" className={`hint${effortInvalid ? " bad" : ""}`}>
+                      {UNIT_RULES[unit].hint}
+                    </div>
                   </div>
                   <div className="form-grid">
                     <div className="form-row">
-                      <label>Due date</label>
-                      <input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
+                      <label htmlFor="atg-due-date">Due date</label>
+                      <input id="atg-due-date" type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
                     </div>
                     <div className="form-row">
-                      <label>Assignee</label>
-                      <select value={ownerId} onChange={(e) => setOwnerId(e.target.value)}>
+                      <label htmlFor="atg-assignee">Assignee</label>
+                      <select id="atg-assignee" value={ownerId} onChange={(e) => setOwnerId(e.target.value)}>
                         <option value="">Unassigned</option>
                         {group?.members.map((m) => (
                           <option key={m.id} value={m.id}>
@@ -220,8 +232,8 @@ export default function AddToGroupModal({ order, onClose }: { order: OrderView; 
                     </div>
                   </div>
                   <div className="form-row">
-                    <label>Notes</label>
-                    <textarea value={notes} onChange={(e) => setNotes(e.target.value)} />
+                    <label htmlFor="atg-notes">Notes</label>
+                    <textarea id="atg-notes" value={notes} onChange={(e) => setNotes(e.target.value)} />
                   </div>
                   <div className="modal-actions">
                     <button type="button" className="ghost" onClick={onClose} disabled={busy}>

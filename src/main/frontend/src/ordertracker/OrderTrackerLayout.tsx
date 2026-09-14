@@ -22,6 +22,7 @@ function BusinessSwitcher() {
       >
         <input
           autoFocus
+          aria-label="Business name"
           placeholder="Business name"
           value={name}
           onChange={(e) => setName(e.target.value)}
@@ -39,7 +40,7 @@ function BusinessSwitcher() {
   return (
     <div className="toolbar">
       {businesses.length > 0 && (
-        <select value={currentGroupId ?? ""} onChange={(e) => setCurrentBusiness(e.target.value)}>
+        <select aria-label="Current business" value={currentGroupId ?? ""} onChange={(e) => setCurrentBusiness(e.target.value)}>
           {businesses.map((b) => (
             <option key={b.id} value={b.id}>
               {b.name}

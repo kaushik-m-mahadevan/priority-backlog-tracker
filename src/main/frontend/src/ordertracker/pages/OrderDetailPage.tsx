@@ -81,53 +81,63 @@ function EditOrderForm({
     <form className="card" onSubmit={submit} style={{ marginBottom: 16 }}>
       {error && <div className="error">{error}</div>}
       <div className="form-row">
-        <label>Item name</label>
-        <input value={itemName} onChange={(e) => setItemName(e.target.value)} />
+        <label htmlFor="eod-item-name">Item name</label>
+        <input id="eod-item-name" value={itemName} onChange={(e) => setItemName(e.target.value)} />
       </div>
       <div className="form-grid">
         <div className="form-row">
-          <label>Order received</label>
-          <input type="date" value={orderReceivedDate} onChange={(e) => setOrderReceivedDate(e.target.value)} />
+          <label htmlFor="eod-order-received">Order received</label>
+          <input id="eod-order-received" type="date" value={orderReceivedDate} onChange={(e) => setOrderReceivedDate(e.target.value)} />
         </div>
         <div className="form-row">
-          <label>Quoted delivery</label>
-          <input type="date" value={quotedDeliveryDate} onChange={(e) => setQuotedDeliveryDate(e.target.value)} />
+          <label htmlFor="eod-quoted-delivery">Quoted delivery</label>
+          <input id="eod-quoted-delivery" type="date" value={quotedDeliveryDate} onChange={(e) => setQuotedDeliveryDate(e.target.value)} />
         </div>
       </div>
       <div className="form-row">
-        <label>Pattern</label>
-        <select value={patternType} onChange={(e) => setPatternType(e.target.value as never)}>
+        <label htmlFor="eod-pattern-type">Pattern</label>
+        <select id="eod-pattern-type" value={patternType} onChange={(e) => setPatternType(e.target.value as never)}>
           <option value="">No pattern recorded</option>
           <option value="TEMPLATE">Template</option>
           <option value="CUSTOM">Custom</option>
         </select>
       </div>
       {patternType === "TEMPLATE" && (
-        <input value={templateName} onChange={(e) => setTemplateName(e.target.value)} placeholder="Template name" style={{ marginBottom: 12 }} />
+        <>
+          <label htmlFor="eod-template-name" className="sr-only">
+            Template name
+          </label>
+          <input id="eod-template-name" value={templateName} onChange={(e) => setTemplateName(e.target.value)} placeholder="Template name" style={{ marginBottom: 12 }} />
+        </>
       )}
       {patternType === "CUSTOM" && (
-        <textarea value={customPatternNotes} onChange={(e) => setCustomPatternNotes(e.target.value)}
-          placeholder="Notes kept for recreation" style={{ marginBottom: 12 }} />
+        <>
+          <label htmlFor="eod-custom-pattern-notes" className="sr-only">
+            Custom pattern notes
+          </label>
+          <textarea id="eod-custom-pattern-notes" value={customPatternNotes} onChange={(e) => setCustomPatternNotes(e.target.value)}
+            placeholder="Notes kept for recreation" style={{ marginBottom: 12 }} />
+        </>
       )}
       <div className="form-row">
-        <label>Recipe (one step per line)</label>
-        <textarea value={recipeStepsText} onChange={(e) => setRecipeStepsText(e.target.value)} />
+        <label htmlFor="eod-recipe-steps">Recipe (one step per line)</label>
+        <textarea id="eod-recipe-steps" value={recipeStepsText} onChange={(e) => setRecipeStepsText(e.target.value)} />
       </div>
 
-      <label className="muted" style={{ fontSize: 12, display: "block", marginBottom: 6 }}>
+      <div className="muted" style={{ fontSize: 12, marginBottom: 6 }}>
         Mandatory items
-      </label>
+      </div>
       <MandatoryItemsFields items={mandatoryItems} types={config.mandatoryItemTypes} onChange={setMandatoryItems} />
 
-      <label className="muted" style={{ fontSize: 12, display: "block", margin: "12px 0 6px" }}>
+      <div className="muted" style={{ fontSize: 12, margin: "12px 0 6px" }}>
         Add-ons
-      </label>
+      </div>
       <AddOnsFields addOns={addOns} onChange={setAddOns} />
 
       <div className="form-grid" style={{ marginTop: 12 }}>
         <div className="form-row">
-          <label>Packaging preset</label>
-          <select value={packagingPresetId} onChange={(e) => setPackagingPresetId(e.target.value)}>
+          <label htmlFor="eod-packaging-preset">Packaging preset</label>
+          <select id="eod-packaging-preset" value={packagingPresetId} onChange={(e) => setPackagingPresetId(e.target.value)}>
             <option value="">None</option>
             {presets.map((p) => (
               <option key={p.id} value={p.id}>
@@ -137,8 +147,8 @@ function EditOrderForm({
           </select>
         </div>
         <div className="form-row">
-          <label>Crafting time (hours)</label>
-          <input type="number" min={0} step={0.25} value={craftingTimeHours}
+          <label htmlFor="eod-crafting-time">Crafting time (hours)</label>
+          <input id="eod-crafting-time" type="number" min={0} step={0.25} value={craftingTimeHours}
             onChange={(e) => setCraftingTimeHours(Number(e.target.value))} />
         </div>
       </div>
@@ -218,8 +228,8 @@ function EditBulkDetailsForm({
 
       <div className="form-grid">
         <div className="form-row">
-          <label>Coordinating creator</label>
-          <select value={coordinatingCreatorId} onChange={(e) => setCoordinatingCreatorId(e.target.value)}>
+          <label htmlFor="ebd-coordinating-creator">Coordinating creator</label>
+          <select id="ebd-coordinating-creator" value={coordinatingCreatorId} onChange={(e) => setCoordinatingCreatorId(e.target.value)}>
             <option value="">None</option>
             {creators.map((c) => (
               <option key={c.id} value={c.id}>
@@ -229,8 +239,8 @@ function EditBulkDetailsForm({
           </select>
         </div>
         <div className="form-row">
-          <label>Logistics buffer (days)</label>
-          <input type="number" min={0} value={logisticsBufferDays} onChange={(e) => setLogisticsBufferDays(Number(e.target.value))} />
+          <label htmlFor="ebd-logistics-buffer">Logistics buffer (days)</label>
+          <input id="ebd-logistics-buffer" type="number" min={0} value={logisticsBufferDays} onChange={(e) => setLogisticsBufferDays(Number(e.target.value))} />
         </div>
       </div>
 
@@ -241,48 +251,48 @@ function EditBulkDetailsForm({
           <div className="card" key={i} style={{ marginBottom: 16, background: "var(--bg-elev-2)" }}>
             <div className="form-grid">
               <div className="form-row">
-                <label>Label</label>
-                <input value={v.label} onChange={(e) =>
+                <label htmlFor={`ebd-variant-${i}-label`}>Label</label>
+                <input id={`ebd-variant-${i}-label`} value={v.label} onChange={(e) =>
                   setVariants((prev) => prev.map((x, j) => (j === i ? { ...x, label: e.target.value } : x)))} />
               </div>
               <div className="form-row">
-                <label>Quantity</label>
-                <input type="number" min={1} value={v.quantity} onChange={(e) =>
+                <label htmlFor={`ebd-variant-${i}-quantity`}>Quantity</label>
+                <input id={`ebd-variant-${i}-quantity`} type="number" min={1} value={v.quantity} onChange={(e) =>
                   setVariants((prev) => prev.map((x, j) => (j === i ? { ...x, quantity: Number(e.target.value) } : x)))} />
               </div>
             </div>
 
-            <label className="muted" style={{ fontSize: 12 }}>
+            <div className="muted" style={{ fontSize: 12 }}>
               Mandatory items (per unit)
-            </label>
+            </div>
             <MandatoryItemsFields
               items={v.mandatoryItems}
               types={config.mandatoryItemTypes}
               onChange={(items) => setVariants((prev) => prev.map((x, j) => (j === i ? { ...x, mandatoryItems: items } : x)))}
             />
 
-            <label className="muted" style={{ fontSize: 12, marginTop: 12, display: "block" }}>
+            <div className="muted" style={{ fontSize: 12, marginTop: 12 }}>
               Add-ons (per unit)
-            </label>
+            </div>
             <AddOnsFields
               addOns={v.addOns}
               onChange={(a) => setVariants((prev) => prev.map((x, j) => (j === i ? { ...x, addOns: a } : x)))}
             />
 
             <div className="form-row" style={{ marginTop: 12, maxWidth: 220 }}>
-              <label className="muted" style={{ fontSize: 12 }}>
+              <label htmlFor={`ebd-variant-${i}-crafting-time`} className="muted" style={{ fontSize: 12 }}>
                 Crafting time/unit (hours)
               </label>
-              <input type="number" min={0} step={0.1} value={v.craftingTimeHours} onChange={(e) =>
+              <input id={`ebd-variant-${i}-crafting-time`} type="number" min={0} step={0.1} value={v.craftingTimeHours} onChange={(e) =>
                 setVariants((prev) => prev.map((x, j) => (j === i ? { ...x, craftingTimeHours: Number(e.target.value) } : x)))} />
             </div>
 
-            <label className="muted" style={{ fontSize: 12, marginTop: 12, display: "block" }}>
+            <div className="muted" style={{ fontSize: 12, marginTop: 12 }}>
               Split across creators — must add up to the quantity above ({v.quantity})
-            </label>
+            </div>
             {v.splitAllocation.map((s, k) => (
               <div className="toolbar" key={k}>
-                <select value={s.creatorId} onChange={(e) =>
+                <select aria-label={`Creator for split entry ${k + 1}`} value={s.creatorId} onChange={(e) =>
                   setVariants((prev) => prev.map((x, j) => j === i ? {
                     ...x, splitAllocation: x.splitAllocation.map((sp, l) => l === k ? { ...sp, creatorId: e.target.value } : sp)
                   } : x))}>
@@ -293,11 +303,11 @@ function EditBulkDetailsForm({
                     </option>
                   ))}
                 </select>
-                <input type="number" min={1} placeholder="Qty" value={s.quantityAssigned} onChange={(e) =>
+                <input aria-label={`Quantity for split entry ${k + 1}`} type="number" min={1} placeholder="Qty" value={s.quantityAssigned} onChange={(e) =>
                   setVariants((prev) => prev.map((x, j) => j === i ? {
                     ...x, splitAllocation: x.splitAllocation.map((sp, l) => l === k ? { ...sp, quantityAssigned: Number(e.target.value) } : sp)
                   } : x))} />
-                <button type="button" onClick={() =>
+                <button type="button" aria-label={`Remove split entry ${k + 1}`} onClick={() =>
                   setVariants((prev) => prev.map((x, j) => j === i
                     ? { ...x, splitAllocation: x.splitAllocation.filter((_, l) => l !== k) } : x))}>
                   Remove
@@ -309,9 +319,11 @@ function EditBulkDetailsForm({
                 ? { ...x, splitAllocation: [...x.splitAllocation, { creatorId: "", quantityAssigned: 1 }] } : x))}>
               + Add creator split
             </button>
-            <p className={mismatch ? "hint bad" : "hint"} style={{ marginTop: 6 }}>
-              Assigned so far: {assigned} / {v.quantity}
-            </p>
+            <div className="form-row">
+              <p className={mismatch ? "hint bad" : "hint"} style={{ marginTop: 6 }}>
+                Assigned so far: {assigned} / {v.quantity}
+              </p>
+            </div>
           </div>
         );
       })}
@@ -381,6 +393,7 @@ export default function OrderDetailPage() {
         </span>
         <span className="badge">{order.orderType}</span>
         <select
+          aria-label="Order status"
           value={order.status}
           onChange={async (e) => setOrder(await orderTrackerApi.updateStatus(groupId, order.id, e.target.value))}
         >
@@ -561,15 +574,16 @@ export default function OrderDetailPage() {
                   ) : (
                     splitTrackedStageKeys.map((stageKey) => (
                       <div key={stageKey}>
-                        <label className="muted" style={{ fontSize: 11, textTransform: "uppercase" }}>
+                        <div className="muted" style={{ fontSize: 11, textTransform: "uppercase" }}>
                           {stageKey}
-                        </label>
+                        </div>
                         {v.splitAllocation.map((s) => {
                           const entry = s.stageProgress.find((sp) => sp.stageKey === stageKey);
                           return (
                             <div key={s.creatorId} className="row">
                               <span className="k">{creatorName(s.creatorId)}</span>
                               <input
+                                aria-label={`${stageKey} units completed by ${creatorName(s.creatorId)}`}
                                 type="number"
                                 min={0}
                                 max={s.quantityAssigned}
@@ -601,6 +615,7 @@ export default function OrderDetailPage() {
                 <span className="k">{sp.stageKey}</span>
                 <span className="v">
                   <input
+                    aria-label={`${sp.stageKey} units completed`}
                     type="number"
                     min={0}
                     max={sp.totalUnits}
@@ -679,13 +694,13 @@ export default function OrderDetailPage() {
           )}
           <div className="row"><span className="k">Balance</span><span className="v">₹{order.balanceAmount.toFixed(2)}</span></div>
           <div className="toolbar" style={{ marginTop: 10 }}>
-            <select value={paymentType} onChange={(e) => setPaymentType(e.target.value as PaymentType)}>
+            <select aria-label="Payment type" value={paymentType} onChange={(e) => setPaymentType(e.target.value as PaymentType)}>
               <option value="ADVANCE">Advance</option>
               <option value="INSTALLMENT">Installment</option>
               <option value="FINAL">Final</option>
               <option value="REFUND">Refund</option>
             </select>
-            <input type="number" placeholder="Amount" value={paymentAmount || ""} onChange={(e) => setPaymentAmount(Number(e.target.value))} />
+            <input aria-label="Payment amount" type="number" placeholder="Amount" value={paymentAmount || ""} onChange={(e) => setPaymentAmount(Number(e.target.value))} />
             <button
               className="primary"
               onClick={async () => {
@@ -747,14 +762,21 @@ function ShippingCard({ groupId, order, onUpdated }: { groupId: string; order: O
             </span>
             <span className="v">
               {s.deliveredConfirmed ? "Delivered" : s.shippedDate ? "Shipped" : (
-                <button type="button" onClick={async () =>
-                  onUpdated(await orderTrackerApi.markShipmentStop(groupId, order.id, i, { shippedDate: new Date().toISOString() }))}>
+                <button
+                  type="button"
+                  aria-label={`Mark stop ${i + 1} (${s.originLocationCode} to ${s.destinationLocationCode}) shipped`}
+                  onClick={async () =>
+                    onUpdated(await orderTrackerApi.markShipmentStop(groupId, order.id, i, { shippedDate: new Date().toISOString() }))}>
                   Mark shipped
                 </button>
               )}
               {!s.deliveredConfirmed && s.shippedDate && (
-                <button type="button" style={{ marginLeft: 6 }} onClick={async () =>
-                  onUpdated(await orderTrackerApi.markShipmentStop(groupId, order.id, i, { deliveredConfirmed: true }))}>
+                <button
+                  type="button"
+                  style={{ marginLeft: 6 }}
+                  aria-label={`Mark stop ${i + 1} (${s.originLocationCode} to ${s.destinationLocationCode}) delivered`}
+                  onClick={async () =>
+                    onUpdated(await orderTrackerApi.markShipmentStop(groupId, order.id, i, { deliveredConfirmed: true }))}>
                   Mark delivered
                 </button>
               )}
@@ -764,10 +786,10 @@ function ShippingCard({ groupId, order, onUpdated }: { groupId: string; order: O
       )}
       {showForm ? (
         <div className="toolbar" style={{ marginTop: 10, flexWrap: "wrap" }}>
-          <input placeholder="Origin code" value={origin} onChange={(e) => setOrigin(e.target.value)} />
-          <input placeholder="Destination code" value={destination} onChange={(e) => setDestination(e.target.value)} />
-          <input placeholder="Carrier" value={carrier} onChange={(e) => setCarrier(e.target.value)} />
-          <input placeholder="Tracking number" value={tracking} onChange={(e) => setTracking(e.target.value)} />
+          <input aria-label="Origin code" placeholder="Origin code" value={origin} onChange={(e) => setOrigin(e.target.value)} />
+          <input aria-label="Destination code" placeholder="Destination code" value={destination} onChange={(e) => setDestination(e.target.value)} />
+          <input aria-label="Carrier" placeholder="Carrier" value={carrier} onChange={(e) => setCarrier(e.target.value)} />
+          <input aria-label="Tracking number" placeholder="Tracking number" value={tracking} onChange={(e) => setTracking(e.target.value)} />
           <button className="primary" type="button" onClick={addStop}>
             Add stop
           </button>

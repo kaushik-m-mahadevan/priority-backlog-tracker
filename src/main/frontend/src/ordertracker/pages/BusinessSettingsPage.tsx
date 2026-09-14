@@ -145,12 +145,13 @@ export default function BusinessSettingsPage() {
           </p>
           <form onSubmit={saveProfile}>
             <div className="form-row">
-              <label>Base location</label>
-              <input value={baseLocation} onChange={(e) => setBaseLocation(e.target.value)} required />
+              <label htmlFor="bs-base-location">Base location</label>
+              <input id="bs-base-location" value={baseLocation} onChange={(e) => setBaseLocation(e.target.value)} required />
             </div>
             <div className="form-row">
-              <label>Hours available per day</label>
+              <label htmlFor="bs-hours-per-day">Hours available per day</label>
               <input
+                id="bs-hours-per-day"
                 type="number"
                 min={0.5}
                 step={0.5}
@@ -219,12 +220,12 @@ export default function BusinessSettingsPage() {
         ) : (
           <form className="form-grid" onSubmit={proposeCostConfigChange}>
             <div className="form-row">
-              <label>Overhead %</label>
-              <input type="number" min={0} step={1} value={proposedOverhead} onChange={(e) => setProposedOverhead(Number(e.target.value))} />
+              <label htmlFor="bs-overhead">Overhead %</label>
+              <input id="bs-overhead" type="number" min={0} step={1} value={proposedOverhead} onChange={(e) => setProposedOverhead(Number(e.target.value))} />
             </div>
             <div className="form-row">
-              <label>Profit margin %</label>
-              <input type="number" min={0} step={1} value={proposedMargin} onChange={(e) => setProposedMargin(Number(e.target.value))} />
+              <label htmlFor="bs-margin">Profit margin %</label>
+              <input id="bs-margin" type="number" min={0} step={1} value={proposedMargin} onChange={(e) => setProposedMargin(Number(e.target.value))} />
             </div>
             <button className="primary" type="submit">
               Propose change
@@ -249,7 +250,13 @@ export default function BusinessSettingsPage() {
                 <label style={{ marginLeft: 8, fontSize: 12 }}>
                   <input type="checkbox" checked={t.isTool} onChange={() => toggleMandatoryItemTool(t.itemKey)} /> tool
                 </label>
-                <button type="button" className="linkbtn" style={{ marginLeft: 8 }} onClick={() => removeMandatoryItemType(t.itemKey)}>
+                <button
+                  type="button"
+                  className="linkbtn"
+                  style={{ marginLeft: 8 }}
+                  aria-label={`Remove mandatory item type ${t.label}`}
+                  onClick={() => removeMandatoryItemType(t.itemKey)}
+                >
                   Remove
                 </button>
               </span>
@@ -257,8 +264,8 @@ export default function BusinessSettingsPage() {
           </div>
         )}
         <form className="toolbar" onSubmit={addMandatoryItemType}>
-          <input placeholder="Key (e.g. wool)" value={newItemKey} onChange={(e) => setNewItemKey(e.target.value)} required />
-          <input placeholder="Label (e.g. Wool)" value={newItemLabel} onChange={(e) => setNewItemLabel(e.target.value)} required />
+          <input aria-label="New item type key" placeholder="Key (e.g. wool)" value={newItemKey} onChange={(e) => setNewItemKey(e.target.value)} required />
+          <input aria-label="New item type label" placeholder="Label (e.g. Wool)" value={newItemLabel} onChange={(e) => setNewItemLabel(e.target.value)} required />
           <label style={{ fontSize: 13 }}>
             <input type="checkbox" checked={newItemIsTool} onChange={(e) => setNewItemIsTool(e.target.checked)} /> Tool
           </label>
@@ -271,14 +278,16 @@ export default function BusinessSettingsPage() {
       <h2 className="settings-section">Packaging presets</h2>
       <div className="card">
         <form className="toolbar" onSubmit={addPreset}>
-          <input placeholder="Label" value={presetLabel} onChange={(e) => setPresetLabel(e.target.value)} required />
+          <input aria-label="New preset label" placeholder="Label" value={presetLabel} onChange={(e) => setPresetLabel(e.target.value)} required />
           <input
+            aria-label="New preset cost"
             type="number"
             placeholder="Cost"
             value={presetCost || ""}
             onChange={(e) => setPresetCost(Number(e.target.value))}
           />
           <input
+            aria-label="New preset time in hours"
             type="number"
             placeholder="Time (hours)"
             step={0.05}
