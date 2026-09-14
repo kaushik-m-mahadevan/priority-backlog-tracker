@@ -5,12 +5,15 @@ import { useBusiness } from "../BusinessContext";
 import {
   AddOnsFields,
   MandatoryItemsFields,
+  ToolsFields,
   blankMandatoryItems,
+  blankTools,
   blankVariant,
   duplicateVariant,
   validateSplits,
   type LineItemDraft,
   type MandatoryItemDraft,
+  type ToolDraft,
   type VariantDraft,
 } from "../OrderFormFields";
 import type { AcquisitionChannel, BusinessConfig, Creator, Customer, OrderType, PatternType, PresetOption } from "../types";
@@ -49,6 +52,7 @@ export default function NewOrderPage() {
 
   // individual-only
   const [mandatoryItems, setMandatoryItems] = useState<MandatoryItemDraft[]>([]);
+  const [tools, setTools] = useState<ToolDraft[]>([]);
   const [addOns, setAddOns] = useState<LineItemDraft[]>([]);
   const [craftingTimeHours, setCraftingTimeHours] = useState(0);
   const [assemblyTimeHours, setAssemblyTimeHours] = useState(0);
@@ -72,6 +76,7 @@ export default function NewOrderPage() {
       setCreatedByCreatorId(cr[0]?.id ?? "");
       setPresets(p);
       setMandatoryItems(blankMandatoryItems(cfg));
+      setTools(blankTools(cfg));
       setVariants([blankVariant(cfg)]);
     });
   }, [groupId]);
@@ -155,6 +160,7 @@ export default function NewOrderPage() {
       };
       if (orderType === "INDIVIDUAL") {
         body.mandatoryItems = mandatoryItems.filter((m) => m.value.trim());
+        body.tools = tools.filter((t) => t.value.trim());
         body.addOns = addOns.filter((a) => a.name.trim());
         body.packagingPresetId = packagingPresetId || null;
         body.craftingTimeHours = craftingTimeHours;
@@ -166,6 +172,7 @@ export default function NewOrderPage() {
             label: v.label,
             quantity: v.quantity,
             mandatoryItems: v.mandatoryItems.filter((m) => m.value.trim()),
+            tools: v.tools.filter((t) => t.value.trim()),
             addOns: v.addOns.filter((a) => a.name.trim()),
             craftingTimeHours: v.craftingTimeHours,
             assemblyTimeHours: v.assemblyTimeHours,
@@ -370,6 +377,9 @@ export default function NewOrderPage() {
             </label>
             <AddOnsFields addOns={addOns} onChange={setAddOns} />
 
+            <h2 className="settings-section">Tools</h2>
+            <ToolsFields items={tools} types={config.mandatoryItemTypes} onChange={setTools} />
+
             <h2 className="settings-section">Packaging</h2>
             <div className="form-row" style={{ maxWidth: 300 }}>
               <label htmlFor="no-packaging-preset">Packaging preset</label>
@@ -436,6 +446,15 @@ export default function NewOrderPage() {
                   <AddOnsFields
                     addOns={v.addOns}
                     onChange={(a) => setVariants((prev) => prev.map((x, j) => (j === i ? { ...x, addOns: a } : x)))}
+                  />
+
+                  <div className="muted" style={{ fontSize: 12, fontWeight: 600, marginTop: 16 }}>
+                    Tools
+                  </div>
+                  <ToolsFields
+                    items={v.tools}
+                    types={config.mandatoryItemTypes}
+                    onChange={(items) => setVariants((prev) => prev.map((x, j) => (j === i ? { ...x, tools: items } : x)))}
                   />
 
                   <div className="muted" style={{ fontSize: 12, fontWeight: 600, marginTop: 16 }}>

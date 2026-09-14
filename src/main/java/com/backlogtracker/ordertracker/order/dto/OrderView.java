@@ -13,7 +13,7 @@ public record OrderView(String id, String orderNumber, OrderType orderType, Stri
                         String itemName, Instant orderReceivedDate, Instant quotedDeliveryDate,
                         Instant actualDeliveryDate, PatternView pattern, List<ResearchItemView> researchItems,
                         double researchTimeHours, List<String> recipeSteps,
-                        List<MandatoryItemView> mandatoryItems, List<LineItemView> addOns,
+                        List<MandatoryItemView> mandatoryItems, List<ToolView> tools, List<LineItemView> addOns,
                         PackagingView packaging, double craftingTimeHours, double assemblyTimeHours,
                         CostEstimateView costEstimate,
                         List<StageAssignmentView> stageAssignments, double completionPercentage,
@@ -38,6 +38,12 @@ public record OrderView(String id, String orderNumber, OrderType orderType, Stri
     public record MandatoryItemView(String itemKey, String value, double quantity, double unitCost, String notes) {
         static MandatoryItemView of(Order.MandatoryItem m) {
             return new MandatoryItemView(m.getItemKey(), m.getValue(), m.getQuantity(), m.getUnitCost(), m.getNotes());
+        }
+    }
+
+    public record ToolView(String itemKey, String value, String notes) {
+        static ToolView of(Order.ToolUsage t) {
+            return new ToolView(t.getItemKey(), t.getValue(), t.getNotes());
         }
     }
 
@@ -123,6 +129,7 @@ public record OrderView(String id, String orderNumber, OrderType orderType, Stri
     }
 
     public record VariantView(String variantId, String label, int quantity, List<MandatoryItemView> mandatoryItems,
+                              List<ToolView> tools,
                               List<LineItemView> addOns, PackagingView packaging, double craftingTimeHours,
                               double assemblyTimeHours,
                               double perUnitCost, double totalCost, double perUnitTimeHours, double totalTimeHours,
@@ -130,6 +137,7 @@ public record OrderView(String id, String orderNumber, OrderType orderType, Stri
         static VariantView of(Order.Variant v) {
             return new VariantView(v.getVariantId(), v.getLabel(), v.getQuantity(),
                     v.getMandatoryItems().stream().map(MandatoryItemView::of).toList(),
+                    v.getTools().stream().map(ToolView::of).toList(),
                     v.getAddOns().stream().map(LineItemView::of).toList(),
                     PackagingView.of(v.getPackaging()), v.getCraftingTimeHours(), v.getAssemblyTimeHours(),
                     v.getPerUnitCost(), v.getTotalCost(), v.getPerUnitTimeHours(), v.getTotalTimeHours(),
@@ -167,6 +175,7 @@ public record OrderView(String id, String orderNumber, OrderType orderType, Stri
                 o.getResearchItems().stream().map(ResearchItemView::of).toList(), o.getResearchTimeHours(),
                 o.getRecipeSteps(),
                 o.getMandatoryItems().stream().map(MandatoryItemView::of).toList(),
+                o.getTools().stream().map(ToolView::of).toList(),
                 o.getAddOns().stream().map(LineItemView::of).toList(), PackagingView.of(o.getPackaging()),
                 o.getCraftingTimeHours(), o.getAssemblyTimeHours(), CostEstimateView.of(o.getCostEstimate()),
                 o.getStageAssignments().stream().map(StageAssignmentView::of).toList(), completionPercentage,

@@ -9,6 +9,12 @@ export interface MandatoryItemDraft {
   notes: string;
 }
 
+export interface ToolDraft {
+  itemKey: string;
+  value: string;
+  notes: string;
+}
+
 export interface LineItemDraft {
   name: string;
   quantity: number;
@@ -25,18 +31,30 @@ export interface VariantDraft {
   label: string;
   quantity: number;
   mandatoryItems: MandatoryItemDraft[];
+  tools: ToolDraft[];
   addOns: LineItemDraft[];
   craftingTimeHours: number;
   assemblyTimeHours: number;
   splitAllocation: SplitDraft[];
 }
 
+const materialTypes = (types: MandatoryItemType[]) => types.filter((t) => !t.isTool);
+const toolTypes = (types: MandatoryItemType[]) => types.filter((t) => t.isTool);
+
 export function blankMandatoryItemEntry(itemKey: string): MandatoryItemDraft {
   return { itemKey, value: "", quantity: 1, unitCost: 0, notes: "" };
 }
 
+export function blankToolEntry(itemKey: string): ToolDraft {
+  return { itemKey, value: "", notes: "" };
+}
+
 export function blankMandatoryItems(config: BusinessConfig): MandatoryItemDraft[] {
-  return config.mandatoryItemTypes.map((it) => blankMandatoryItemEntry(it.itemKey));
+  return materialTypes(config.mandatoryItemTypes).map((it) => blankMandatoryItemEntry(it.itemKey));
+}
+
+export function blankTools(config: BusinessConfig): ToolDraft[] {
+  return toolTypes(config.mandatoryItemTypes).map((it) => blankToolEntry(it.itemKey));
 }
 
 export function blankVariant(config: BusinessConfig): VariantDraft {
@@ -44,6 +62,7 @@ export function blankVariant(config: BusinessConfig): VariantDraft {
     label: "",
     quantity: 1,
     mandatoryItems: blankMandatoryItems(config),
+    tools: blankTools(config),
     addOns: [],
     craftingTimeHours: 0,
     assemblyTimeHours: 0,
@@ -59,6 +78,7 @@ export function duplicateVariant(source: VariantDraft): VariantDraft {
     label: source.label,
     quantity: source.quantity,
     mandatoryItems: source.mandatoryItems.map((m) => ({ ...m })),
+    tools: source.tools.map((t) => ({ ...t })),
     addOns: source.addOns.map((a) => ({ ...a })),
     craftingTimeHours: source.craftingTimeHours,
     assemblyTimeHours: source.assemblyTimeHours,
@@ -66,24 +86,24 @@ export function duplicateVariant(source: VariantDraft): VariantDraft {
   };
 }
 
-/** One configured item type can appear multiple times per order/variant (e.g. two colors
- *  of wool, or a hook used alongside a spare) — entries are grouped by itemKey, each group
- *  independently extensible. Tool types (isTool) skip quantity/unit-cost: they're reused
- *  across orders, not purchased or itemized per project. */
+/** One configured material type can appear multiple times per order/variant (e.g. two
+ *  colors of wool) — entries are grouped by itemKey, each group independently extensible.
+ *  Tools live in a separate list ({@link ToolsFields}) since they carry no cost/quantity. */
 export function MandatoryItemsFields({
   items,
-  types,
+  types: allTypes,
   onChange,
 }: {
   items: MandatoryItemDraft[];
   types: MandatoryItemType[];
   onChange: (items: MandatoryItemDraft[]) => void;
 }) {
+  const types = materialTypes(allTypes);
   if (types.length === 0) {
     return (
       <p className="empty">
-        No mandatory item types configured yet — add some in{" "}
-        <Link to="/ordertracker/business-settings">Business Settings</Link> to track materials and tools per order.
+        No material types configured yet — add some in{" "}
+        <Link to="/ordertracker/business-settings">Business Settings</Link> to track materials per order.
       </p>
     );
   }
@@ -95,7 +115,7 @@ export function MandatoryItemsFields({
         return (
           <fieldset key={type.itemKey} style={{ marginBottom: 16, border: "none", padding: 0 }}>
             <legend className="muted" style={{ fontSize: 12 }}>
-              {type.label} {type.isTool && <span className="hint">(tool)</span>}
+              {type.label}
             </legend>
             <div className="grid cols-3">
               {entries.map((it, entryIndex) => {
@@ -115,42 +135,40 @@ export function MandatoryItemsFields({
                       onChange={(e) =>
                         onChange(items.map((x, j) => (j === globalIndex ? { ...x, value: e.target.value } : x)))
                       }
-                      placeholder={type.isTool ? "e.g. 4mm hook" : "e.g. Cream, 50g"}
+                      placeholder="e.g. Cream, 50g"
                       style={{ marginBottom: 8 }}
                     />
-                    {!type.isTool && (
-                      <div className="form-grid">
-                        <div>
-                          <label htmlFor={qtyId} className="muted" style={{ fontSize: 11 }}>
-                            Quantity
-                          </label>
-                          <input
-                            id={qtyId}
-                            type="number"
-                            min={0}
-                            step={0.5}
-                            value={it.quantity}
-                            onChange={(e) =>
-                              onChange(items.map((x, j) => (j === globalIndex ? { ...x, quantity: Number(e.target.value) } : x)))
-                            }
-                          />
-                        </div>
-                        <div>
-                          <label htmlFor={costId} className="muted" style={{ fontSize: 11 }}>
-                            Unit cost
-                          </label>
-                          <input
-                            id={costId}
-                            type="number"
-                            min={0}
-                            value={it.unitCost}
-                            onChange={(e) =>
-                              onChange(items.map((x, j) => (j === globalIndex ? { ...x, unitCost: Number(e.target.value) } : x)))
-                            }
-                          />
-                        </div>
+                    <div className="form-grid">
+                      <div>
+                        <label htmlFor={qtyId} className="muted" style={{ fontSize: 11 }}>
+                          Quantity
+                        </label>
+                        <input
+                          id={qtyId}
+                          type="number"
+                          min={0}
+                          step={0.5}
+                          value={it.quantity}
+                          onChange={(e) =>
+                            onChange(items.map((x, j) => (j === globalIndex ? { ...x, quantity: Number(e.target.value) } : x)))
+                          }
+                        />
                       </div>
-                    )}
+                      <div>
+                        <label htmlFor={costId} className="muted" style={{ fontSize: 11 }}>
+                          Unit cost
+                        </label>
+                        <input
+                          id={costId}
+                          type="number"
+                          min={0}
+                          value={it.unitCost}
+                          onChange={(e) =>
+                            onChange(items.map((x, j) => (j === globalIndex ? { ...x, unitCost: Number(e.target.value) } : x)))
+                          }
+                        />
+                      </div>
+                    </div>
                     <label htmlFor={notesId} className="muted" style={{ fontSize: 11, marginTop: 8, display: "block" }}>
                       Notes (optional)
                     </label>
@@ -176,6 +194,91 @@ export function MandatoryItemsFields({
                         style={{ marginTop: 8, marginLeft: entries.length > 1 ? 8 : 0 }}
                         aria-label={`Add another ${type.label} entry`}
                         onClick={() => onChange([...items, blankMandatoryItemEntry(type.itemKey)])}
+                      >
+                        + Add another
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </fieldset>
+        );
+      })}
+    </div>
+  );
+}
+
+/** Tools (e.g. a crochet hook) — reused across orders, never purchased or itemized per
+ *  order, so unlike {@link MandatoryItemsFields} there's no quantity/cost here, just which
+ *  tool and an optional note. */
+export function ToolsFields({
+  items,
+  types: allTypes,
+  onChange,
+}: {
+  items: ToolDraft[];
+  types: MandatoryItemType[];
+  onChange: (items: ToolDraft[]) => void;
+}) {
+  const types = toolTypes(allTypes);
+  if (types.length === 0) {
+    return <p className="empty">No tool types configured yet.</p>;
+  }
+
+  return (
+    <div>
+      {types.map((type) => {
+        const entries = items.filter((it) => it.itemKey === type.itemKey);
+        return (
+          <fieldset key={type.itemKey} style={{ marginBottom: 16, border: "none", padding: 0 }}>
+            <legend className="muted" style={{ fontSize: 12 }}>
+              {type.label}
+            </legend>
+            <div className="grid cols-3">
+              {entries.map((it, entryIndex) => {
+                const globalIndex = items.indexOf(it);
+                const valueId = `tool-${type.itemKey}-${globalIndex}-value`;
+                const notesId = `tool-${type.itemKey}-${globalIndex}-notes`;
+                return (
+                  <div className="card" key={globalIndex} style={{ background: "var(--bg-elev-2)" }}>
+                    <label htmlFor={valueId} className="sr-only">
+                      {type.label} entry {entryIndex + 1} value
+                    </label>
+                    <input
+                      id={valueId}
+                      value={it.value}
+                      onChange={(e) =>
+                        onChange(items.map((x, j) => (j === globalIndex ? { ...x, value: e.target.value } : x)))
+                      }
+                      placeholder="e.g. 4mm hook"
+                      style={{ marginBottom: 8 }}
+                    />
+                    <label htmlFor={notesId} className="muted" style={{ fontSize: 11, display: "block" }}>
+                      Notes (optional)
+                    </label>
+                    <input
+                      id={notesId}
+                      value={it.notes}
+                      onChange={(e) => onChange(items.map((x, j) => (j === globalIndex ? { ...x, notes: e.target.value } : x)))}
+                      placeholder="e.g. size 4 for the edging"
+                    />
+                    {entries.length > 1 && (
+                      <button
+                        type="button"
+                        style={{ marginTop: 8 }}
+                        aria-label={`Remove ${type.label} entry ${entryIndex + 1}`}
+                        onClick={() => onChange(items.filter((_, j) => j !== globalIndex))}
+                      >
+                        Remove
+                      </button>
+                    )}
+                    {entryIndex === entries.length - 1 && (
+                      <button
+                        type="button"
+                        style={{ marginTop: 8, marginLeft: entries.length > 1 ? 8 : 0 }}
+                        aria-label={`Add another ${type.label} entry`}
+                        onClick={() => onChange([...items, blankToolEntry(type.itemKey)])}
                       >
                         + Add another
                       </button>

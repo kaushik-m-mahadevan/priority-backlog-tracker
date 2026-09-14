@@ -105,6 +105,12 @@ export interface MandatoryItem {
   notes: string | null;
 }
 
+export interface Tool {
+  itemKey: string;
+  value: string;
+  notes: string | null;
+}
+
 export interface LineItem {
   name: string;
   category: string | null;
@@ -188,6 +194,7 @@ export interface Variant {
   label: string;
   quantity: number;
   mandatoryItems: MandatoryItem[];
+  tools: Tool[];
   addOns: LineItem[];
   packaging: Packaging | null;
   craftingTimeHours: number;
@@ -233,6 +240,7 @@ export interface OrderView {
   researchTimeHours: number;
   recipeSteps: string[];
   mandatoryItems: MandatoryItem[];
+  tools: Tool[];
   addOns: LineItem[];
   packaging: Packaging | null;
   craftingTimeHours: number;

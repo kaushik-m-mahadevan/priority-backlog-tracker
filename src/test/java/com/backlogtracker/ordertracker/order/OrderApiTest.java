@@ -144,6 +144,27 @@ class OrderApiTest {
     }
 
     @Test
+    void toolsAreKeptSeparateFromMandatoryItemsAndCarryNoCost() throws Exception {
+        mvc.perform(auth(post("/api/ordertracker/groups/" + groupId + "/orders"), token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"customerId":"%s","orderType":"INDIVIDUAL","createdByCreatorId":"%s",
+                                 "itemName":"Amigurumi bear","orderReceivedDate":"2026-01-01T00:00:00Z",
+                                 "mandatoryItems":[{"itemKey":"wool","value":"Cream","quantity":1,"unitCost":100}],
+                                 "tools":[{"itemKey":"needle","value":"4mm hook","notes":"for edging"}],
+                                 "craftingTimeHours":1}""".formatted(customerId, creatorAId)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.mandatoryItems.length()").value(1))
+                .andExpect(jsonPath("$.mandatoryItems[0].itemKey").value("wool"))
+                .andExpect(jsonPath("$.tools.length()").value(1))
+                .andExpect(jsonPath("$.tools[0].itemKey").value("needle"))
+                .andExpect(jsonPath("$.tools[0].value").value("4mm hook"))
+                .andExpect(jsonPath("$.tools[0].notes").value("for edging"))
+                // a tool entry must never contribute cost — only the wool material does
+                .andExpect(jsonPath("$.costEstimate.mandatoryItemsCost").value(100.0));
+    }
+
+    @Test
     void individualOrderTimeFormulaCountsAssemblyAndResearchButNotAddOnTime() throws Exception {
         String body = mvc.perform(auth(post("/api/ordertracker/groups/" + groupId + "/orders"), token)
                         .contentType(MediaType.APPLICATION_JSON)

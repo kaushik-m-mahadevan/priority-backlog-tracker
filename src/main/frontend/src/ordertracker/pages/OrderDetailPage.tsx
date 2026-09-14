@@ -6,11 +6,14 @@ import AddToGroupModal from "../AddToGroupModal";
 import {
   AddOnsFields,
   MandatoryItemsFields,
-  blankMandatoryItemEntry,
+  ToolsFields,
+  blankMandatoryItems,
+  blankTools,
   duplicateVariant,
   validateSplits,
   type LineItemDraft,
   type MandatoryItemDraft,
+  type ToolDraft,
   type VariantDraft,
 } from "../OrderFormFields";
 import type { BusinessConfig, Creator, Customer, OrderStatus, OrderView, PaymentType, PresetOption } from "../types";
@@ -45,7 +48,12 @@ function EditOrderForm({
   const [mandatoryItems, setMandatoryItems] = useState<MandatoryItemDraft[]>(
     order.mandatoryItems.length > 0
       ? order.mandatoryItems.map((m) => ({ itemKey: m.itemKey, value: m.value, quantity: m.quantity, unitCost: m.unitCost, notes: m.notes ?? "" }))
-      : config.mandatoryItemTypes.map((it) => blankMandatoryItemEntry(it.itemKey))
+      : blankMandatoryItems(config)
+  );
+  const [tools, setTools] = useState<ToolDraft[]>(
+    order.tools.length > 0
+      ? order.tools.map((t) => ({ itemKey: t.itemKey, value: t.value, notes: t.notes ?? "" }))
+      : blankTools(config)
   );
   const [addOns, setAddOns] = useState<LineItemDraft[]>(
     order.addOns.map((a) => ({ name: a.name, quantity: a.quantity, unitCost: a.unitCost }))
@@ -73,6 +81,7 @@ function EditOrderForm({
         researchTimeHours,
         recipeSteps: recipeStepsText.split("\n").map((s) => s.trim()).filter(Boolean),
         mandatoryItems: mandatoryItems.filter((m) => m.value.trim()),
+        tools: tools.filter((t) => t.value.trim()),
         addOns: addOns.filter((a) => a.name.trim()),
         packagingPresetId: packagingPresetId || null,
         itemizedPackaging: [],
@@ -158,6 +167,9 @@ function EditOrderForm({
       </div>
       <AddOnsFields addOns={addOns} onChange={setAddOns} />
 
+      <h2 className="settings-section">Tools</h2>
+      <ToolsFields items={tools} types={config.mandatoryItemTypes} onChange={setTools} />
+
       <h2 className="settings-section">Packaging</h2>
       <div className="form-row" style={{ maxWidth: 300 }}>
         <label htmlFor="eod-packaging-preset">Packaging preset</label>
@@ -226,6 +238,7 @@ function EditBulkDetailsForm({
       label: v.label,
       quantity: v.quantity,
       mandatoryItems: v.mandatoryItems.map((m) => ({ itemKey: m.itemKey, value: m.value, quantity: m.quantity, unitCost: m.unitCost, notes: m.notes ?? "" })),
+      tools: v.tools.map((t) => ({ itemKey: t.itemKey, value: t.value, notes: t.notes ?? "" })),
       addOns: v.addOns.map((a) => ({ name: a.name, quantity: a.quantity, unitCost: a.unitCost })),
       craftingTimeHours: v.craftingTimeHours,
       assemblyTimeHours: v.assemblyTimeHours,
@@ -264,6 +277,7 @@ function EditBulkDetailsForm({
             label: v.label,
             quantity: v.quantity,
             mandatoryItems: v.mandatoryItems.filter((m) => m.value.trim()),
+            tools: v.tools.filter((t) => t.value.trim()),
             addOns: v.addOns.filter((a) => a.name.trim()),
             craftingTimeHours: v.craftingTimeHours,
             assemblyTimeHours: v.assemblyTimeHours,
@@ -397,6 +411,15 @@ function EditBulkDetailsForm({
             <AddOnsFields
               addOns={v.addOns}
               onChange={(a) => setVariants((prev) => prev.map((x, j) => (j === i ? { ...x, addOns: a } : x)))}
+            />
+
+            <div className="muted" style={{ fontSize: 12, fontWeight: 600, marginTop: 16 }}>
+              Tools
+            </div>
+            <ToolsFields
+              items={v.tools}
+              types={config.mandatoryItemTypes}
+              onChange={(items) => setVariants((prev) => prev.map((x, j) => (j === i ? { ...x, tools: items } : x)))}
             />
 
             <div className="muted" style={{ fontSize: 12, fontWeight: 600, marginTop: 16 }}>
@@ -655,6 +678,21 @@ export default function OrderDetailPage() {
             )}
           </div>
           <div className="card">
+            <h2>Tools</h2>
+            {order.tools.length === 0 ? (
+              <p className="empty">None.</p>
+            ) : (
+              order.tools.map((t, i) => (
+                <div className="row" key={i}>
+                  <span className="k">
+                    {t.itemKey}: {t.value}
+                  </span>
+                  {t.notes && <span className="v muted">{t.notes}</span>}
+                </div>
+              ))
+            )}
+          </div>
+          <div className="card">
             <h2>Packaging</h2>
             <div className="row"><span className="k">Cost</span><span className="v">₹{order.packaging?.cost.toFixed(2) ?? "0.00"}</span></div>
             <div className="row"><span className="k">Time</span><span className="v">{order.packaging?.timeHours ?? 0}h</span></div>
@@ -708,6 +746,21 @@ export default function OrderDetailPage() {
                       <div className="row" key={i}>
                         <span className="k">{a.name}</span>
                         <span className="v">{a.quantity} × ₹{a.unitCost.toFixed(2)}</span>
+                      </div>
+                    ))
+                  )}
+                </div>
+                <div className="card" style={{ background: "var(--bg-elev-2)" }}>
+                  <h2>Tools</h2>
+                  {v.tools.length === 0 ? (
+                    <p className="empty">None.</p>
+                  ) : (
+                    v.tools.map((t, i) => (
+                      <div className="row" key={i}>
+                        <span className="k">
+                          {t.itemKey}: {t.value}
+                        </span>
+                        {t.notes && <span className="v muted">{t.notes}</span>}
                       </div>
                     ))
                   )}

@@ -12,7 +12,8 @@ public record CreateOrderRequest(String customerId, String orderType, String cre
                                  PatternInput pattern, List<ResearchItemInput> researchItems,
                                  double researchTimeHours, List<String> recipeSteps,
                                  // individual-only
-                                 List<MandatoryItemInput> mandatoryItems, List<LineItemInput> addOns,
+                                 List<MandatoryItemInput> mandatoryItems, List<ToolInput> tools,
+                                 List<LineItemInput> addOns,
                                  String packagingPresetId, List<LineItemInput> itemizedPackaging,
                                  double craftingTimeHours, double assemblyTimeHours,
                                  // bulk-only
@@ -29,6 +30,9 @@ public record CreateOrderRequest(String customerId, String orderType, String cre
     public record MandatoryItemInput(String itemKey, String value, double quantity, double unitCost, String notes) {
     }
 
+    public record ToolInput(String itemKey, String value, String notes) {
+    }
+
     public record LineItemInput(String name, String category, Map<String, String> attributes,
                                 double quantity, double unitCost, Double unitTimeHours, String note) {
     }
@@ -37,7 +41,8 @@ public record CreateOrderRequest(String customerId, String orderType, String cre
     }
 
     public record VariantInput(String variantId, String label, int quantity,
-                               List<MandatoryItemInput> mandatoryItems, List<LineItemInput> addOns,
+                               List<MandatoryItemInput> mandatoryItems, List<ToolInput> tools,
+                               List<LineItemInput> addOns,
                                String packagingPresetId, List<LineItemInput> itemizedPackaging,
                                double craftingTimeHours, double assemblyTimeHours,
                                List<SplitLineInput> splitAllocation) {

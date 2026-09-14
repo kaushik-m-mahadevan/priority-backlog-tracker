@@ -78,6 +78,10 @@ public class Order {
     // ---- 5.5 mandatory items (individual only; bulk uses per-variant) ----
     @Builder.Default
     private List<MandatoryItem> mandatoryItems = new ArrayList<>();
+    /** Tools used (individual only; bulk uses per-variant) — kept out of mandatoryItems
+     *  entirely since tools carry no cost/quantity. */
+    @Builder.Default
+    private List<ToolUsage> tools = new ArrayList<>();
 
     // ---- 5.6 add-ons (individual only; bulk uses per-variant) ----
     @Builder.Default
@@ -159,6 +163,21 @@ public class Order {
         private String value;
         private double quantity;
         private double unitCost;
+        private String notes;
+    }
+
+    /** A tool used on this order (e.g. "4mm hook") — separate from {@link MandatoryItem}
+     *  because tools are reused across orders, not purchased or costed per order (matches
+     *  {@code MandatoryItemType.isTool} in BusinessConfig). No quantity/cost fields at all,
+     *  just which tool and an optional note. */
+    @Getter
+    @Setter
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class ToolUsage {
+        private String itemKey;
+        private String value;
         private String notes;
     }
 
@@ -378,6 +397,8 @@ public class Order {
         private int quantity;
         @Builder.Default
         private List<MandatoryItem> mandatoryItems = new ArrayList<>();
+        @Builder.Default
+        private List<ToolUsage> tools = new ArrayList<>();
         @Builder.Default
         private List<LineItem> addOns = new ArrayList<>();
         private Packaging packaging;

@@ -194,6 +194,7 @@ public class OrderService {
             List<LineItem> addOns = toLineItems(request.addOns());
             Order.Packaging packaging = buildPackaging(groupId, userId, request.packagingPresetId(), request.itemizedPackaging());
             builder.mandatoryItems(mandatoryItems)
+                    .tools(toToolUsages(request.tools()))
                     .addOns(addOns)
                     .packaging(packaging)
                     .craftingTimeHours(request.craftingTimeHours())
@@ -263,6 +264,7 @@ public class OrderService {
         List<LineItem> addOns = toLineItems(request.addOns());
         Order.Packaging packaging = buildPackaging(groupId, userId, request.packagingPresetId(), request.itemizedPackaging());
         order.setMandatoryItems(mandatoryItems);
+        order.setTools(toToolUsages(request.tools()));
         order.setAddOns(addOns);
         order.setPackaging(packaging);
         order.setCraftingTimeHours(request.craftingTimeHours());
@@ -513,6 +515,7 @@ public class OrderService {
                 .label(input.label())
                 .quantity(input.quantity())
                 .mandatoryItems(toMandatoryItems(input.mandatoryItems()))
+                .tools(toToolUsages(input.tools()))
                 .addOns(toLineItems(input.addOns()))
                 .packaging(packaging)
                 .craftingTimeHours(input.craftingTimeHours())
@@ -594,6 +597,14 @@ public class OrderService {
         }
         return inputs.stream().map(i -> MandatoryItem.builder().itemKey(i.itemKey()).value(i.value())
                 .quantity(i.quantity()).unitCost(i.unitCost()).notes(i.notes()).build()).toList();
+    }
+
+    private List<Order.ToolUsage> toToolUsages(List<CreateOrderRequest.ToolInput> inputs) {
+        if (inputs == null) {
+            return List.of();
+        }
+        return inputs.stream().map(i -> Order.ToolUsage.builder().itemKey(i.itemKey()).value(i.value())
+                .notes(i.notes()).build()).toList();
     }
 
     private List<LineItem> toLineItems(List<CreateOrderRequest.LineItemInput> inputs) {
