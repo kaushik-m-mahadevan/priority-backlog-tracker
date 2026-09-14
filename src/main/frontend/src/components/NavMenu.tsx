@@ -2,8 +2,14 @@ import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 
-/** Avatar button in the top bar; dropdown holds the secondary nav + sign out. */
-export default function NavMenu() {
+export interface NavMenuLink {
+  to: string;
+  label: string;
+}
+
+/** Avatar button in the top bar; dropdown holds any applet-specific quick links (e.g.
+ *  Backlog Tracker's "Completed") plus account info and sign out. */
+export default function NavMenu({ extraLinks }: { extraLinks?: NavMenuLink[] }) {
   const { user, logout } = useAuth();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -50,9 +56,11 @@ export default function NavMenu() {
             {name}
             {user?.handle && <span className="muted"> · @{user.handle}</span>}
           </div>
-          <Link to="/backlog/archive" role="menuitem" onClick={() => setOpen(false)}>
-            Completed
-          </Link>
+          {extraLinks?.map((link) => (
+            <Link key={link.to} to={link.to} role="menuitem" onClick={() => setOpen(false)}>
+              {link.label}
+            </Link>
+          ))}
           {/* Settings and Admin console are platform-level, not Backlog-Tracker-specific —
               reached from the launcher's own cards, not shortcut here (design: platform
               integration follow-up, keeps every applet's own nav scoped to that applet). */}

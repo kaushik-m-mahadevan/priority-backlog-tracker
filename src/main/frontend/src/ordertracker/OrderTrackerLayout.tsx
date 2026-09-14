@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { Link, NavLink, Outlet } from "react-router-dom";
-import { HomeIcon } from "../components/icons";
+import { NavLink, Outlet } from "react-router-dom";
+import AppHeader from "../components/AppHeader";
 import { useBusiness } from "./BusinessContext";
 
 function BusinessSwitcher() {
@@ -59,25 +59,23 @@ export default function OrderTrackerLayout() {
 
   return (
     <div className="app">
-      <nav className="nav">
-        <Link to="/" className="iconbtn" title="Back to console" aria-label="Back to console">
-          <HomeIcon />
-        </Link>
-        <Link to="/ordertracker/orders" className="brand">
-          ✂ Order Tracker
-        </Link>
-        {currentGroupId && (
-          <div className="nav-links">
-            <NavLink to="/ordertracker/orders">Orders</NavLink>
-            <NavLink to="/ordertracker/my-work">My Work</NavLink>
-            <NavLink to="/ordertracker/customers">Customers</NavLink>
-            <NavLink to="/ordertracker/manage-business">Manage business</NavLink>
-            <NavLink to="/ordertracker/business-settings">Business</NavLink>
-          </div>
-        )}
-        <span className="spacer" />
-        <BusinessSwitcher />
-      </nav>
+      <AppHeader
+        appletIcon="✂"
+        appletName="Order Tracker"
+        appletHref="/ordertracker/orders"
+        navLinks={
+          currentGroupId && (
+            <div className="nav-links">
+              <NavLink to="/ordertracker/orders">Orders</NavLink>
+              <NavLink to="/ordertracker/my-work">My Work</NavLink>
+              <NavLink to="/ordertracker/customers">Customers</NavLink>
+              <NavLink to="/ordertracker/manage-business">Manage business</NavLink>
+              <NavLink to="/ordertracker/business-settings">Business</NavLink>
+            </div>
+          )
+        }
+        rightSlot={<BusinessSwitcher />}
+      />
 
       <div className="container">
         {loading ? (

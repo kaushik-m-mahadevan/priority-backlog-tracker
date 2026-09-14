@@ -1,5 +1,4 @@
-import { Link } from "react-router-dom";
-import { HomeIcon } from "../components/icons";
+import AppHeader from "../components/AppHeader";
 import SettingsPage from "./SettingsPage";
 
 /**
@@ -10,12 +9,7 @@ import SettingsPage from "./SettingsPage";
 export default function SettingsShell() {
   return (
     <div className="app">
-      <nav className="nav">
-        <Link to="/" className="iconbtn" title="Back to console" aria-label="Back to console">
-          <HomeIcon />
-        </Link>
-        <span className="brand">⚙ Settings</span>
-      </nav>
+      <AppHeader appletIcon="⚙" appletName="Settings" />
       <div className="container">
         <SettingsPage />
       </div>

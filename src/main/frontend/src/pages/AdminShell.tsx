@@ -1,4 +1,4 @@
-import { Link } from "react-router-dom";
+import AppHeader from "../components/AppHeader";
 import AdminPage from "./AdminPage";
 
 /**
@@ -9,11 +9,7 @@ import AdminPage from "./AdminPage";
 export default function AdminShell() {
   return (
     <div className="app">
-      <nav className="nav">
-        <Link to="/" className="brand">
-          ◇ Admin Console
-        </Link>
-      </nav>
+      <AppHeader appletIcon="◇" appletName="Admin Console" />
       <div className="container">
         <AdminPage />
       </div>
