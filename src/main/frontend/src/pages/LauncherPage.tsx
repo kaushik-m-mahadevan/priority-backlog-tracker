@@ -38,6 +38,16 @@ export default function LauncherPage() {
           <h2>Settings</h2>
           <p>Profile, theme, timezone, and each applet's own configuration.</p>
         </Link>
+
+        {user?.role === "ADMIN" && (
+          <Link to="/admin" className="applet-card">
+            <span className="applet-icon" aria-hidden="true">
+              ◇
+            </span>
+            <h2>Admin Console</h2>
+            <p>Approve accounts, handle password requests, see everyone on the platform.</p>
+          </Link>
+        )}
       </div>
     </div>
   );

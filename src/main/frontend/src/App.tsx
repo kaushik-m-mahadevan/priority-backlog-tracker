@@ -15,7 +15,7 @@ import DashboardPage from "./pages/DashboardPage";
 import ItemsPage from "./pages/ItemsPage";
 import ArchivePage from "./pages/ArchivePage";
 import SettingsPage from "./pages/SettingsPage";
-import AdminPage from "./pages/AdminPage";
+import AdminShell from "./pages/AdminShell";
 import GroupsPage from "./pages/GroupsPage";
 import { QuickWinsPage, AttentionPage, TeamPage } from "./pages/RailPages";
 import OrderTrackerRoot from "./ordertracker/OrderTrackerRoot";
@@ -71,11 +71,14 @@ export default function App() {
                   {/* Still rendered with Backlog Tracker's own Layout/nav for now — Phase 4
                       (migrate Settings) is what actually reshapes this into a shared hub. */}
                   <Route path="/settings" element={<SettingsPage />} />
-                  <Route
-                    path="/backlog/admin"
-                    element={user.role === "ADMIN" ? <AdminPage /> : <Navigate to="/backlog" replace />}
-                  />
                 </Route>
+                {/* Admin Console is its own applet (design: platform integration follow-up)
+                    — user administration is platform-wide, not Backlog-Tracker-specific,
+                    so it sits outside Layout entirely, same as the launcher. */}
+                <Route
+                  path="/admin"
+                  element={user.role === "ADMIN" ? <AdminShell /> : <Navigate to="/" replace />}
+                />
                 <Route path="/ordertracker" element={<OrderTrackerRoot />}>
                   <Route index element={<Navigate to="orders" replace />} />
                   <Route path="orders" element={<OrdersPage />} />

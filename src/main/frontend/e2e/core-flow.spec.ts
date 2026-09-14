@@ -76,7 +76,7 @@ test("register, get approved, create a group, invite, accept, create an item, se
 
   // --- admin approves --------------------------------------------------------
   await login(page, ADMIN_EMAIL, ADMIN_PASSWORD);
-  await page.goto("/backlog/admin");
+  await page.goto("/admin");
   const pendingRow = page.locator(".team-row", { hasText: email }).first();
   await pendingRow.getByRole("button", { name: "Approve" }).click();
   await expect(page.getByText(email)).toHaveCount(0, { timeout: 10_000 }).catch(() => {

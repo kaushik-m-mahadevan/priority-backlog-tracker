@@ -54,7 +54,7 @@ export default function NavMenu() {
             Completed
           </Link>
           {user?.role === "ADMIN" && (
-            <Link to="/backlog/admin" role="menuitem" onClick={() => setOpen(false)}>
+            <Link to="/admin" role="menuitem" onClick={() => setOpen(false)}>
               Admin console
             </Link>
           )}
