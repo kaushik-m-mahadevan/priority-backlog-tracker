@@ -157,7 +157,13 @@ public class OrderService {
         customerService.requireExists(groupId, request.customerId());
         Creator createdBy = creatorService.requireById(groupId, request.createdByCreatorId());
         BusinessConfig cfg = businessConfigService.get(groupId, userId);
-        OrderType orderType = OrderType.valueOf(request.orderType());
+        OrderType orderType;
+        try {
+            orderType = OrderType.valueOf(request.orderType());
+        } catch (IllegalArgumentException e) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "orderType must be INDIVIDUAL or BULK (got '" + request.orderType() + "')");
+        }
 
         Instant now = clock.instant();
         Instant orderReceivedDate = request.orderReceivedDate() == null ? now : request.orderReceivedDate();

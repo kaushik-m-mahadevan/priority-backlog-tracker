@@ -1,7 +1,5 @@
 package com.backlogtracker.commons.migration;
 
-import java.util.List;
-
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.core.annotation.Order;
@@ -105,10 +103,10 @@ public class LegacyDataMigration implements ApplicationRunner {
                     ordersReceived, ordersReady, paymentsPaid, paymentsRefunded);
         }
 
-        List<?> ids = mongo.findDistinct(new Query(), "_id", "users", Object.class);
-        if (mongo.count(new Query(Criteria.where("role").is("ADMIN")), "users") == 0 && !ids.isEmpty()) {
+        long totalUsers = mongo.count(new Query(), "users");
+        if (totalUsers > 0 && mongo.count(new Query(Criteria.where("role").is("ADMIN")), "users") == 0) {
             log.warn("LegacyDataMigration: no ADMIN account exists ({} users) — approvals and "
-                    + "formula settings are unavailable until one registers", ids.size());
+                    + "formula settings are unavailable until one registers", totalUsers);
         }
     }
 }

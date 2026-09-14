@@ -56,9 +56,12 @@ public class ItemController {
             @RequestParam(defaultValue = "50") int size,
             @AuthenticationPrincipal AuthUser actor) {
         groupService.requireMember(groupId, actor.id());
-        ItemStatus st = status == null || status.isBlank()
-                ? null
-                : ItemStatus.valueOf(status.trim().toUpperCase());
+        ItemStatus st;
+        try {
+            st = status == null || status.isBlank() ? null : ItemStatus.valueOf(status.trim().toUpperCase());
+        } catch (IllegalArgumentException e) {
+            throw new IllegalArgumentException("status must be BACKLOG or IN_PROGRESS (got '" + status + "')");
+        }
         var res = itemQueryService.search(groupId, q, owner, category, priority, st, page, size);
         return PageResponse.of(res.content().stream().map(ItemView::of).toList(),
                 res.page(), res.size(), res.total());
