@@ -13,7 +13,9 @@ import {
   type MandatoryItemDraft,
   type VariantDraft,
 } from "../OrderFormFields";
-import type { BusinessConfig, Creator, Customer, OrderType, PatternType, PresetOption } from "../types";
+import type { AcquisitionChannel, BusinessConfig, Creator, Customer, OrderType, PatternType, PresetOption } from "../types";
+
+const CHANNELS: AcquisitionChannel[] = ["INSTAGRAM", "WHATSAPP", "REFERRAL", "WORD_OF_MOUTH", "WALK_IN", "OTHER"];
 
 export default function NewOrderPage() {
   const { currentGroupId } = useBusiness();
@@ -28,6 +30,13 @@ export default function NewOrderPage() {
 
   const [orderType, setOrderType] = useState<OrderType>("INDIVIDUAL");
   const [customerId, setCustomerId] = useState("");
+  const [customerMode, setCustomerMode] = useState<"existing" | "new">("existing");
+  const [newCustomerName, setNewCustomerName] = useState("");
+  const [newCustomerContact, setNewCustomerContact] = useState("");
+  const [newCustomerEmail, setNewCustomerEmail] = useState("");
+  const [newCustomerInstagram, setNewCustomerInstagram] = useState("");
+  const [newCustomerChannel, setNewCustomerChannel] = useState<AcquisitionChannel>("INSTAGRAM");
+  const [existingMatch, setExistingMatch] = useState<Customer | null>(null);
   const [createdByCreatorId, setCreatedByCreatorId] = useState("");
   const [itemName, setItemName] = useState("");
   const [orderReceivedDate, setOrderReceivedDate] = useState(() => new Date().toISOString().slice(0, 10));
@@ -57,6 +66,7 @@ export default function NewOrderPage() {
       setCustomers(c);
       setCreators(cr);
       setCustomerId(c[0]?.id ?? "");
+      setCustomerMode(c.length === 0 ? "new" : "existing");
       setCreatedByCreatorId(cr[0]?.id ?? "");
       setPresets(p);
       setMandatoryItems(blankMandatoryItems(cfg));
@@ -64,11 +74,43 @@ export default function NewOrderPage() {
     });
   }, [groupId]);
 
+  const checkForExistingCustomer = async () => {
+    if (!newCustomerEmail.trim() && !newCustomerInstagram.trim()) {
+      setExistingMatch(null);
+      return;
+    }
+    try {
+      const matches = await orderTrackerApi.searchCustomers(groupId, {
+        email: newCustomerEmail.trim() || undefined,
+        instagramHandle: newCustomerInstagram.trim() || undefined,
+      });
+      setExistingMatch(matches[0] ?? null);
+    } catch {
+      setExistingMatch(null);
+    }
+  };
+
+  const useExistingMatch = () => {
+    if (!existingMatch) return;
+    setCustomers((prev) => (prev.some((c) => c.id === existingMatch.id) ? prev : [...prev, existingMatch]));
+    setCustomerId(existingMatch.id);
+    setCustomerMode("existing");
+    setExistingMatch(null);
+  };
+
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
-    if (!customerId || !createdByCreatorId) {
-      setError("Pick a customer and who's logging this order");
+    if (!createdByCreatorId) {
+      setError("Pick who's logging this order");
+      return;
+    }
+    if (customerMode === "existing" && !customerId) {
+      setError("Pick a customer");
+      return;
+    }
+    if (customerMode === "new" && !newCustomerName.trim()) {
+      setError("Enter the new customer's name");
       return;
     }
     const pattern = patternType
@@ -86,8 +128,19 @@ export default function NewOrderPage() {
     }
 
     try {
+      let finalCustomerId = customerId;
+      if (customerMode === "new") {
+        const newCustomer = await orderTrackerApi.createCustomer(groupId, {
+          name: newCustomerName.trim(),
+          contactNumber: newCustomerContact,
+          email: newCustomerEmail.trim() || null,
+          instagramHandle: newCustomerInstagram.trim() || null,
+          acquisitionChannel: newCustomerChannel,
+        });
+        finalCustomerId = newCustomer.id;
+      }
       const body: Record<string, unknown> = {
-        customerId,
+        customerId: finalCustomerId,
         orderType,
         createdByCreatorId,
         itemName,
@@ -155,17 +208,38 @@ export default function NewOrderPage() {
           </button>
         </div>
 
+        <div className="toolbar" style={{ marginBottom: 8 }}>
+          <button type="button" className={customerMode === "existing" ? "primary" : ""}
+            onClick={() => setCustomerMode("existing")} disabled={customers.length === 0}>
+            Existing customer
+          </button>
+          <button type="button" className={customerMode === "new" ? "primary" : ""}
+            onClick={() => setCustomerMode("new")}>
+            New customer
+          </button>
+        </div>
+
         <div className="form-grid">
-          <div className="form-row">
-            <label>Customer</label>
-            <select value={customerId} onChange={(e) => setCustomerId(e.target.value)} required>
-              {customers.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
+          {customerMode === "existing" ? (
+            <div className="form-row">
+              <label>Customer</label>
+              <select value={customerId} onChange={(e) => setCustomerId(e.target.value)} required>
+                <option value="" disabled>
+                  Select…
                 </option>
-              ))}
-            </select>
-          </div>
+                {customers.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          ) : (
+            <div className="form-row">
+              <label>Customer name</label>
+              <input value={newCustomerName} onChange={(e) => setNewCustomerName(e.target.value)} required />
+            </div>
+          )}
           <div className="form-row">
             <label>Logged by (creator)</label>
             <select value={createdByCreatorId} onChange={(e) => setCreatedByCreatorId(e.target.value)} required>
@@ -177,6 +251,47 @@ export default function NewOrderPage() {
             </select>
           </div>
         </div>
+
+        {customerMode === "new" && (
+          <>
+            <div className="form-grid">
+              <div className="form-row">
+                <label>Contact number</label>
+                <input value={newCustomerContact} onChange={(e) => setNewCustomerContact(e.target.value)} />
+              </div>
+              <div className="form-row">
+                <label>Acquisition channel</label>
+                <select value={newCustomerChannel} onChange={(e) => setNewCustomerChannel(e.target.value as AcquisitionChannel)}>
+                  {CHANNELS.map((c) => (
+                    <option key={c} value={c}>
+                      {c.replace(/_/g, " ")}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            <div className="form-grid">
+              <div className="form-row">
+                <label>Email</label>
+                <input type="email" value={newCustomerEmail} onChange={(e) => setNewCustomerEmail(e.target.value)}
+                  onBlur={checkForExistingCustomer} />
+              </div>
+              <div className="form-row">
+                <label>Instagram handle</label>
+                <input value={newCustomerInstagram} onChange={(e) => setNewCustomerInstagram(e.target.value)}
+                  onBlur={checkForExistingCustomer} />
+              </div>
+            </div>
+            {existingMatch && (
+              <div className="hint" style={{ marginBottom: 12 }}>
+                Found an existing customer: <strong>{existingMatch.name}</strong>.{" "}
+                <button type="button" onClick={useExistingMatch}>
+                  Use this customer instead
+                </button>
+              </div>
+            )}
+          </>
+        )}
 
         <div className="form-row">
           <label>Item name</label>
