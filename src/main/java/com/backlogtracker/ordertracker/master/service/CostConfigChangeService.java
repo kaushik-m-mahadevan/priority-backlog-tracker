@@ -57,13 +57,19 @@ public class CostConfigChangeService {
                 .createdAt(Instant.now(clock))
                 .build();
         request.getApprovedByUserIds().add(userId);
-        resolveIfUnanimous(request, group);
-        return repository.save(request);
+        boolean unanimous = markResolvedIfUnanimous(request, group);
+        CostConfigChangeRequest saved = repository.save(request);
+        if (unanimous) {
+            applyResolvedConfig(saved);
+        }
+        return saved;
     }
 
     /** Retries on a lost-update race (two members approving the same request at once) by
      *  re-reading the latest approvedByUserIds and reapplying this approval on top of it,
-     *  rather than silently losing whichever save lost the race. */
+     *  rather than silently losing whichever save lost the race. The config-apply side
+     *  effect only runs after a save actually succeeds — otherwise a losing attempt that
+     *  gets retried would apply the config once per retry instead of once overall. */
     public CostConfigChangeRequest approve(String groupId, String userId, String requestId) {
         Group group = groupService.requireMember(groupId, userId);
         for (int attempt = 1; attempt <= MAX_APPROVE_RETRIES; attempt++) {
@@ -71,9 +77,13 @@ public class CostConfigChangeService {
             if (!request.getApprovedByUserIds().contains(userId)) {
                 request.getApprovedByUserIds().add(userId);
             }
-            resolveIfUnanimous(request, group);
+            boolean unanimous = markResolvedIfUnanimous(request, group);
             try {
-                return repository.save(request);
+                CostConfigChangeRequest saved = repository.save(request);
+                if (unanimous) {
+                    applyResolvedConfig(saved);
+                }
+                return saved;
             } catch (OptimisticLockingFailureException e) {
                 if (attempt == MAX_APPROVE_RETRIES) {
                     throw e;
@@ -86,14 +96,21 @@ public class CostConfigChangeService {
 
     /** A lone proposer in a single-member group already satisfies unanimity the moment they
      *  propose — checked here (not just in approve()) so a solo business isn't left waiting
-     *  on an "approval" nobody else can ever give. */
-    private void resolveIfUnanimous(CostConfigChangeRequest request, Group group) {
+     *  on an "approval" nobody else can ever give. Only marks the request's own fields —
+     *  callers apply the actual config-change side effect themselves, after a successful
+     *  save, so a retried-but-ultimately-successful save can't apply it twice. */
+    private boolean markResolvedIfUnanimous(CostConfigChangeRequest request, Group group) {
         if (request.getApprovedByUserIds().containsAll(group.getMemberIds())) {
-            businessConfigService.applyCostConfig(request.getGroupId(), request.getProposedOverheadPercentage(),
-                    request.getProposedProfitMarginPercentage());
             request.setStatus(CostConfigChangeStatus.APPROVED);
             request.setResolvedAt(Instant.now(clock));
+            return true;
         }
+        return false;
+    }
+
+    private void applyResolvedConfig(CostConfigChangeRequest request) {
+        businessConfigService.applyCostConfig(request.getGroupId(), request.getProposedOverheadPercentage(),
+                request.getProposedProfitMarginPercentage());
     }
 
     public CostConfigChangeRequest reject(String groupId, String userId, String requestId) {
