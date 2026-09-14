@@ -240,6 +240,7 @@ export interface OrderView {
   researchTimeHours: number;
   recipeSteps: string[];
   assemblyPackagingInstructions: string | null;
+  notes: string | null;
   mandatoryItems: MandatoryItem[];
   tools: Tool[];
   addOns: LineItem[];

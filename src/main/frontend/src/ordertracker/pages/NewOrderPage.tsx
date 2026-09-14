@@ -49,6 +49,7 @@ export default function NewOrderPage() {
   const [customPatternNotes, setCustomPatternNotes] = useState("");
   const [recipeStepsText, setRecipeStepsText] = useState("");
   const [assemblyPackagingInstructions, setAssemblyPackagingInstructions] = useState("");
+  const [notes, setNotes] = useState("");
   const [researchTimeHours, setResearchTimeHours] = useState(0);
 
   // individual-only
@@ -159,6 +160,7 @@ export default function NewOrderPage() {
         researchTimeHours,
         recipeSteps,
         assemblyPackagingInstructions: assemblyPackagingInstructions.trim() || null,
+        notes: notes.trim() || null,
       };
       if (orderType === "INDIVIDUAL") {
         body.mandatoryItems = mandatoryItems.filter((m) => m.value.trim());
@@ -531,6 +533,15 @@ export default function NewOrderPage() {
             </button>
           </>
         )}
+
+        <h2 className="settings-section">Notes</h2>
+        <div className="form-row">
+          <label htmlFor="no-notes" className="sr-only">
+            Notes — customer interactions, changes, anything else
+          </label>
+          <textarea id="no-notes" value={notes} onChange={(e) => setNotes(e.target.value)}
+            placeholder="Customer interactions, changes mid-order, or anything else that doesn't fit above" />
+        </div>
 
         <div style={{ marginTop: 20 }}>
           <button className="primary" type="submit">

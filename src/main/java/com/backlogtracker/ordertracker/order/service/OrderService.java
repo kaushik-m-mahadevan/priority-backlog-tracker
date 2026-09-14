@@ -185,6 +185,7 @@ public class OrderService {
                 .researchTimeHours(request.researchTimeHours())
                 .recipeSteps(request.recipeSteps() == null ? List.of() : request.recipeSteps())
                 .assemblyPackagingInstructions(request.assemblyPackagingInstructions())
+                .notes(request.notes())
                 .payments(new ArrayList<>())
                 .paymentStatus(calculator.derivePaymentStatus(List.of(), 0))
                 .createdAt(now)
@@ -262,6 +263,7 @@ public class OrderService {
         order.setResearchTimeHours(request.researchTimeHours());
         order.setRecipeSteps(request.recipeSteps() == null ? List.of() : request.recipeSteps());
         order.setAssemblyPackagingInstructions(request.assemblyPackagingInstructions());
+        order.setNotes(request.notes());
         List<MandatoryItem> mandatoryItems = toMandatoryItems(request.mandatoryItems());
         List<LineItem> addOns = toLineItems(request.addOns());
         Order.Packaging packaging = buildPackaging(groupId, userId, request.packagingPresetId(), request.itemizedPackaging());
@@ -308,6 +310,7 @@ public class OrderService {
         order.setResearchTimeHours(request.researchTimeHours());
         order.setRecipeSteps(request.recipeSteps() == null ? List.of() : request.recipeSteps());
         order.setAssemblyPackagingInstructions(request.assemblyPackagingInstructions());
+        order.setNotes(request.notes());
 
         request.variants().forEach(rules::validateVariant);
         List<Variant> oldVariants = details.getVariants();

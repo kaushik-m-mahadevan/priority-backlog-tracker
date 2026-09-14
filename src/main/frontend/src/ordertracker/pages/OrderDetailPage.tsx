@@ -59,6 +59,7 @@ function EditOrderForm({
   const [customPatternNotes, setCustomPatternNotes] = useState(order.pattern?.customPatternNotes ?? "");
   const [recipeStepsText, setRecipeStepsText] = useState(order.recipeSteps.join("\n"));
   const [assemblyPackagingInstructions, setAssemblyPackagingInstructions] = useState(order.assemblyPackagingInstructions ?? "");
+  const [notes, setNotes] = useState(order.notes ?? "");
   const [mandatoryItems, setMandatoryItems] = useState<MandatoryItemDraft[]>(
     order.mandatoryItems.length > 0
       ? order.mandatoryItems.map((m) => ({ itemKey: m.itemKey, value: m.value, quantity: m.quantity, unitCost: m.unitCost, notes: m.notes ?? "" }))
@@ -95,6 +96,7 @@ function EditOrderForm({
         researchTimeHours,
         recipeSteps: recipeStepsText.split("\n").map((s) => s.trim()).filter(Boolean),
         assemblyPackagingInstructions: assemblyPackagingInstructions.trim() || null,
+        notes: notes.trim() || null,
         mandatoryItems: mandatoryItems.filter((m) => m.value.trim()),
         tools: tools.filter((t) => t.value.trim()),
         addOns: addOns.filter((a) => a.name.trim()),
@@ -219,6 +221,13 @@ function EditOrderForm({
             onChange={(e) => setAssemblyTimeHours(Number(e.target.value))} />
         </div>
       </div>
+
+      <h2 className="settings-section">Notes</h2>
+      <div className="form-row">
+        <label htmlFor="eod-notes">Notes — customer interactions, changes, anything else</label>
+        <textarea id="eod-notes" value={notes} onChange={(e) => setNotes(e.target.value)}
+          placeholder="Customer interactions, changes mid-order, or anything else that doesn't fit above" />
+      </div>
       <button className="primary" type="submit">
         Save
       </button>
@@ -255,6 +264,7 @@ function EditBulkDetailsForm({
   const [customPatternNotes, setCustomPatternNotes] = useState(order.pattern?.customPatternNotes ?? "");
   const [recipeStepsText, setRecipeStepsText] = useState(order.recipeSteps.join("\n"));
   const [assemblyPackagingInstructions, setAssemblyPackagingInstructions] = useState(order.assemblyPackagingInstructions ?? "");
+  const [notes, setNotes] = useState(order.notes ?? "");
   const [researchTimeHours, setResearchTimeHours] = useState(order.researchTimeHours);
   const [variants, setVariants] = useState<VariantDraft[]>(
     (order.bulkDetails?.variants ?? []).map((v) => ({
@@ -295,6 +305,7 @@ function EditBulkDetailsForm({
         researchTimeHours,
         recipeSteps: recipeStepsText.split("\n").map((s) => s.trim()).filter(Boolean),
         assemblyPackagingInstructions: assemblyPackagingInstructions.trim() || null,
+        notes: notes.trim() || null,
         variants: variants
           .filter((v) => v.label.trim())
           .map((v) => ({
@@ -514,6 +525,13 @@ function EditBulkDetailsForm({
         + Add variant (copies the last one)
       </button>
 
+      <h2 className="settings-section">Notes</h2>
+      <div className="form-row">
+        <label htmlFor="ebd-notes">Notes — customer interactions, changes, anything else</label>
+        <textarea id="ebd-notes" value={notes} onChange={(e) => setNotes(e.target.value)}
+          placeholder="Customer interactions, changes mid-order, or anything else that doesn't fit above" />
+      </div>
+
       <div style={{ marginTop: 16 }}>
         <button className="primary" type="submit">
           Save
@@ -681,6 +699,15 @@ export default function OrderDetailPage() {
             <p style={{ whiteSpace: "pre-wrap", margin: 0 }}>{order.assemblyPackagingInstructions}</p>
           ) : (
             <p className="empty">Not recorded.</p>
+          )}
+        </div>
+
+        <div className="card">
+          <h2>Notes</h2>
+          {order.notes ? (
+            <p style={{ whiteSpace: "pre-wrap", margin: 0 }}>{order.notes}</p>
+          ) : (
+            <p className="empty">Nothing noted.</p>
           )}
         </div>
       </div>

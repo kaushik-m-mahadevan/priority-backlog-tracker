@@ -98,6 +98,10 @@ public class Order {
      *  crochet pattern itself, not what happens after the pieces are made. Design-decision
      *  extension, not in the original spec. */
     private String assemblyPackagingInstructions;
+    /** Free-text catch-all: customer interactions, things that changed mid-order, or any
+     *  other detail that doesn't fit the structured fields above. Design-decision
+     *  extension, not in the original spec. */
+    private String notes;
 
     // ---- 5.9 crocheting/assembly time (individual only; bulk uses per-variant) ----
     private double craftingTimeHours;

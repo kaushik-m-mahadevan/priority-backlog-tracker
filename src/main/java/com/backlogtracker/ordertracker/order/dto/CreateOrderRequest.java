@@ -10,7 +10,7 @@ import com.backlogtracker.ordertracker.order.domain.Order.ResearchItemType;
 public record CreateOrderRequest(String customerId, String orderType, String createdByCreatorId,
                                  String itemName, Instant orderReceivedDate, Instant quotedDeliveryDate,
                                  PatternInput pattern, List<ResearchItemInput> researchItems,
-                                 double researchTimeHours, List<String> recipeSteps, String assemblyPackagingInstructions,
+                                 double researchTimeHours, List<String> recipeSteps, String assemblyPackagingInstructions, String notes,
                                  // individual-only
                                  List<MandatoryItemInput> mandatoryItems, List<ToolInput> tools,
                                  List<LineItemInput> addOns,
