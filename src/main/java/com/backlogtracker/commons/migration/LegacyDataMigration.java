@@ -76,10 +76,33 @@ public class LegacyDataMigration implements ApplicationRunner {
         mongo.updateMulti(new Query(Criteria.where("scope").exists(true)),
                 new Update().unset("scope"), "archivedItems");
 
+        // Order Tracker's rebuild (commit 54c7b29) renamed OrderStatus/PaymentStatus values;
+        // a pre-rebuild order document still carrying an old value 400s on read with
+        // "No enum constant ...OrderStatus.RECEIVED" the same way the OWNER/CONTRIBUTOR
+        // roles above did before this migration existed.
+        long ordersReceived = mongo.updateMulti(
+                new Query(Criteria.where("status").is("RECEIVED")),
+                new Update().set("status", "INQUIRY"), "orders").getModifiedCount();
+        long ordersReady = mongo.updateMulti(
+                new Query(Criteria.where("status").is("READY_FOR_SHIPMENT")),
+                new Update().set("status", "READY_TO_SHIP"), "orders").getModifiedCount();
+        long paymentsPaid = mongo.updateMulti(
+                new Query(Criteria.where("paymentStatus").is("PAID")),
+                new Update().set("paymentStatus", "PAID_IN_FULL"), "orders").getModifiedCount();
+        long paymentsRefunded = mongo.updateMulti(
+                new Query(Criteria.where("paymentStatus").is("FULLY_REFUNDED")),
+                new Update().set("paymentStatus", "REFUNDED"), "orders").getModifiedCount();
+
         if (admins + users + activated + renamed + capped > 0) {
             log.info("LegacyDataMigration: OWNER->ADMIN x{}, CONTRIBUTOR/VIEWER->USER x{}, "
                     + "status->ACTIVE x{}, userCode->handle x{}, maxGroupsPerUser set x{}",
                     admins, users, activated, renamed, capped);
+        }
+        if (ordersReceived + ordersReady + paymentsPaid + paymentsRefunded > 0) {
+            log.info("LegacyDataMigration: order status RECEIVED->INQUIRY x{}, "
+                    + "READY_FOR_SHIPMENT->READY_TO_SHIP x{}, paymentStatus PAID->PAID_IN_FULL x{}, "
+                    + "FULLY_REFUNDED->REFUNDED x{}",
+                    ordersReceived, ordersReady, paymentsPaid, paymentsRefunded);
         }
 
         List<?> ids = mongo.findDistinct(new Query(), "_id", "users", Object.class);

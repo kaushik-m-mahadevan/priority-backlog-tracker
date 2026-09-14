@@ -37,4 +37,26 @@ class LegacyDataMigrationTest {
 
         mongo.remove(new Query(Criteria.where("email").regex("^legacy-")), "users");
     }
+
+    @Test
+    void rewritesLegacyOrderAndPaymentStatuses() {
+        mongo.getCollection("orders").insertOne(new Document("orderNumber", "LEGACY-1")
+                .append("status", "RECEIVED").append("paymentStatus", "PAID"));
+        mongo.getCollection("orders").insertOne(new Document("orderNumber", "LEGACY-2")
+                .append("status", "READY_FOR_SHIPMENT").append("paymentStatus", "FULLY_REFUNDED"));
+
+        migration.run(null);
+
+        Document o1 = mongo.getCollection("orders")
+                .find(new Document("orderNumber", "LEGACY-1")).first();
+        Document o2 = mongo.getCollection("orders")
+                .find(new Document("orderNumber", "LEGACY-2")).first();
+
+        assertThat(o1.getString("status")).isEqualTo("INQUIRY");
+        assertThat(o1.getString("paymentStatus")).isEqualTo("PAID_IN_FULL");
+        assertThat(o2.getString("status")).isEqualTo("READY_TO_SHIP");
+        assertThat(o2.getString("paymentStatus")).isEqualTo("REFUNDED");
+
+        mongo.remove(new Query(Criteria.where("orderNumber").regex("^LEGACY-")), "orders");
+    }
 }
