@@ -12,6 +12,8 @@ public interface ItemRepository extends MongoRepository<Item, String> {
 
     Optional<Item> findByItemId(String itemId);
 
+    Optional<Item> findByGroupIdAndLinkedOrderId(String groupId, String linkedOrderId);
+
     List<Item> findByGroupIdAndStatusIn(String groupId, List<ItemStatus> statuses);
 
     long countByGroupIdAndCategory(String groupId, String category);

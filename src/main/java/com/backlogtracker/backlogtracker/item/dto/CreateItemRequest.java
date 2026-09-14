@@ -20,5 +20,8 @@ public record CreateItemRequest(
         @NotNull @Valid EffortEstimate effortEstimate,
         Instant dueDate,
         String ownerId,
-        String notes) {
+        String notes,
+        /** Opaque Order Tracker order id (platform integration follow-up) — optional, only
+         *  ever set by the "add to group" flow; never rendered anywhere in this applet's UI. */
+        String linkedOrderId) {
 }

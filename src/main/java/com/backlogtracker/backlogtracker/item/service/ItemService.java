@@ -49,6 +49,11 @@ public class ItemService {
         validateCategory(r.groupId(), r.category());
         validatePriority(cfg, r.priority());
         validateOwner(r.ownerId());
+        if (r.linkedOrderId() != null && !r.linkedOrderId().isBlank()
+                && items.findByGroupIdAndLinkedOrderId(r.groupId(), r.linkedOrderId()).isPresent()) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "This order is already linked to an item in this group");
+        }
 
         Instant due = r.dueDate() != null
                 ? r.dueDate()
@@ -66,11 +71,19 @@ public class ItemService {
                 .createdBy(actor.id())
                 .lastUpdatedBy(actor.id())
                 .ownerId(blankToNull(r.ownerId()))
+                .linkedOrderId(blankToNull(r.linkedOrderId()))
                 .build();
         if (r.notes() != null && !r.notes().isBlank()) {
             item.setNotes(Notes.markdown(r.notes().trim()));
         }
         return items.save(item);
+    }
+
+    /** Used only by Order Tracker's "add to group" flow (called directly from the browser,
+     *  not from any ordertracker backend code — this package never imports ordertracker). */
+    public Item findByLinkedOrder(String groupId, String linkedOrderId, AuthUser actor) {
+        groupService.requireMember(groupId, actor.id());
+        return items.findByGroupIdAndLinkedOrderId(groupId, linkedOrderId).orElse(null);
     }
 
     public Item update(String id, UpdateItemRequest r, AuthUser actor) {

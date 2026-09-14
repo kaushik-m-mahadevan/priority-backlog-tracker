@@ -27,7 +27,8 @@ import lombok.Setter;
 @Document("items")
 @CompoundIndexes({
         @CompoundIndex(name = "group_status", def = "{'groupId': 1, 'status': 1}"),
-        @CompoundIndex(name = "group_owner", def = "{'groupId': 1, 'ownerId': 1}")
+        @CompoundIndex(name = "group_owner", def = "{'groupId': 1, 'ownerId': 1}"),
+        @CompoundIndex(name = "group_linkedOrder", def = "{'groupId': 1, 'linkedOrderId': 1}", unique = true, sparse = true)
 })
 @Getter
 @Setter
@@ -78,4 +79,13 @@ public class Item {
     /** Optimistic-locking version — a stale save is rejected with 409 (design §19). */
     @Version
     private Long version;
+
+    /**
+     * Opaque link to an Order Tracker order (platform integration follow-up) — at most one
+     * item per group may point at a given order (the compound index above). This package
+     * never interprets the value or imports anything from {@code ordertracker}; it's the
+     * frontend that bridges the two applets by calling each one's own REST API. Deliberately
+     * not surfaced anywhere in Backlog Tracker's own UI, only used for the linking check.
+     */
+    private String linkedOrderId;
 }

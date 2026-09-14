@@ -23,7 +23,8 @@ public record ItemView(
         Notes notes,
         Instant createdAt,
         Instant updatedAt,
-        Long version) {
+        Long version,
+        String linkedOrderId) {
 
     public record EffortView(int value, String unit, long minutes) {
     }
@@ -41,6 +42,6 @@ public record ItemView(
                 i.getGroupId(),
                 i.isPinned(),
                 i.getOwnerId(), i.getCreatedBy(), i.getLastUpdatedBy(), i.getNotes(),
-                i.getCreatedAt(), i.getUpdatedAt(), i.getVersion());
+                i.getCreatedAt(), i.getUpdatedAt(), i.getVersion(), i.getLinkedOrderId());
     }
 }

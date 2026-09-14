@@ -16,6 +16,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.backlogtracker.commons.web.PageResponse;
 import com.backlogtracker.commons.group.service.GroupService;
+import com.backlogtracker.backlogtracker.item.domain.Item;
 import com.backlogtracker.backlogtracker.item.domain.ItemStatus;
 import com.backlogtracker.backlogtracker.item.dto.CreateItemRequest;
 import com.backlogtracker.backlogtracker.item.dto.ItemView;
@@ -66,6 +67,16 @@ public class ItemController {
     @GetMapping("/{id}")
     public ItemView get(@PathVariable String id, @AuthenticationPrincipal AuthUser actor) {
         return ItemView.of(itemService.get(id, actor));
+    }
+
+    /** Used by Order Tracker's "add to group" flow to check whether an order is already
+     *  linked to an item in the chosen group, before offering to create one. Called
+     *  directly from the browser — this applet never calls into ordertracker's backend. */
+    @GetMapping("/by-linked-order/{linkedOrderId}")
+    public ItemView byLinkedOrder(@PathVariable String linkedOrderId, @RequestParam String groupId,
+                                  @AuthenticationPrincipal AuthUser actor) {
+        Item item = itemService.findByLinkedOrder(groupId, linkedOrderId, actor);
+        return item == null ? null : ItemView.of(item);
     }
 
     @PostMapping
