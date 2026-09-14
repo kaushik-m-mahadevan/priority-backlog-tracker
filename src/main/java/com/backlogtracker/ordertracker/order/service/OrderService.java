@@ -248,6 +248,10 @@ public class OrderService {
 
         Instant oldDueDate = order.getCostEstimate() == null ? null : order.getCostEstimate().getComputedDueDate();
 
+        if (request.customerId() != null && !request.customerId().isBlank()) {
+            customerService.requireExists(groupId, request.customerId());
+            order.setCustomerId(request.customerId());
+        }
         order.setItemName(request.itemName());
         order.setOrderReceivedDate(request.orderReceivedDate());
         order.setQuotedDeliveryDate(request.quotedDeliveryDate());
@@ -285,6 +289,20 @@ public class OrderService {
         requireBulk(order);
         BusinessConfig cfg = businessConfigService.get(groupId, userId);
         Order.BulkDetails details = order.getBulkDetails();
+
+        if (request.customerId() != null && !request.customerId().isBlank()) {
+            customerService.requireExists(groupId, request.customerId());
+            order.setCustomerId(request.customerId());
+        }
+        order.setItemName(request.itemName());
+        if (request.orderReceivedDate() != null) {
+            order.setOrderReceivedDate(request.orderReceivedDate());
+        }
+        order.setQuotedDeliveryDate(request.quotedDeliveryDate());
+        order.setPattern(toPattern(request.pattern()));
+        order.setResearchItems(toResearchItems(request.researchItems()));
+        order.setResearchTimeHours(request.researchTimeHours());
+        order.setRecipeSteps(request.recipeSteps() == null ? List.of() : request.recipeSteps());
 
         request.variants().forEach(rules::validateVariant);
         List<Variant> oldVariants = details.getVariants();

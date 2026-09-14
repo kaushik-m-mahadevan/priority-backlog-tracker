@@ -11,7 +11,8 @@ import com.backlogtracker.ordertracker.order.dto.CreateOrderRequest.ResearchItem
 /** Full replace of an individual order's editable envelope (every card on the order
  *  screen except status/payments/shipment/stage-assignment, which have their own focused
  *  endpoints) — recomputes {@code costEstimate} afterward. */
-public record UpdateOrderRequest(String itemName, Instant orderReceivedDate, Instant quotedDeliveryDate,
+public record UpdateOrderRequest(String customerId, String itemName, Instant orderReceivedDate,
+                                 Instant quotedDeliveryDate,
                                  PatternInput pattern, List<ResearchItemInput> researchItems,
                                  double researchTimeHours, List<String> recipeSteps,
                                  List<MandatoryItemInput> mandatoryItems,

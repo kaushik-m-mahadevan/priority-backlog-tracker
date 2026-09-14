@@ -186,6 +186,47 @@ class OrderApiTest {
     }
 
     @Test
+    void individualOrderCustomerCanBeReassigned() throws Exception {
+        String orderId = createBasicIndividualOrder();
+        String otherCustomerBody = mvc.perform(auth(post("/api/ordertracker/groups/" + groupId + "/customers"), token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"name":"Second Customer","acquisitionChannel":"WALK_IN"}"""))
+                .andReturn().getResponse().getContentAsString();
+        String otherCustomerId = mapper.readTree(otherCustomerBody).get("id").asText();
+
+        mvc.perform(auth(put("/api/ordertracker/groups/" + groupId + "/orders/" + orderId), token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"customerId":"%s","itemName":"Amigurumi bear","orderReceivedDate":"2026-01-01T00:00:00Z",
+                                 "mandatoryItems":[{"itemKey":"wool","value":"Cream","quantity":1,"unitCost":100}],
+                                 "addOns":[],"craftingTimeHours":1}""".formatted(otherCustomerId)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.customerId").value(otherCustomerId));
+    }
+
+    @Test
+    void bulkOrderEnvelopeFieldsAreEditableNotJustVariants() throws Exception {
+        String orderId = createBasicBulkOrder();
+        String variantId = firstVariantId(orderId);
+
+        mvc.perform(auth(put("/api/ordertracker/groups/" + groupId + "/orders/" + orderId + "/bulk-details"), token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"customerId":"%s","itemName":"Updated pots name","orderReceivedDate":"2026-01-01T00:00:00Z",
+                                 "researchTimeHours":4,
+                                 "variants":[{"variantId":"%s","label":"Blue flower","quantity":20,
+                                  "mandatoryItems":[{"itemKey":"wool","value":"Blue","quantity":1,"unitCost":100}],
+                                  "craftingTimeHours":1,
+                                  "splitAllocation":[{"creatorId":"%s","quantityAssigned":20}]}],
+                                 "coordinatingCreatorId":"%s","logisticsBufferDays":0}"""
+                                .formatted(customerId, variantId, creatorAId, creatorAId)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.itemName").value("Updated pots name"))
+                .andExpect(jsonPath("$.researchTimeHours").value(4.0));
+    }
+
+    @Test
     void stageAssignmentProgressRollsUpIntoEqualWeightedCompletion() throws Exception {
         String orderId = createBasicIndividualOrder();
 
@@ -356,12 +397,14 @@ class OrderApiTest {
         mvc.perform(auth(put("/api/ordertracker/groups/" + groupId + "/orders/" + orderId + "/bulk-details"), token)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"variants":[{"variantId":"%s","label":"Blue flower","quantity":30,
+                                {"customerId":"%s","itemName":"Mini succulent crochet pots",
+                                 "orderReceivedDate":"2026-01-01T00:00:00Z",
+                                 "variants":[{"variantId":"%s","label":"Blue flower","quantity":30,
                                   "mandatoryItems":[{"itemKey":"wool","value":"Blue","quantity":1,"unitCost":100}],
                                   "craftingTimeHours":1,
                                   "splitAllocation":[{"creatorId":"%s","quantityAssigned":30}]}],
                                  "coordinatingCreatorId":"%s","logisticsBufferDays":0}"""
-                                .formatted(variantId, creatorAId, creatorAId)))
+                                .formatted(customerId, variantId, creatorAId, creatorAId)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.bulkDetails.totalQuantity").value(30));
 

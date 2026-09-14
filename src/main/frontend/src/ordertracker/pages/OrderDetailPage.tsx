@@ -22,6 +22,7 @@ function EditOrderForm({
   order,
   config,
   presets,
+  customers,
   onSaved,
   onCancel,
 }: {
@@ -29,9 +30,11 @@ function EditOrderForm({
   order: OrderView;
   config: BusinessConfig;
   presets: PresetOption[];
+  customers: Customer[];
   onSaved: (o: OrderView) => void;
   onCancel: () => void;
 }) {
+  const [customerId, setCustomerId] = useState(order.customerId);
   const [itemName, setItemName] = useState(order.itemName ?? "");
   const [orderReceivedDate, setOrderReceivedDate] = useState(order.orderReceivedDate?.slice(0, 10) ?? "");
   const [quotedDeliveryDate, setQuotedDeliveryDate] = useState(order.quotedDeliveryDate?.slice(0, 10) ?? "");
@@ -58,6 +61,7 @@ function EditOrderForm({
     setError(null);
     try {
       const updated = await orderTrackerApi.updateOrder(groupId, order.id, {
+        customerId,
         itemName,
         orderReceivedDate: orderReceivedDate ? new Date(orderReceivedDate).toISOString() : null,
         quotedDeliveryDate: quotedDeliveryDate ? new Date(quotedDeliveryDate).toISOString() : null,
@@ -84,6 +88,16 @@ function EditOrderForm({
   return (
     <form className="card" onSubmit={submit} style={{ marginBottom: 16 }}>
       {error && <div className="error">{error}</div>}
+      <div className="form-row">
+        <label htmlFor="eod-customer">Customer</label>
+        <select id="eod-customer" value={customerId} onChange={(e) => setCustomerId(e.target.value)} required>
+          {customers.map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.name}
+            </option>
+          ))}
+        </select>
+      </div>
       <div className="form-row">
         <label htmlFor="eod-item-name">Item name</label>
         <input id="eod-item-name" value={itemName} onChange={(e) => setItemName(e.target.value)} />
@@ -185,6 +199,7 @@ function EditBulkDetailsForm({
   order,
   config,
   creators,
+  customers,
   onSaved,
   onCancel,
 }: {
@@ -192,9 +207,19 @@ function EditBulkDetailsForm({
   order: OrderView;
   config: BusinessConfig;
   creators: Creator[];
+  customers: Customer[];
   onSaved: (o: OrderView) => void;
   onCancel: () => void;
 }) {
+  const [customerId, setCustomerId] = useState(order.customerId);
+  const [itemName, setItemName] = useState(order.itemName ?? "");
+  const [orderReceivedDate, setOrderReceivedDate] = useState(order.orderReceivedDate?.slice(0, 10) ?? "");
+  const [quotedDeliveryDate, setQuotedDeliveryDate] = useState(order.quotedDeliveryDate?.slice(0, 10) ?? "");
+  const [patternType, setPatternType] = useState(order.pattern?.patternType ?? "");
+  const [templateName, setTemplateName] = useState(order.pattern?.templateName ?? "");
+  const [customPatternNotes, setCustomPatternNotes] = useState(order.pattern?.customPatternNotes ?? "");
+  const [recipeStepsText, setRecipeStepsText] = useState(order.recipeSteps.join("\n"));
+  const [researchTimeHours, setResearchTimeHours] = useState(order.researchTimeHours);
   const [variants, setVariants] = useState<VariantDraft[]>(
     (order.bulkDetails?.variants ?? []).map((v) => ({
       variantId: v.variantId,
@@ -221,6 +246,17 @@ function EditBulkDetailsForm({
     }
     try {
       const updated = await orderTrackerApi.updateBulkDetails(groupId, order.id, {
+        customerId,
+        itemName,
+        orderReceivedDate: orderReceivedDate ? new Date(orderReceivedDate).toISOString() : null,
+        quotedDeliveryDate: quotedDeliveryDate ? new Date(quotedDeliveryDate).toISOString() : null,
+        pattern: patternType
+          ? { patternType, templateName: patternType === "TEMPLATE" ? templateName : null,
+              customPatternNotes: patternType === "CUSTOM" ? customPatternNotes : null, attachmentUrls: [] }
+          : null,
+        researchItems: order.researchItems,
+        researchTimeHours,
+        recipeSteps: recipeStepsText.split("\n").map((s) => s.trim()).filter(Boolean),
         variants: variants
           .filter((v) => v.label.trim())
           .map((v) => ({
@@ -246,6 +282,66 @@ function EditBulkDetailsForm({
     <form className="card" onSubmit={submit} style={{ marginBottom: 16 }}>
       {error && <div className="error">{error}</div>}
 
+      <div className="form-row">
+        <label htmlFor="ebd-customer">Customer</label>
+        <select id="ebd-customer" value={customerId} onChange={(e) => setCustomerId(e.target.value)} required>
+          {customers.map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.name}
+            </option>
+          ))}
+        </select>
+      </div>
+      <div className="form-row">
+        <label htmlFor="ebd-item-name">Item name</label>
+        <input id="ebd-item-name" value={itemName} onChange={(e) => setItemName(e.target.value)} />
+      </div>
+      <div className="form-grid">
+        <div className="form-row">
+          <label htmlFor="ebd-order-received">Order received</label>
+          <input id="ebd-order-received" type="date" value={orderReceivedDate} onChange={(e) => setOrderReceivedDate(e.target.value)} />
+        </div>
+        <div className="form-row">
+          <label htmlFor="ebd-quoted-delivery">Quoted delivery</label>
+          <input id="ebd-quoted-delivery" type="date" value={quotedDeliveryDate} onChange={(e) => setQuotedDeliveryDate(e.target.value)} />
+        </div>
+      </div>
+      <div className="form-row">
+        <label htmlFor="ebd-pattern-type">Pattern</label>
+        <select id="ebd-pattern-type" value={patternType} onChange={(e) => setPatternType(e.target.value as never)}>
+          <option value="">No pattern recorded</option>
+          <option value="TEMPLATE">Template</option>
+          <option value="CUSTOM">Custom</option>
+        </select>
+      </div>
+      {patternType === "TEMPLATE" && (
+        <>
+          <label htmlFor="ebd-template-name" className="sr-only">
+            Template name
+          </label>
+          <input id="ebd-template-name" value={templateName} onChange={(e) => setTemplateName(e.target.value)} placeholder="Template name" style={{ marginBottom: 12 }} />
+        </>
+      )}
+      {patternType === "CUSTOM" && (
+        <>
+          <label htmlFor="ebd-custom-pattern-notes" className="sr-only">
+            Custom pattern notes
+          </label>
+          <textarea id="ebd-custom-pattern-notes" value={customPatternNotes} onChange={(e) => setCustomPatternNotes(e.target.value)}
+            placeholder="Notes kept for recreation" style={{ marginBottom: 12 }} />
+        </>
+      )}
+      <div className="form-row">
+        <label htmlFor="ebd-recipe-steps">Recipe (one step per line)</label>
+        <textarea id="ebd-recipe-steps" value={recipeStepsText} onChange={(e) => setRecipeStepsText(e.target.value)} />
+      </div>
+      <div className="form-row" style={{ maxWidth: 220 }}>
+        <label htmlFor="ebd-research-time">Research time (hours)</label>
+        <input id="ebd-research-time" type="number" min={0} step={0.25} value={researchTimeHours}
+          onChange={(e) => setResearchTimeHours(Number(e.target.value))} />
+      </div>
+
+      <h2 className="settings-section">Logistics</h2>
       <div className="form-grid">
         <div className="form-row">
           <label htmlFor="ebd-coordinating-creator">Coordinating creator</label>
@@ -264,6 +360,7 @@ function EditBulkDetailsForm({
         </div>
       </div>
 
+      <h2 className="settings-section">Variants</h2>
       {variants.map((v, i) => {
         const assigned = v.splitAllocation.filter((s) => s.creatorId).reduce((sum, s) => sum + s.quantityAssigned, 0);
         const mismatch = v.splitAllocation.length > 0 && assigned !== v.quantity;
@@ -459,6 +556,7 @@ export default function OrderDetailPage() {
           order={order}
           config={config}
           presets={presets}
+          customers={customers}
           onSaved={(o) => {
             setOrder(o);
             setEditing(false);
@@ -472,6 +570,7 @@ export default function OrderDetailPage() {
           order={order}
           config={config}
           creators={creators}
+          customers={customers}
           onSaved={(o) => {
             setOrder(o);
             setEditing(false);
