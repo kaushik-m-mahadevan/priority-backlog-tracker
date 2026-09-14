@@ -39,6 +39,7 @@ import com.backlogtracker.ordertracker.order.dto.UpdateBulkStageProgressRequest;
 import com.backlogtracker.ordertracker.order.dto.UpdateOrderRequest;
 import com.backlogtracker.ordertracker.order.dto.UpdateOrderStatusRequest;
 import com.backlogtracker.ordertracker.order.dto.UpdateStageAssignmentRequest;
+import com.backlogtracker.ordertracker.order.validation.OrderBusinessRules;
 import com.backlogtracker.ordertracker.order.repository.OrderChangeLogRepository;
 import com.backlogtracker.ordertracker.order.repository.OrderRepository;
 
@@ -61,6 +62,7 @@ public class OrderService {
     private final MasterDataService masterDataService;
     private final OrderNumberService orderNumberService;
     private final OrderCalculator calculator;
+    private final OrderBusinessRules rules;
     private final Clock clock;
 
     public List<OrderView> all(String groupId, String userId) {
@@ -200,6 +202,7 @@ public class OrderService {
             if (request.variants() == null || request.variants().isEmpty()) {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "A bulk order needs at least one variant");
             }
+            request.variants().forEach(rules::validateVariant);
             List<Variant> variants = request.variants().stream()
                     .map(v -> buildVariant(groupId, userId, v, cfg))
                     .collect(Collectors.toList());
@@ -271,6 +274,7 @@ public class OrderService {
         BusinessConfig cfg = businessConfigService.get(groupId, userId);
         Order.BulkDetails details = order.getBulkDetails();
 
+        request.variants().forEach(rules::validateVariant);
         List<Variant> oldVariants = details.getVariants();
         List<Variant> newVariants = request.variants().stream()
                 .map(v -> buildVariant(groupId, userId, v, cfg))
@@ -294,9 +298,14 @@ public class OrderService {
         details.setVariants(newVariants);
         details.setCoordinatingCreatorId(request.coordinatingCreatorId());
         details.setLogisticsBufferDays(request.logisticsBufferDays());
-        // batch-tracked stage totals track total quantity — resize without losing progress
+        // batch-tracked stage totals track total quantity — resize without losing progress,
+        // but clamp unitsCompleted down too: shrinking the total below what was already
+        // marked done would otherwise report completion over 100%.
         int totalQty = newVariants.stream().mapToInt(Variant::getQuantity).sum();
-        details.getStageProgress().forEach(sp -> sp.setTotalUnits(totalQty));
+        details.getStageProgress().forEach(sp -> {
+            sp.setTotalUnits(totalQty);
+            sp.setUnitsCompleted(Math.min(sp.getUnitsCompleted(), totalQty));
+        });
 
         Instant oldDueDate = details.getComputedDueDate();
         recomputeBulkTotals(details, cfg, order.getOrderReceivedDate() == null ? clock.instant() : order.getOrderReceivedDate());
@@ -570,7 +579,15 @@ public class OrderService {
     private List<SplitLine> mergeProgress(List<SplitLine> oldLines, List<SplitLine> newLines) {
         for (SplitLine nl : newLines) {
             oldLines.stream().filter(ol -> ol.getCreatorId().equals(nl.getCreatorId())).findFirst()
-                    .ifPresent(ol -> nl.setStageProgress(ol.getStageProgress()));
+                    .ifPresent(ol -> {
+                        // same shrink-below-what's-already-done risk as the batch-tracked
+                        // totalUnits resize above, one level down: this creator's own
+                        // quantityAssigned may have shrunk on this edit.
+                        List<Order.StageProgressEntry> carried = ol.getStageProgress();
+                        carried.forEach(sp -> sp.setUnitsCompleted(
+                                Math.min(sp.getUnitsCompleted(), nl.getQuantityAssigned())));
+                        nl.setStageProgress(carried);
+                    });
         }
         return newLines;
     }
