@@ -48,7 +48,16 @@ public class BusinessConfig {
      *  entries of it, e.g. two colours). Order-level entries always allow multiple values
      *  per type regardless of this flag; the flag only decides whether quantity/unit cost
      *  are meaningful to collect for that type. */
-    public record MandatoryItemType(String itemKey, String label, List<String> allowedValues, boolean isTool) {
+    public record MandatoryItemType(String itemKey, String label, List<String> allowedValues, Boolean isTool) {
+        /** Boxed (not primitive) so Spring Data can hydrate documents persisted before this
+         *  field existed — a primitive component can't bind a missing/null Mongo value and
+         *  fails the whole read with "Parameter isTool must not be null". Old data has no
+         *  key at all, which the driver hands in as null here; treated as "not a tool". */
+        public MandatoryItemType {
+            if (isTool == null) {
+                isTool = false;
+            }
+        }
     }
 
     /**
