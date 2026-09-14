@@ -50,8 +50,9 @@ export default function AddToGroupModal({ order, onClose }: { order: OrderView; 
     }
     setChecking(true);
     setExistingItem(null);
+    setError(null);
     Promise.all([
-      backlogLinkApi.findLinkedItem(groupId, order.id).catch(() => null),
+      backlogLinkApi.findLinkedItem(groupId, order.id),
       backlogLinkApi.categories(groupId),
       backlogLinkApi.priorities(),
     ])
@@ -62,6 +63,9 @@ export default function AddToGroupModal({ order, onClose }: { order: OrderView; 
         if (!category && cats.categories.length > 0) setCategory(cats.categories[0]);
         if (!priority && cfg.priorities.length > 0) setPriority(cfg.priorities[0]);
       })
+      .catch(() =>
+        setError("Couldn't check whether this order is already linked to a backlog item — try again.")
+      )
       .finally(() => setChecking(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [groupId]);
@@ -151,7 +155,8 @@ export default function AddToGroupModal({ order, onClose }: { order: OrderView; 
                 </div>
               </div>
             ) : (
-              groupId && (
+              groupId &&
+              !error && (
                 <>
                   <div className="form-row">
                     <label>Title</label>
