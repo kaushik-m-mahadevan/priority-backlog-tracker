@@ -26,16 +26,25 @@ public class BusinessConfigService {
         return repository.findById(groupId).orElseGet(() -> seed(groupId));
     }
 
-    public BusinessConfig update(String groupId, String userId, double overheadPercentage,
-                                 double profitMarginPercentage, String currency,
+    /** Overhead % and profit margin % are deliberately absent here — they change what
+     *  every existing order costs, so they go only through {@code CostConfigChangeService}'s
+     *  unanimous-approval flow (platform integration decision). Everything else about a
+     *  business's config is low-stakes enough for any member to change freely. */
+    public BusinessConfig update(String groupId, String userId, String currency,
                                  List<MandatoryItemType> mandatoryItemTypes,
                                  List<WorkStageType> workStages) {
         BusinessConfig cfg = get(groupId, userId); // ensures membership + seeds if absent
-        cfg.setOverheadPercentage(overheadPercentage);
-        cfg.setProfitMarginPercentage(profitMarginPercentage);
         cfg.setCurrency(currency);
         cfg.setMandatoryItemTypes(mandatoryItemTypes);
         cfg.setWorkStages(workStages);
+        return repository.save(cfg);
+    }
+
+    /** Used only by {@code CostConfigChangeService} once a proposal is unanimously approved. */
+    BusinessConfig applyCostConfig(String groupId, double overheadPercentage, double profitMarginPercentage) {
+        BusinessConfig cfg = repository.findById(groupId).orElseGet(() -> seed(groupId));
+        cfg.setOverheadPercentage(overheadPercentage);
+        cfg.setProfitMarginPercentage(profitMarginPercentage);
         return repository.save(cfg);
     }
 

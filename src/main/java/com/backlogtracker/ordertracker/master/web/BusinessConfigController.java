@@ -35,12 +35,12 @@ public class BusinessConfigController {
     @PutMapping
     public BusinessConfig update(@PathVariable String groupId, @RequestBody UpdateRequest request,
                                  @AuthenticationPrincipal AuthUser actor) {
-        return service.update(groupId, actor.id(), request.overheadPercentage(),
-                request.profitMarginPercentage(), request.currency(),
-                request.mandatoryItemTypes(), request.workStages());
+        return service.update(groupId, actor.id(), request.currency(), request.mandatoryItemTypes(), request.workStages());
     }
 
-    public record UpdateRequest(double overheadPercentage, double profitMarginPercentage, String currency,
-                                List<MandatoryItemType> mandatoryItemTypes, List<WorkStageType> workStages) {
+    /** overheadPercentage/profitMarginPercentage are not here on purpose — see
+     *  CostConfigChangeController for changing those, which requires unanimous approval. */
+    public record UpdateRequest(String currency, List<MandatoryItemType> mandatoryItemTypes,
+                                List<WorkStageType> workStages) {
     }
 }
