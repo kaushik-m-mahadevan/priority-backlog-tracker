@@ -144,6 +144,31 @@ class OrderApiTest {
     }
 
     @Test
+    void individualOrderTimeFormulaCountsAssemblyAndResearchButNotAddOnTime() throws Exception {
+        String body = mvc.perform(auth(post("/api/ordertracker/groups/" + groupId + "/orders"), token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"customerId":"%s","orderType":"INDIVIDUAL","createdByCreatorId":"%s",
+                                 "itemName":"Amigurumi bear","orderReceivedDate":"2026-01-01T00:00:00Z",
+                                 "mandatoryItems":[{"itemKey":"wool","value":"Cream","quantity":1,"unitCost":100}],
+                                 "addOns":[{"name":"Safety eyes","quantity":1,"unitCost":40,"unitTimeHours":5}],
+                                 "craftingTimeHours":4,"assemblyTimeHours":2,"researchTimeHours":2}"""
+                                .formatted(customerId, creatorAId)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.craftingTimeHours").value(4.0))
+                .andExpect(jsonPath("$.assemblyTimeHours").value(2.0))
+                .andExpect(jsonPath("$.researchTimeHours").value(2.0))
+                // creator A is 4h/day (setUp): (4 crochet + 2 assembly + 0 packaging + 2 research) = 8h -> 2 days,
+                // NOT 13h -> 4 days, proving the add-on's own unitTimeHours (5h) is ignored.
+                .andExpect(jsonPath("$.costEstimate.grossTimeHours").value(8.0))
+                .andReturn().getResponse().getContentAsString();
+
+        JsonNode view = mapper.readTree(body);
+        assertThat(java.time.Instant.parse(view.get("costEstimate").get("computedDueDate").asText()))
+                .isEqualTo(java.time.Instant.parse("2026-01-03T00:00:00Z"));
+    }
+
+    @Test
     void individualOrderCanBeFullyEditedAndRecomputesCost() throws Exception {
         String orderId = createBasicIndividualOrder();
 
@@ -273,6 +298,37 @@ class OrderApiTest {
         double expectedGross = 100; // one mandatory item, no addons/packaging
         double expectedFinal = expectedGross * 1.15 * 1.20;
         assertThat(perUnitCost).isCloseTo(expectedFinal, org.assertj.core.data.Offset.offset(0.01));
+    }
+
+    @Test
+    void bulkVariantAssemblyTimeAndOrderLevelResearchTimeBothPadTheDueDate() throws Exception {
+        // creator A is 4h/day (setUp) and is both the sole split assignee and (by default,
+        // since coordinatingCreatorId is omitted) the coordinating creator research time is
+        // charged against.
+        String body = mvc.perform(auth(post("/api/ordertracker/groups/" + groupId + "/orders"), token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"customerId":"%s","orderType":"BULK","createdByCreatorId":"%s",
+                                 "itemName":"Mini succulent crochet pots","orderReceivedDate":"2026-01-01T00:00:00Z",
+                                 "researchTimeHours":8,
+                                 "variants":[{"label":"Blue flower","quantity":20,
+                                   "mandatoryItems":[{"itemKey":"wool","value":"Blue","quantity":1,"unitCost":100}],
+                                   "craftingTimeHours":1,"assemblyTimeHours":1,
+                                   "splitAllocation":[{"creatorId":"%s","quantityAssigned":20}]}]}"""
+                                .formatted(customerId, creatorAId, creatorAId)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.bulkDetails.variants[0].craftingTimeHours").value(1.0))
+                .andExpect(jsonPath("$.bulkDetails.variants[0].assemblyTimeHours").value(1.0))
+                // perUnitTimeHours = 1 (crochet) + 1 (assembly) + 0 (packaging) = 2h/unit
+                .andExpect(jsonPath("$.bulkDetails.variants[0].perUnitTimeHours").value(2.0))
+                .andReturn().getResponse().getContentAsString();
+
+        // creator A: 20 units * 2h/unit = 40h / 4h-per-day = 10 days for the work itself,
+        // plus 8h research / 4h-per-day = 2 days charged against the coordinating creator's
+        // own pace (defaults to the same creator here) = 12 days total, no logistics buffer.
+        JsonNode view = mapper.readTree(body);
+        assertThat(java.time.Instant.parse(view.get("bulkDetails").get("computedDueDate").asText()))
+                .isEqualTo(java.time.Instant.parse("2026-01-01T00:00:00Z").plus(java.time.Duration.ofDays(12)));
     }
 
     @Test

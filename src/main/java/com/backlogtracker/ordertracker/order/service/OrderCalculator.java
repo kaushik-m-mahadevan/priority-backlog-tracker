@@ -34,12 +34,6 @@ public class OrderCalculator {
         return items.stream().mapToDouble(i -> i.getUnitCost() * i.getQuantity()).sum();
     }
 
-    public double lineItemsTimeHours(List<LineItem> items) {
-        return items.stream()
-                .mapToDouble(i -> (i.getUnitTimeHours() == null ? 0 : i.getUnitTimeHours()) * i.getQuantity())
-                .sum();
-    }
-
     /** grossCost = mandatoryItemsCost + addOnsCost + packagingCost (spec §5.10). */
     public double grossCost(double mandatoryItemsCost, double addOnsCost, double packagingCost) {
         return mandatoryItemsCost + addOnsCost + packagingCost;
@@ -57,14 +51,18 @@ public class OrderCalculator {
         return grossCost + overheadAmount + profitAmount;
     }
 
-    /** grossTimeHours = craftingTimeHours + packaging time + add-on assembly time (spec §5.10). */
-    public double grossTimeHours(double craftingTimeHours, Packaging packaging, List<LineItem> addOns) {
-        return craftingTimeHours + packaging.timeHours() + lineItemsTimeHours(addOns);
+    /** grossTimeHours = crocheting + assembly + packaging time. Research time is added
+     *  separately by the caller — it's a one-time, order-level investment, not something
+     *  multiplied per unit the way a bulk variant's crocheting/assembly time is. */
+    public double grossTimeHours(double crochetingTimeHours, double assemblyTimeHours, Packaging packaging) {
+        return crochetingTimeHours + assemblyTimeHours + packaging.timeHours();
     }
 
-    /** Builds the full computed snapshot for an individual order (spec §5.10). */
+    /** Builds the full computed snapshot for an individual order (spec §5.10, extended with
+     *  assembly and research time). */
     public Order.CostEstimate estimateIndividual(List<MandatoryItem> mandatoryItems, List<LineItem> addOns,
                                                  Packaging packaging, double craftingTimeHours,
+                                                 double assemblyTimeHours, double researchTimeHours,
                                                  double overheadPct, double profitMarginPct,
                                                  Instant orderReceivedDate, double assignedCreatorHoursPerDay) {
         double mandatoryItemsCost = mandatoryItemsCost(mandatoryItems);
@@ -74,7 +72,7 @@ public class OrderCalculator {
         double overhead = overheadAmount(gross, overheadPct);
         double profit = profitAmount(gross, overhead, profitMarginPct);
         double finalCost = finalCost(gross, overhead, profit);
-        double grossTimeHours = grossTimeHours(craftingTimeHours, packaging, addOns);
+        double grossTimeHours = grossTimeHours(craftingTimeHours, assemblyTimeHours, packaging) + researchTimeHours;
 
         return Order.CostEstimate.builder()
                 .mandatoryItemsCost(mandatoryItemsCost)
@@ -124,9 +122,8 @@ public class OrderCalculator {
         double overhead = overheadAmount(gross, overheadPct);
         double profit = profitAmount(gross, overhead, profitMarginPct);
         double perUnitCost = finalCost(gross, overhead, profit);
-        double perUnitTimeHours = grossTimeHours(variant.getCraftingTimeHours(),
-                variant.getPackaging() == null ? Order.Packaging.builder().itemizedList(List.of()).build() : variant.getPackaging(),
-                variant.getAddOns());
+        double perUnitTimeHours = grossTimeHours(variant.getCraftingTimeHours(), variant.getAssemblyTimeHours(),
+                variant.getPackaging() == null ? Order.Packaging.builder().itemizedList(List.of()).build() : variant.getPackaging());
 
         variant.setPerUnitCost(perUnitCost);
         variant.setTotalCost(perUnitCost * variant.getQuantity());
@@ -150,6 +147,14 @@ public class OrderCalculator {
     }
 
     public record CreatorWorkload(double hours, double hoursPerDay) {
+    }
+
+    /** Converts a one-time, order-level hours investment (e.g. research time) into extra
+     *  whole days at a given creator's pace — used to pad a bulk order's due date the same
+     *  way the logistics buffer already does, since research isn't per-unit the way a
+     *  variant's own crocheting/assembly time is. */
+    public long extraDaysFor(double hours, double hoursPerDay) {
+        return hours <= 0 ? 0 : (long) Math.ceil(hours / hoursPerDay);
     }
 
     /** computedDueDate = orderReceivedDate + max(creatorDueOffsetDays across all involved

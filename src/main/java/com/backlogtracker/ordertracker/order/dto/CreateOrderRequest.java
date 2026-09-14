@@ -10,11 +10,11 @@ import com.backlogtracker.ordertracker.order.domain.Order.ResearchItemType;
 public record CreateOrderRequest(String customerId, String orderType, String createdByCreatorId,
                                  String itemName, Instant orderReceivedDate, Instant quotedDeliveryDate,
                                  PatternInput pattern, List<ResearchItemInput> researchItems,
-                                 List<String> recipeSteps,
+                                 double researchTimeHours, List<String> recipeSteps,
                                  // individual-only
                                  List<MandatoryItemInput> mandatoryItems, List<LineItemInput> addOns,
                                  String packagingPresetId, List<LineItemInput> itemizedPackaging,
-                                 double craftingTimeHours,
+                                 double craftingTimeHours, double assemblyTimeHours,
                                  // bulk-only
                                  List<VariantInput> variants, String coordinatingCreatorId,
                                  int logisticsBufferDays) {
@@ -39,6 +39,7 @@ public record CreateOrderRequest(String customerId, String orderType, String cre
     public record VariantInput(String variantId, String label, int quantity,
                                List<MandatoryItemInput> mandatoryItems, List<LineItemInput> addOns,
                                String packagingPresetId, List<LineItemInput> itemizedPackaging,
-                               double craftingTimeHours, List<SplitLineInput> splitAllocation) {
+                               double craftingTimeHours, double assemblyTimeHours,
+                               List<SplitLineInput> splitAllocation) {
     }
 }

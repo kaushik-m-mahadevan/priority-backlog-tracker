@@ -13,7 +13,9 @@ import com.backlogtracker.ordertracker.order.dto.CreateOrderRequest.ResearchItem
  *  endpoints) — recomputes {@code costEstimate} afterward. */
 public record UpdateOrderRequest(String itemName, Instant orderReceivedDate, Instant quotedDeliveryDate,
                                  PatternInput pattern, List<ResearchItemInput> researchItems,
-                                 List<String> recipeSteps, List<MandatoryItemInput> mandatoryItems,
+                                 double researchTimeHours, List<String> recipeSteps,
+                                 List<MandatoryItemInput> mandatoryItems,
                                  List<LineItemInput> addOns, String packagingPresetId,
-                                 List<LineItemInput> itemizedPackaging, double craftingTimeHours) {
+                                 List<LineItemInput> itemizedPackaging, double craftingTimeHours,
+                                 double assemblyTimeHours) {
 }

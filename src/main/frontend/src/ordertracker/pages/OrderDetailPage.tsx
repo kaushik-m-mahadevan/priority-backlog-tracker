@@ -45,9 +45,11 @@ function EditOrderForm({
       : config.mandatoryItemTypes.map((it) => blankMandatoryItemEntry(it.itemKey))
   );
   const [addOns, setAddOns] = useState<LineItemDraft[]>(
-    order.addOns.map((a) => ({ name: a.name, quantity: a.quantity, unitCost: a.unitCost, unitTimeHours: a.unitTimeHours ?? 0 }))
+    order.addOns.map((a) => ({ name: a.name, quantity: a.quantity, unitCost: a.unitCost }))
   );
   const [craftingTimeHours, setCraftingTimeHours] = useState(order.craftingTimeHours);
+  const [assemblyTimeHours, setAssemblyTimeHours] = useState(order.assemblyTimeHours);
+  const [researchTimeHours, setResearchTimeHours] = useState(order.researchTimeHours);
   const [packagingPresetId, setPackagingPresetId] = useState(order.packaging?.tentativePresetId ?? "");
   const [error, setError] = useState<string | null>(null);
 
@@ -64,12 +66,14 @@ function EditOrderForm({
               customPatternNotes: patternType === "CUSTOM" ? customPatternNotes : null, attachmentUrls: [] }
           : null,
         researchItems: order.researchItems,
+        researchTimeHours,
         recipeSteps: recipeStepsText.split("\n").map((s) => s.trim()).filter(Boolean),
         mandatoryItems: mandatoryItems.filter((m) => m.value.trim()),
         addOns: addOns.filter((a) => a.name.trim()),
         packagingPresetId: packagingPresetId || null,
         itemizedPackaging: [],
         craftingTimeHours,
+        assemblyTimeHours,
       });
       onSaved(updated);
     } catch (err) {
@@ -123,7 +127,13 @@ function EditOrderForm({
         <label htmlFor="eod-recipe-steps">Recipe (one step per line)</label>
         <textarea id="eod-recipe-steps" value={recipeStepsText} onChange={(e) => setRecipeStepsText(e.target.value)} />
       </div>
+      <div className="form-row" style={{ maxWidth: 220 }}>
+        <label htmlFor="eod-research-time">Research time (hours)</label>
+        <input id="eod-research-time" type="number" min={0} step={0.25} value={researchTimeHours}
+          onChange={(e) => setResearchTimeHours(Number(e.target.value))} />
+      </div>
 
+      <h2 className="settings-section">Materials</h2>
       <div className="muted" style={{ fontSize: 12, marginBottom: 6 }}>
         Mandatory items
       </div>
@@ -134,22 +144,30 @@ function EditOrderForm({
       </div>
       <AddOnsFields addOns={addOns} onChange={setAddOns} />
 
-      <div className="form-grid" style={{ marginTop: 12 }}>
+      <h2 className="settings-section">Packaging</h2>
+      <div className="form-row" style={{ maxWidth: 300 }}>
+        <label htmlFor="eod-packaging-preset">Packaging preset</label>
+        <select id="eod-packaging-preset" value={packagingPresetId} onChange={(e) => setPackagingPresetId(e.target.value)}>
+          <option value="">None</option>
+          {presets.map((p) => (
+            <option key={p.id} value={p.id}>
+              {p.label}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      <h2 className="settings-section">Processes</h2>
+      <div className="form-grid">
         <div className="form-row">
-          <label htmlFor="eod-packaging-preset">Packaging preset</label>
-          <select id="eod-packaging-preset" value={packagingPresetId} onChange={(e) => setPackagingPresetId(e.target.value)}>
-            <option value="">None</option>
-            {presets.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.label}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div className="form-row">
-          <label htmlFor="eod-crafting-time">Crafting time (hours)</label>
+          <label htmlFor="eod-crafting-time">Crochet time (hours)</label>
           <input id="eod-crafting-time" type="number" min={0} step={0.25} value={craftingTimeHours}
             onChange={(e) => setCraftingTimeHours(Number(e.target.value))} />
+        </div>
+        <div className="form-row">
+          <label htmlFor="eod-assembly-time">Assembly time (hours)</label>
+          <input id="eod-assembly-time" type="number" min={0} step={0.25} value={assemblyTimeHours}
+            onChange={(e) => setAssemblyTimeHours(Number(e.target.value))} />
         </div>
       </div>
       <button className="primary" type="submit">
@@ -183,8 +201,9 @@ function EditBulkDetailsForm({
       label: v.label,
       quantity: v.quantity,
       mandatoryItems: v.mandatoryItems.map((m) => ({ itemKey: m.itemKey, value: m.value, quantity: m.quantity, unitCost: m.unitCost, notes: m.notes ?? "" })),
-      addOns: v.addOns.map((a) => ({ name: a.name, quantity: a.quantity, unitCost: a.unitCost, unitTimeHours: a.unitTimeHours ?? 0 })),
+      addOns: v.addOns.map((a) => ({ name: a.name, quantity: a.quantity, unitCost: a.unitCost })),
       craftingTimeHours: v.craftingTimeHours,
+      assemblyTimeHours: v.assemblyTimeHours,
       splitAllocation: v.splitAllocation.map((s) => ({ creatorId: s.creatorId, quantityAssigned: s.quantityAssigned })),
     }))
   );
@@ -211,6 +230,7 @@ function EditBulkDetailsForm({
             mandatoryItems: v.mandatoryItems.filter((m) => m.value.trim()),
             addOns: v.addOns.filter((a) => a.name.trim()),
             craftingTimeHours: v.craftingTimeHours,
+            assemblyTimeHours: v.assemblyTimeHours,
             splitAllocation: v.splitAllocation.filter((s) => s.creatorId),
           })),
         coordinatingCreatorId: coordinatingCreatorId || null,
@@ -262,7 +282,10 @@ function EditBulkDetailsForm({
               </div>
             </div>
 
-            <div className="muted" style={{ fontSize: 12 }}>
+            <div className="muted" style={{ fontSize: 12, fontWeight: 600 }}>
+              Materials
+            </div>
+            <div className="muted" style={{ fontSize: 12, marginTop: 6 }}>
               Mandatory items (per unit)
             </div>
             <MandatoryItemsFields
@@ -279,12 +302,20 @@ function EditBulkDetailsForm({
               onChange={(a) => setVariants((prev) => prev.map((x, j) => (j === i ? { ...x, addOns: a } : x)))}
             />
 
-            <div className="form-row" style={{ marginTop: 12, maxWidth: 220 }}>
-              <label htmlFor={`ebd-variant-${i}-crafting-time`} className="muted" style={{ fontSize: 12 }}>
-                Crafting time/unit (hours)
-              </label>
-              <input id={`ebd-variant-${i}-crafting-time`} type="number" min={0} step={0.1} value={v.craftingTimeHours} onChange={(e) =>
-                setVariants((prev) => prev.map((x, j) => (j === i ? { ...x, craftingTimeHours: Number(e.target.value) } : x)))} />
+            <div className="muted" style={{ fontSize: 12, fontWeight: 600, marginTop: 16 }}>
+              Processes
+            </div>
+            <div className="form-grid" style={{ marginTop: 6, maxWidth: 460 }}>
+              <div className="form-row">
+                <label htmlFor={`ebd-variant-${i}-crafting-time`}>Crochet time/unit (hours)</label>
+                <input id={`ebd-variant-${i}-crafting-time`} type="number" min={0} step={0.1} value={v.craftingTimeHours} onChange={(e) =>
+                  setVariants((prev) => prev.map((x, j) => (j === i ? { ...x, craftingTimeHours: Number(e.target.value) } : x)))} />
+              </div>
+              <div className="form-row">
+                <label htmlFor={`ebd-variant-${i}-assembly-time`}>Assembly time/unit (hours)</label>
+                <input id={`ebd-variant-${i}-assembly-time`} type="number" min={0} step={0.1} value={v.assemblyTimeHours} onChange={(e) =>
+                  setVariants((prev) => prev.map((x, j) => (j === i ? { ...x, assemblyTimeHours: Number(e.target.value) } : x)))} />
+              </div>
             </div>
 
             <div className="muted" style={{ fontSize: 12, marginTop: 12 }}>
@@ -472,6 +503,9 @@ export default function OrderDetailPage() {
           ) : (
             <p className="empty">Not recorded.</p>
           )}
+          <div className="row" style={{ marginTop: 8 }}>
+            <span className="k">Research time</span><span className="v">{order.researchTimeHours}h</span>
+          </div>
         </div>
 
         <div className="card">
@@ -489,6 +523,8 @@ export default function OrderDetailPage() {
       </div>
 
       {order.orderType === "INDIVIDUAL" ? (
+        <>
+        <h2 className="settings-section">Materials &amp; packaging</h2>
         <div className="grid cols-3">
           <div className="card">
             <h2>Mandatory items</h2>
@@ -525,6 +561,12 @@ export default function OrderDetailPage() {
             <div className="row"><span className="k">Time</span><span className="v">{order.packaging?.timeHours ?? 0}h</span></div>
           </div>
         </div>
+        <h2 className="settings-section">Processes</h2>
+        <div className="card">
+          <div className="row"><span className="k">Crochet time</span><span className="v">{order.craftingTimeHours}h</span></div>
+          <div className="row"><span className="k">Assembly time</span><span className="v">{order.assemblyTimeHours}h</span></div>
+        </div>
+        </>
       ) : (
         <>
           <h2 className="settings-section">Variants</h2>
@@ -534,8 +576,12 @@ export default function OrderDetailPage() {
                 <strong>{v.label}</strong>
                 <span className="muted">Qty {v.quantity}</span>
                 <span className="spacer" />
+                <span className="muted">Crochet {v.craftingTimeHours}h/unit · Assembly {v.assemblyTimeHours}h/unit</span>
                 <span>₹{v.perUnitCost.toFixed(2)}/unit</span>
                 <span>Total ₹{v.totalCost.toFixed(2)}</span>
+              </div>
+              <div className="muted" style={{ fontSize: 12, fontWeight: 600, marginBottom: 4 }}>
+                Materials
               </div>
               <div className="grid cols-3">
                 <div className="card" style={{ background: "var(--bg-elev-2)" }}>
@@ -555,6 +601,24 @@ export default function OrderDetailPage() {
                   )}
                 </div>
                 <div className="card" style={{ background: "var(--bg-elev-2)" }}>
+                  <h2>Add-ons</h2>
+                  {v.addOns.length === 0 ? (
+                    <p className="empty">None.</p>
+                  ) : (
+                    v.addOns.map((a, i) => (
+                      <div className="row" key={i}>
+                        <span className="k">{a.name}</span>
+                        <span className="v">{a.quantity} × ₹{a.unitCost.toFixed(2)}</span>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+              <div className="muted" style={{ fontSize: 12, fontWeight: 600, margin: "12px 0 4px" }}>
+                Processes
+              </div>
+              <div className="grid cols-2">
+                <div className="card" style={{ background: "var(--bg-elev-2)" }}>
                   <h2>Split across creators</h2>
                   {v.splitAllocation.length === 0 ? (
                     <p className="empty">Nobody assigned yet.</p>
@@ -568,7 +632,7 @@ export default function OrderDetailPage() {
                   )}
                 </div>
                 <div className="card" style={{ background: "var(--bg-elev-2)" }}>
-                  <h2>Progress</h2>
+                  <h2>Progress by stage</h2>
                   {v.splitAllocation.length === 0 ? (
                     <p className="empty">Nobody assigned yet.</p>
                   ) : (
@@ -667,7 +731,7 @@ export default function OrderDetailPage() {
                 <div className="row" key={b.label}><span className="k">{b.label}</span><span className="v">₹{b.amount.toFixed(2)}</span></div>
               ))}
               <div className="cost-total"><span className="k">Final price</span><span className="v">₹{order.costEstimate.finalCost.toFixed(2)}</span></div>
-              <div className="row" style={{ marginTop: 8 }}><span className="k">Crafting time</span><span className="v">{order.costEstimate.grossTimeHours}h</span></div>
+              <div className="row" style={{ marginTop: 8 }}><span className="k">Total time</span><span className="v">{order.costEstimate.grossTimeHours}h</span></div>
             </>
           ) : (
             <>

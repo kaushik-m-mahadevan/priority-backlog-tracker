@@ -44,7 +44,7 @@ class OrderCalculatorTest {
         List<LineItem> addOns = List.of(lineItem(1, 40, 0.2));
         Packaging packaging = Packaging.builder().presetCost(60).presetTimeHours(0.5).itemizedList(List.of()).build();
 
-        Order.CostEstimate estimate = calc.estimateIndividual(mandatory, addOns, packaging, 4.0, 0.15, 0.20,
+        Order.CostEstimate estimate = calc.estimateIndividual(mandatory, addOns, packaging, 4.0, 1.0, 0.0, 0.15, 0.20,
                 Instant.parse("2026-01-01T00:00:00Z"), 4.0);
 
         assertThat(estimate.getMandatoryItemsCost()).isEqualTo(120);
@@ -56,8 +56,9 @@ class OrderCalculatorTest {
         assertThat(estimate.getOverheadAmount()).isCloseTo(overhead, within(1e-9));
         assertThat(estimate.getProfitAmount()).isCloseTo(profit, within(1e-9));
         assertThat(estimate.getFinalCost()).isCloseTo(gross + overhead + profit, within(1e-9));
-        // grossTimeHours = craftingTimeHours(4) + packagingTime(0.5) + addOnsTime(1*0.2) = 4.7
-        assertThat(estimate.getGrossTimeHours()).isCloseTo(4.7, within(1e-9));
+        // grossTimeHours = craftingTimeHours(4) + assemblyTimeHours(1) + packagingTime(0.5) = 5.5 —
+        // the add-on's own unitTimeHours (0.2) is deliberately NOT counted, materials carry no time.
+        assertThat(estimate.getGrossTimeHours()).isCloseTo(5.5, within(1e-9));
     }
 
     @Test
@@ -65,7 +66,17 @@ class OrderCalculatorTest {
         Packaging packaging = Packaging.builder().presetCost(0).presetTimeHours(0).itemizedList(List.of()).build();
         Instant received = Instant.parse("2026-01-01T00:00:00Z");
         // grossTimeHours = 7h crafting / 4h-per-day = 1.75 -> rounds up to 2 days
-        Order.CostEstimate estimate = calc.estimateIndividual(List.of(), List.of(), packaging, 7.0, 0, 0, received, 4.0);
+        Order.CostEstimate estimate = calc.estimateIndividual(List.of(), List.of(), packaging, 7.0, 0, 0, 0, 0, received, 4.0);
+        assertThat(estimate.getComputedDueDate()).isEqualTo(received.plusSeconds(2 * 24 * 3600));
+    }
+
+    @Test
+    void individualResearchTimeAddsExtraDaysToTheDueDate() {
+        Packaging packaging = Packaging.builder().presetCost(0).presetTimeHours(0).itemizedList(List.of()).build();
+        Instant received = Instant.parse("2026-01-01T00:00:00Z");
+        // grossTimeHours = 4h crafting + 0 assembly + 0 packaging + 4h research = 8h / 4h-per-day = 2 days
+        Order.CostEstimate estimate = calc.estimateIndividual(List.of(), List.of(), packaging, 4.0, 0, 4.0, 0, 0, received, 4.0);
+        assertThat(estimate.getGrossTimeHours()).isCloseTo(8.0, within(1e-9));
         assertThat(estimate.getComputedDueDate()).isEqualTo(received.plusSeconds(2 * 24 * 3600));
     }
 
@@ -134,6 +145,7 @@ class OrderCalculatorTest {
                 .addOns(List.of())
                 .packaging(Packaging.builder().presetCost(20).presetTimeHours(0.1).itemizedList(List.of()).build())
                 .craftingTimeHours(1.2)
+                .assemblyTimeHours(0.3)
                 .splitAllocation(List.of())
                 .build();
 
@@ -145,8 +157,8 @@ class OrderCalculatorTest {
         double perUnitCost = gross + overhead + profit;
         assertThat(priced.getPerUnitCost()).isCloseTo(perUnitCost, within(1e-9));
         assertThat(priced.getTotalCost()).isCloseTo(perUnitCost * 26, within(1e-9));
-        assertThat(priced.getPerUnitTimeHours()).isCloseTo(1.2 + 0.1, within(1e-9));
-        assertThat(priced.getTotalTimeHours()).isCloseTo((1.2 + 0.1) * 26, within(1e-9));
+        assertThat(priced.getPerUnitTimeHours()).isCloseTo(1.2 + 0.3 + 0.1, within(1e-9));
+        assertThat(priced.getTotalTimeHours()).isCloseTo((1.2 + 0.3 + 0.1) * 26, within(1e-9));
     }
 
     @Test

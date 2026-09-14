@@ -191,6 +191,7 @@ export interface Variant {
   addOns: LineItem[];
   packaging: Packaging | null;
   craftingTimeHours: number;
+  assemblyTimeHours: number;
   perUnitCost: number;
   totalCost: number;
   perUnitTimeHours: number;
@@ -229,11 +230,13 @@ export interface OrderView {
   actualDeliveryDate: string | null;
   pattern: Pattern | null;
   researchItems: ResearchItem[];
+  researchTimeHours: number;
   recipeSteps: string[];
   mandatoryItems: MandatoryItem[];
   addOns: LineItem[];
   packaging: Packaging | null;
   craftingTimeHours: number;
+  assemblyTimeHours: number;
   costEstimate: CostEstimate | null;
   stageAssignments: StageAssignment[];
   completionPercentage: number;

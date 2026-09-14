@@ -182,6 +182,7 @@ public class OrderService {
                 .quotedDeliveryDate(request.quotedDeliveryDate())
                 .pattern(toPattern(request.pattern()))
                 .researchItems(toResearchItems(request.researchItems()))
+                .researchTimeHours(request.researchTimeHours())
                 .recipeSteps(request.recipeSteps() == null ? List.of() : request.recipeSteps())
                 .payments(new ArrayList<>())
                 .paymentStatus(calculator.derivePaymentStatus(List.of(), 0))
@@ -196,8 +197,10 @@ public class OrderService {
                     .addOns(addOns)
                     .packaging(packaging)
                     .craftingTimeHours(request.craftingTimeHours())
+                    .assemblyTimeHours(request.assemblyTimeHours())
                     .costEstimate(calculator.estimateIndividual(mandatoryItems, addOns, packaging,
-                            request.craftingTimeHours(), cfg.getOverheadPercentage(), cfg.getProfitMarginPercentage(),
+                            request.craftingTimeHours(), request.assemblyTimeHours(), request.researchTimeHours(),
+                            cfg.getOverheadPercentage(), cfg.getProfitMarginPercentage(),
                             orderReceivedDate, createdBy.getHoursAvailablePerDay()))
                     .stageAssignments(cfg.getWorkStages().stream()
                             .map(s -> Order.StageAssignment.builder().stageKey(s.stageKey())
@@ -227,7 +230,7 @@ public class OrderService {
                             .collect(Collectors.toList()))
                     .logisticsBufferDays(request.logisticsBufferDays())
                     .build();
-            recomputeBulkTotals(details, cfg, orderReceivedDate);
+            recomputeBulkTotals(details, cfg, orderReceivedDate, request.researchTimeHours());
             builder.bulkDetails(details);
         }
 
@@ -250,6 +253,7 @@ public class OrderService {
         order.setQuotedDeliveryDate(request.quotedDeliveryDate());
         order.setPattern(toPattern(request.pattern()));
         order.setResearchItems(toResearchItems(request.researchItems()));
+        order.setResearchTimeHours(request.researchTimeHours());
         order.setRecipeSteps(request.recipeSteps() == null ? List.of() : request.recipeSteps());
         List<MandatoryItem> mandatoryItems = toMandatoryItems(request.mandatoryItems());
         List<LineItem> addOns = toLineItems(request.addOns());
@@ -258,8 +262,10 @@ public class OrderService {
         order.setAddOns(addOns);
         order.setPackaging(packaging);
         order.setCraftingTimeHours(request.craftingTimeHours());
+        order.setAssemblyTimeHours(request.assemblyTimeHours());
         order.setCostEstimate(calculator.estimateIndividual(mandatoryItems, addOns, packaging,
-                request.craftingTimeHours(), cfg.getOverheadPercentage(), cfg.getProfitMarginPercentage(),
+                request.craftingTimeHours(), request.assemblyTimeHours(), request.researchTimeHours(),
+                cfg.getOverheadPercentage(), cfg.getProfitMarginPercentage(),
                 order.getOrderReceivedDate() == null ? clock.instant() : order.getOrderReceivedDate(),
                 createdBy.getHoursAvailablePerDay()));
         order.setUpdatedAt(clock.instant());
@@ -314,7 +320,8 @@ public class OrderService {
         });
 
         Instant oldDueDate = details.getComputedDueDate();
-        recomputeBulkTotals(details, cfg, order.getOrderReceivedDate() == null ? clock.instant() : order.getOrderReceivedDate());
+        recomputeBulkTotals(details, cfg, order.getOrderReceivedDate() == null ? clock.instant() : order.getOrderReceivedDate(),
+                order.getResearchTimeHours());
         order.setUpdatedAt(clock.instant());
 
         if (oldDueDate != null && !oldDueDate.equals(details.getComputedDueDate())) {
@@ -491,6 +498,7 @@ public class OrderService {
                 .addOns(toLineItems(input.addOns()))
                 .packaging(packaging)
                 .craftingTimeHours(input.craftingTimeHours())
+                .assemblyTimeHours(input.assemblyTimeHours())
                 .splitAllocation(input.splitAllocation() == null ? new ArrayList<>() : input.splitAllocation().stream()
                         .map(s -> SplitLine.builder().creatorId(s.creatorId()).quantityAssigned(s.quantityAssigned())
                                 .stageProgress(new ArrayList<>()).build())
@@ -499,7 +507,8 @@ public class OrderService {
         return calculator.priceVariant(variant, cfg.getOverheadPercentage(), cfg.getProfitMarginPercentage());
     }
 
-    private void recomputeBulkTotals(Order.BulkDetails details, BusinessConfig cfg, Instant orderReceivedDate) {
+    private void recomputeBulkTotals(Order.BulkDetails details, BusinessConfig cfg, Instant orderReceivedDate,
+                                     double researchTimeHours) {
         details.setTotalQuantity(details.getVariants().stream().mapToInt(Variant::getQuantity).sum());
         details.setTotalFinalCost(details.getVariants().stream().mapToDouble(Variant::getTotalCost).sum());
         details.setTotalTimeHours(details.getVariants().stream().mapToDouble(Variant::getTotalTimeHours).sum());
@@ -511,8 +520,18 @@ public class OrderService {
                 .map(id -> new OrderCalculator.CreatorWorkload(calculator.creatorTotalHours(id, details.getVariants()),
                         creatorService.requireById(cfg.getGroupId(), id).getHoursAvailablePerDay()))
                 .toList();
-        details.setComputedDueDate(workloads.isEmpty() ? orderReceivedDate
-                : calculator.computeBulkDueDate(orderReceivedDate, workloads, details.getLogisticsBufferDays()));
+        if (workloads.isEmpty()) {
+            details.setComputedDueDate(orderReceivedDate);
+            return;
+        }
+        // research time is a one-time order-level cost, not per-creator — pad the bulk due
+        // date with it via the coordinating creator's own pace, the same way the logistics
+        // buffer already pads it with flat extra days.
+        double researchHoursPerDay = creatorService.requireById(cfg.getGroupId(), details.getCoordinatingCreatorId())
+                .getHoursAvailablePerDay();
+        int researchDays = (int) calculator.extraDaysFor(researchTimeHours, researchHoursPerDay);
+        details.setComputedDueDate(calculator.computeBulkDueDate(orderReceivedDate, workloads,
+                details.getLogisticsBufferDays() + researchDays));
     }
 
     private Order.Packaging buildPackaging(String groupId, String userId, String presetId,

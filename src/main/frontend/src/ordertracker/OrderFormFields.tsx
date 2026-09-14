@@ -13,7 +13,6 @@ export interface LineItemDraft {
   name: string;
   quantity: number;
   unitCost: number;
-  unitTimeHours: number;
 }
 
 export interface SplitDraft {
@@ -28,6 +27,7 @@ export interface VariantDraft {
   mandatoryItems: MandatoryItemDraft[];
   addOns: LineItemDraft[];
   craftingTimeHours: number;
+  assemblyTimeHours: number;
   splitAllocation: SplitDraft[];
 }
 
@@ -46,6 +46,7 @@ export function blankVariant(config: BusinessConfig): VariantDraft {
     mandatoryItems: blankMandatoryItems(config),
     addOns: [],
     craftingTimeHours: 0,
+    assemblyTimeHours: 0,
     splitAllocation: [],
   };
 }
@@ -60,6 +61,7 @@ export function duplicateVariant(source: VariantDraft): VariantDraft {
     mandatoryItems: source.mandatoryItems.map((m) => ({ ...m })),
     addOns: source.addOns.map((a) => ({ ...a })),
     craftingTimeHours: source.craftingTimeHours,
+    assemblyTimeHours: source.assemblyTimeHours,
     splitAllocation: source.splitAllocation.map((s) => ({ ...s })),
   };
 }
@@ -196,7 +198,6 @@ export function AddOnsFields({ addOns, onChange }: { addOns: LineItemDraft[]; on
         const nameId = `addon-${i}-name`;
         const qtyId = `addon-${i}-qty`;
         const costId = `addon-${i}-cost`;
-        const timeId = `addon-${i}-time`;
         return (
         <div className="card" key={i} style={{ background: "var(--bg-elev-2)", marginBottom: 8 }}>
           <div className="form-grid">
@@ -231,19 +232,6 @@ export function AddOnsFields({ addOns, onChange }: { addOns: LineItemDraft[]; on
                 onChange={(e) => onChange(addOns.map((x, j) => (j === i ? { ...x, unitCost: Number(e.target.value) } : x)))}
               />
             </div>
-            <div className="form-row">
-              <label htmlFor={timeId} className="muted" style={{ fontSize: 11 }}>
-                Time/unit (hours)
-              </label>
-              <input
-                id={timeId}
-                type="number"
-                min={0}
-                step={0.05}
-                value={a.unitTimeHours}
-                onChange={(e) => onChange(addOns.map((x, j) => (j === i ? { ...x, unitTimeHours: Number(e.target.value) } : x)))}
-              />
-            </div>
           </div>
           <button
             type="button"
@@ -255,7 +243,7 @@ export function AddOnsFields({ addOns, onChange }: { addOns: LineItemDraft[]; on
         </div>
         );
       })}
-      <button type="button" onClick={() => onChange([...addOns, { name: "", quantity: 1, unitCost: 0, unitTimeHours: 0 }])}>
+      <button type="button" onClick={() => onChange([...addOns, { name: "", quantity: 1, unitCost: 0 }])}>
         + Add add-on
       </button>
     </div>

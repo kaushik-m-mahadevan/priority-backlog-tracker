@@ -12,9 +12,10 @@ public record OrderView(String id, String orderNumber, OrderType orderType, Stri
                         String createdByCreatorId, OrderStatus status,
                         String itemName, Instant orderReceivedDate, Instant quotedDeliveryDate,
                         Instant actualDeliveryDate, PatternView pattern, List<ResearchItemView> researchItems,
-                        List<String> recipeSteps,
+                        double researchTimeHours, List<String> recipeSteps,
                         List<MandatoryItemView> mandatoryItems, List<LineItemView> addOns,
-                        PackagingView packaging, double craftingTimeHours, CostEstimateView costEstimate,
+                        PackagingView packaging, double craftingTimeHours, double assemblyTimeHours,
+                        CostEstimateView costEstimate,
                         List<StageAssignmentView> stageAssignments, double completionPercentage,
                         List<PaymentView> payments, PaymentStatus paymentStatus, double netPaid,
                         double balanceAmount, List<ShipmentStopView> shipmentPlan,
@@ -123,14 +124,15 @@ public record OrderView(String id, String orderNumber, OrderType orderType, Stri
 
     public record VariantView(String variantId, String label, int quantity, List<MandatoryItemView> mandatoryItems,
                               List<LineItemView> addOns, PackagingView packaging, double craftingTimeHours,
+                              double assemblyTimeHours,
                               double perUnitCost, double totalCost, double perUnitTimeHours, double totalTimeHours,
                               List<SplitLineView> splitAllocation) {
         static VariantView of(Order.Variant v) {
             return new VariantView(v.getVariantId(), v.getLabel(), v.getQuantity(),
                     v.getMandatoryItems().stream().map(MandatoryItemView::of).toList(),
                     v.getAddOns().stream().map(LineItemView::of).toList(),
-                    PackagingView.of(v.getPackaging()), v.getCraftingTimeHours(), v.getPerUnitCost(),
-                    v.getTotalCost(), v.getPerUnitTimeHours(), v.getTotalTimeHours(),
+                    PackagingView.of(v.getPackaging()), v.getCraftingTimeHours(), v.getAssemblyTimeHours(),
+                    v.getPerUnitCost(), v.getTotalCost(), v.getPerUnitTimeHours(), v.getTotalTimeHours(),
                     v.getSplitAllocation().stream().map(SplitLineView::of).toList());
         }
     }
@@ -162,10 +164,11 @@ public record OrderView(String id, String orderNumber, OrderType orderType, Stri
         return new OrderView(o.getId(), o.getOrderNumber(), o.getOrderType(), o.getCustomerId(),
                 o.getCreatedByCreatorId(), o.getStatus(), o.getItemName(), o.getOrderReceivedDate(),
                 o.getQuotedDeliveryDate(), o.getActualDeliveryDate(), PatternView.of(o.getPattern()),
-                o.getResearchItems().stream().map(ResearchItemView::of).toList(), o.getRecipeSteps(),
+                o.getResearchItems().stream().map(ResearchItemView::of).toList(), o.getResearchTimeHours(),
+                o.getRecipeSteps(),
                 o.getMandatoryItems().stream().map(MandatoryItemView::of).toList(),
                 o.getAddOns().stream().map(LineItemView::of).toList(), PackagingView.of(o.getPackaging()),
-                o.getCraftingTimeHours(), CostEstimateView.of(o.getCostEstimate()),
+                o.getCraftingTimeHours(), o.getAssemblyTimeHours(), CostEstimateView.of(o.getCostEstimate()),
                 o.getStageAssignments().stream().map(StageAssignmentView::of).toList(), completionPercentage,
                 o.getPayments().stream().map(PaymentView::of).toList(), o.getPaymentStatus(), netPaid, balanceAmount,
                 o.getShipmentPlan() == null ? List.of()

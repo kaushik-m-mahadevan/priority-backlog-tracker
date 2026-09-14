@@ -70,6 +70,10 @@ public class Order {
     // ---- 5.4 research ----
     @Builder.Default
     private List<ResearchItem> researchItems = new ArrayList<>();
+    /** One-time, order-level time spent researching the design/pattern — not per unit, so
+     *  it applies once regardless of orderType (design-decision extension, not in the
+     *  original spec's time formula). */
+    private double researchTimeHours;
 
     // ---- 5.5 mandatory items (individual only; bulk uses per-variant) ----
     @Builder.Default
@@ -86,8 +90,9 @@ public class Order {
     @Builder.Default
     private List<String> recipeSteps = new ArrayList<>();
 
-    // ---- 5.9 crafting time (individual only; bulk uses per-variant) ----
+    // ---- 5.9 crocheting/assembly time (individual only; bulk uses per-variant) ----
     private double craftingTimeHours;
+    private double assemblyTimeHours;
 
     // ---- 5.10 cost & time estimation snapshot (individual only) ----
     private CostEstimate costEstimate;
@@ -377,6 +382,7 @@ public class Order {
         private List<LineItem> addOns = new ArrayList<>();
         private Packaging packaging;
         private double craftingTimeHours;
+        private double assemblyTimeHours;
         private double perUnitCost;
         private double totalCost;
         private double perUnitTimeHours;

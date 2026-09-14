@@ -45,11 +45,13 @@ export default function NewOrderPage() {
   const [templateName, setTemplateName] = useState("");
   const [customPatternNotes, setCustomPatternNotes] = useState("");
   const [recipeStepsText, setRecipeStepsText] = useState("");
+  const [researchTimeHours, setResearchTimeHours] = useState(0);
 
   // individual-only
   const [mandatoryItems, setMandatoryItems] = useState<MandatoryItemDraft[]>([]);
   const [addOns, setAddOns] = useState<LineItemDraft[]>([]);
   const [craftingTimeHours, setCraftingTimeHours] = useState(0);
+  const [assemblyTimeHours, setAssemblyTimeHours] = useState(0);
   const [packagingPresetId, setPackagingPresetId] = useState("");
 
   // bulk-only
@@ -148,6 +150,7 @@ export default function NewOrderPage() {
         quotedDeliveryDate: quotedDeliveryDate ? new Date(quotedDeliveryDate).toISOString() : null,
         pattern,
         researchItems: [],
+        researchTimeHours,
         recipeSteps,
       };
       if (orderType === "INDIVIDUAL") {
@@ -155,6 +158,7 @@ export default function NewOrderPage() {
         body.addOns = addOns.filter((a) => a.name.trim());
         body.packagingPresetId = packagingPresetId || null;
         body.craftingTimeHours = craftingTimeHours;
+        body.assemblyTimeHours = assemblyTimeHours;
       } else {
         body.variants = variants
           .filter((v) => v.label.trim())
@@ -164,6 +168,7 @@ export default function NewOrderPage() {
             mandatoryItems: v.mandatoryItems.filter((m) => m.value.trim()),
             addOns: v.addOns.filter((a) => a.name.trim()),
             craftingTimeHours: v.craftingTimeHours,
+            assemblyTimeHours: v.assemblyTimeHours,
             splitAllocation: v.splitAllocation.filter((s) => s.creatorId),
           }));
         body.coordinatingCreatorId = createdByCreatorId;
@@ -346,32 +351,49 @@ export default function NewOrderPage() {
           <textarea id="no-recipe-steps" value={recipeStepsText} onChange={(e) => setRecipeStepsText(e.target.value)}
             placeholder={"One step per line, e.g.\nCrochet body, attach petals\nInsert safety eyes and stuff"} />
         </div>
+        <div className="form-row" style={{ maxWidth: 220 }}>
+          <label htmlFor="no-research-time">Research time (hours)</label>
+          <input id="no-research-time" type="number" min={0} step={0.25} value={researchTimeHours}
+            onChange={(e) => setResearchTimeHours(Number(e.target.value))} />
+        </div>
 
         {orderType === "INDIVIDUAL" ? (
           <>
-            <h2 className="settings-section">Mandatory items</h2>
+            <h2 className="settings-section">Materials</h2>
+            <label className="muted" style={{ fontSize: 12, display: "block", marginBottom: 6 }}>
+              Mandatory items
+            </label>
             <MandatoryItemsFields items={mandatoryItems} types={config.mandatoryItemTypes} onChange={setMandatoryItems} />
 
-            <h2 className="settings-section">Add-ons</h2>
+            <label className="muted" style={{ fontSize: 12, display: "block", margin: "12px 0 6px" }}>
+              Add-ons
+            </label>
             <AddOnsFields addOns={addOns} onChange={setAddOns} />
 
-            <h2 className="settings-section">Packaging &amp; crafting time</h2>
+            <h2 className="settings-section">Packaging</h2>
+            <div className="form-row" style={{ maxWidth: 300 }}>
+              <label htmlFor="no-packaging-preset">Packaging preset</label>
+              <select id="no-packaging-preset" value={packagingPresetId} onChange={(e) => setPackagingPresetId(e.target.value)}>
+                <option value="">None</option>
+                {presets.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <h2 className="settings-section">Processes</h2>
             <div className="form-grid">
               <div className="form-row">
-                <label htmlFor="no-packaging-preset">Packaging preset</label>
-                <select id="no-packaging-preset" value={packagingPresetId} onChange={(e) => setPackagingPresetId(e.target.value)}>
-                  <option value="">None</option>
-                  {presets.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="form-row">
-                <label htmlFor="no-crafting-time">Crafting time (hours)</label>
+                <label htmlFor="no-crafting-time">Crochet time (hours)</label>
                 <input id="no-crafting-time" type="number" min={0} step={0.25} value={craftingTimeHours}
                   onChange={(e) => setCraftingTimeHours(Number(e.target.value))} />
+              </div>
+              <div className="form-row">
+                <label htmlFor="no-assembly-time">Assembly time (hours)</label>
+                <input id="no-assembly-time" type="number" min={0} step={0.25} value={assemblyTimeHours}
+                  onChange={(e) => setAssemblyTimeHours(Number(e.target.value))} />
               </div>
             </div>
           </>
@@ -396,7 +418,10 @@ export default function NewOrderPage() {
                     </div>
                   </div>
 
-                  <div className="muted" style={{ fontSize: 12 }}>
+                  <div className="muted" style={{ fontSize: 12, fontWeight: 600 }}>
+                    Materials
+                  </div>
+                  <div className="muted" style={{ fontSize: 12, marginTop: 6 }}>
                     Mandatory items (per unit)
                   </div>
                   <MandatoryItemsFields
@@ -413,12 +438,20 @@ export default function NewOrderPage() {
                     onChange={(a) => setVariants((prev) => prev.map((x, j) => (j === i ? { ...x, addOns: a } : x)))}
                   />
 
-                  <div className="form-row" style={{ marginTop: 12, maxWidth: 220 }}>
-                    <label htmlFor={`no-variant-${i}-crafting-time`} className="muted" style={{ fontSize: 12 }}>
-                      Crafting time/unit (hours)
-                    </label>
-                    <input id={`no-variant-${i}-crafting-time`} type="number" min={0} step={0.1} value={v.craftingTimeHours} onChange={(e) =>
-                      setVariants((prev) => prev.map((x, j) => (j === i ? { ...x, craftingTimeHours: Number(e.target.value) } : x)))} />
+                  <div className="muted" style={{ fontSize: 12, fontWeight: 600, marginTop: 16 }}>
+                    Processes
+                  </div>
+                  <div className="form-grid" style={{ marginTop: 6, maxWidth: 460 }}>
+                    <div className="form-row">
+                      <label htmlFor={`no-variant-${i}-crafting-time`}>Crochet time/unit (hours)</label>
+                      <input id={`no-variant-${i}-crafting-time`} type="number" min={0} step={0.1} value={v.craftingTimeHours} onChange={(e) =>
+                        setVariants((prev) => prev.map((x, j) => (j === i ? { ...x, craftingTimeHours: Number(e.target.value) } : x)))} />
+                    </div>
+                    <div className="form-row">
+                      <label htmlFor={`no-variant-${i}-assembly-time`}>Assembly time/unit (hours)</label>
+                      <input id={`no-variant-${i}-assembly-time`} type="number" min={0} step={0.1} value={v.assemblyTimeHours} onChange={(e) =>
+                        setVariants((prev) => prev.map((x, j) => (j === i ? { ...x, assemblyTimeHours: Number(e.target.value) } : x)))} />
+                    </div>
                   </div>
 
                   <div className="muted" style={{ fontSize: 12, marginTop: 12 }}>
