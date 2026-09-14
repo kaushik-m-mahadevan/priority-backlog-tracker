@@ -26,7 +26,7 @@ public record CreateOrderRequest(String customerId, String orderType, String cre
     public record ResearchItemInput(ResearchItemType type, String url, String description) {
     }
 
-    public record MandatoryItemInput(String itemKey, String value, double quantity, double unitCost) {
+    public record MandatoryItemInput(String itemKey, String value, double quantity, double unitCost, String notes) {
     }
 
     public record LineItemInput(String name, String category, Map<String, String> attributes,

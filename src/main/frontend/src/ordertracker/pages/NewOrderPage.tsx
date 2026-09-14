@@ -208,7 +208,7 @@ export default function NewOrderPage() {
         {orderType === "INDIVIDUAL" ? (
           <>
             <h2 className="settings-section">Mandatory items</h2>
-            <MandatoryItemsFields items={mandatoryItems} onChange={setMandatoryItems} />
+            <MandatoryItemsFields items={mandatoryItems} types={config.mandatoryItemTypes} onChange={setMandatoryItems} />
 
             <h2 className="settings-section">Add-ons</h2>
             <AddOnsFields addOns={addOns} onChange={setAddOns} />
@@ -259,6 +259,7 @@ export default function NewOrderPage() {
                   </label>
                   <MandatoryItemsFields
                     items={v.mandatoryItems}
+                    types={config.mandatoryItemTypes}
                     onChange={(items) => setVariants((prev) => prev.map((x, j) => (j === i ? { ...x, mandatoryItems: items } : x)))}
                   />
 

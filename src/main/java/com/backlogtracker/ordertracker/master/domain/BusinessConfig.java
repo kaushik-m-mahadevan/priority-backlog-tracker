@@ -42,7 +42,13 @@ public class BusinessConfig {
     private List<MandatoryItemType> mandatoryItemTypes;
     private List<WorkStageType> workStages;
 
-    public record MandatoryItemType(String itemKey, String label, List<String> allowedValues) {
+    /** {@code isTool} distinguishes a reusable tool (e.g. a crochet hook — not purchased
+     *  per order, can appear multiple times on one order with no cost implication) from a
+     *  material (e.g. wool — cost/quantity matter, and a project may still use several
+     *  entries of it, e.g. two colours). Order-level entries always allow multiple values
+     *  per type regardless of this flag; the flag only decides whether quantity/unit cost
+     *  are meaningful to collect for that type. */
+    public record MandatoryItemType(String itemKey, String label, List<String> allowedValues, boolean isTool) {
     }
 
     /**
@@ -66,8 +72,8 @@ public class BusinessConfig {
                 .profitMarginPercentage(0.20)
                 .currency("INR")
                 .mandatoryItemTypes(new ArrayList<>(List.of(
-                        new MandatoryItemType("wool", "Wool", null),
-                        new MandatoryItemType("needle", "Needle", null))))
+                        new MandatoryItemType("wool", "Wool", null, false),
+                        new MandatoryItemType("needle", "Needle", null, true))))
                 .workStages(new ArrayList<>(List.of(
                         new WorkStageType("crocheting", "Crocheting", 1, true),
                         new WorkStageType("assembly", "Assembly", 2, true),

@@ -41,6 +41,7 @@ export interface MandatoryItemType {
   itemKey: string;
   label: string;
   allowedValues: string[] | null;
+  isTool: boolean;
 }
 
 export interface WorkStageType {
@@ -86,6 +87,7 @@ export interface MandatoryItem {
   value: string;
   quantity: number;
   unitCost: number;
+  notes: string | null;
 }
 
 export interface LineItem {

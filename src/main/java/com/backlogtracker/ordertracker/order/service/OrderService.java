@@ -472,7 +472,7 @@ public class OrderService {
             return List.of();
         }
         return inputs.stream().map(i -> MandatoryItem.builder().itemKey(i.itemKey()).value(i.value())
-                .quantity(i.quantity()).unitCost(i.unitCost()).build()).toList();
+                .quantity(i.quantity()).unitCost(i.unitCost()).notes(i.notes()).build()).toList();
     }
 
     private List<LineItem> toLineItems(List<CreateOrderRequest.LineItemInput> inputs) {

@@ -139,8 +139,11 @@ public class Order {
         private String description;
     }
 
-    /** One entry per {@code BusinessConfig.mandatoryItemTypes} (spec §5.5) — plain text/
-     *  number entry, no catalog. {@code inventoryItemId} is reserved/unused per spec §11. */
+    /** Entries per {@code BusinessConfig.mandatoryItemTypes} (spec §5.5) — plain text/number
+     *  entry, no catalog; an order may carry several entries for the same itemKey (e.g. two
+     *  wool colours, or two needle sizes). {@code inventoryItemId} is reserved/unused per
+     *  spec §11. {@code notes} is an optional free-text explanation of why this particular
+     *  entry is needed — most useful for a tool-type item ("size 4 hook for the edging"). */
     @Getter
     @Setter
     @Builder
@@ -151,6 +154,7 @@ public class Order {
         private String value;
         private double quantity;
         private double unitCost;
+        private String notes;
     }
 
     /** Shared sub-schema used for add-ons and packaging's finalized itemized list (spec §3).

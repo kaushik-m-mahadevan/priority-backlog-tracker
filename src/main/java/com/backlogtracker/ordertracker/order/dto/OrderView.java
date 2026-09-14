@@ -34,9 +34,9 @@ public record OrderView(String id, String orderNumber, OrderType orderType, Stri
         }
     }
 
-    public record MandatoryItemView(String itemKey, String value, double quantity, double unitCost) {
+    public record MandatoryItemView(String itemKey, String value, double quantity, double unitCost, String notes) {
         static MandatoryItemView of(Order.MandatoryItem m) {
-            return new MandatoryItemView(m.getItemKey(), m.getValue(), m.getQuantity(), m.getUnitCost());
+            return new MandatoryItemView(m.getItemKey(), m.getValue(), m.getQuantity(), m.getUnitCost(), m.getNotes());
         }
     }
 

@@ -5,6 +5,7 @@ import { useBusiness } from "../BusinessContext";
 import {
   AddOnsFields,
   MandatoryItemsFields,
+  blankMandatoryItemEntry,
   duplicateVariant,
   validateSplits,
   type LineItemDraft,
@@ -39,8 +40,8 @@ function EditOrderForm({
   const [recipeStepsText, setRecipeStepsText] = useState(order.recipeSteps.join("\n"));
   const [mandatoryItems, setMandatoryItems] = useState<MandatoryItemDraft[]>(
     order.mandatoryItems.length > 0
-      ? order.mandatoryItems.map((m) => ({ itemKey: m.itemKey, value: m.value, quantity: m.quantity, unitCost: m.unitCost }))
-      : config.mandatoryItemTypes.map((it) => ({ itemKey: it.itemKey, value: "", quantity: 1, unitCost: 0 }))
+      ? order.mandatoryItems.map((m) => ({ itemKey: m.itemKey, value: m.value, quantity: m.quantity, unitCost: m.unitCost, notes: m.notes ?? "" }))
+      : config.mandatoryItemTypes.map((it) => blankMandatoryItemEntry(it.itemKey))
   );
   const [addOns, setAddOns] = useState<LineItemDraft[]>(
     order.addOns.map((a) => ({ name: a.name, quantity: a.quantity, unitCost: a.unitCost, unitTimeHours: a.unitTimeHours ?? 0 }))
@@ -115,7 +116,7 @@ function EditOrderForm({
       <label className="muted" style={{ fontSize: 12, display: "block", marginBottom: 6 }}>
         Mandatory items
       </label>
-      <MandatoryItemsFields items={mandatoryItems} onChange={setMandatoryItems} />
+      <MandatoryItemsFields items={mandatoryItems} types={config.mandatoryItemTypes} onChange={setMandatoryItems} />
 
       <label className="muted" style={{ fontSize: 12, display: "block", margin: "12px 0 6px" }}>
         Add-ons
@@ -153,12 +154,14 @@ function EditOrderForm({
 function EditBulkDetailsForm({
   groupId,
   order,
+  config,
   creators,
   onSaved,
   onCancel,
 }: {
   groupId: string;
   order: OrderView;
+  config: BusinessConfig;
   creators: Creator[];
   onSaved: (o: OrderView) => void;
   onCancel: () => void;
@@ -168,7 +171,7 @@ function EditBulkDetailsForm({
       variantId: v.variantId,
       label: v.label,
       quantity: v.quantity,
-      mandatoryItems: v.mandatoryItems.map((m) => ({ itemKey: m.itemKey, value: m.value, quantity: m.quantity, unitCost: m.unitCost })),
+      mandatoryItems: v.mandatoryItems.map((m) => ({ itemKey: m.itemKey, value: m.value, quantity: m.quantity, unitCost: m.unitCost, notes: m.notes ?? "" })),
       addOns: v.addOns.map((a) => ({ name: a.name, quantity: a.quantity, unitCost: a.unitCost, unitTimeHours: a.unitTimeHours ?? 0 })),
       craftingTimeHours: v.craftingTimeHours,
       splitAllocation: v.splitAllocation.map((s) => ({ creatorId: s.creatorId, quantityAssigned: s.quantityAssigned })),
@@ -253,6 +256,7 @@ function EditBulkDetailsForm({
             </label>
             <MandatoryItemsFields
               items={v.mandatoryItems}
+              types={config.mandatoryItemTypes}
               onChange={(items) => setVariants((prev) => prev.map((x, j) => (j === i ? { ...x, mandatoryItems: items } : x)))}
             />
 
@@ -418,6 +422,7 @@ export default function OrderDetailPage() {
         <EditBulkDetailsForm
           groupId={groupId}
           order={order}
+          config={config}
           creators={creators}
           onSaved={(o) => {
             setOrder(o);
@@ -473,9 +478,12 @@ export default function OrderDetailPage() {
             {order.mandatoryItems.length === 0 ? (
               <p className="empty">None recorded.</p>
             ) : (
-              order.mandatoryItems.map((m) => (
-                <div className="row" key={m.itemKey}>
-                  <span className="k">{m.itemKey}: {m.value}</span>
+              order.mandatoryItems.map((m, i) => (
+                <div className="row" key={i}>
+                  <span className="k">
+                    {m.itemKey}: {m.value}
+                    {m.notes && <span className="muted"> ({m.notes})</span>}
+                  </span>
                   <span className="v">{m.quantity} × ₹{m.unitCost.toFixed(2)}</span>
                 </div>
               ))
@@ -518,9 +526,12 @@ export default function OrderDetailPage() {
                   {v.mandatoryItems.length === 0 ? (
                     <p className="empty">None.</p>
                   ) : (
-                    v.mandatoryItems.map((m) => (
-                      <div className="row" key={m.itemKey}>
-                        <span className="k">{m.itemKey}: {m.value}</span>
+                    v.mandatoryItems.map((m, i) => (
+                      <div className="row" key={i}>
+                        <span className="k">
+                          {m.itemKey}: {m.value}
+                          {m.notes && <span className="muted"> ({m.notes})</span>}
+                        </span>
                         <span className="v">{m.quantity} × ₹{m.unitCost.toFixed(2)}</span>
                       </div>
                     ))
