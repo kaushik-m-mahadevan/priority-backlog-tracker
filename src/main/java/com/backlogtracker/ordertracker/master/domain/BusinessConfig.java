@@ -69,7 +69,20 @@ public class BusinessConfig {
      * completion is an equal-weighted average across all stages (spec §5.11's stated
      * default) regardless of this flag.
      */
-    public record WorkStageType(String stageKey, String label, int sequenceOrder, boolean splitTracked) {
+    public record WorkStageType(String stageKey, String label, int sequenceOrder, Boolean splitTracked) {
+        /** Boxed for the same reason as {@link MandatoryItemType#isTool} — a primitive
+         *  component can't bind a missing/null Mongo value, and every config document
+         *  persisted before this field existed has no splitTracked key at all. Unlike
+         *  isTool, a blanket false default here would be wrong (not just conservative) —
+         *  it would silently flip Crocheting/Assembly to batch-tracked and corrupt every
+         *  existing bulk order's completion %. Work stages have no edit UI (frontend only
+         *  ever displays workStages, never edits them), so every document's set is exactly
+         *  {@link #defaultsFor}'s four — safe to restore the intended value by stageKey. */
+        public WorkStageType {
+            if (splitTracked == null) {
+                splitTracked = "crocheting".equals(stageKey) || "assembly".equals(stageKey);
+            }
+        }
     }
 
     /** Starting point for a newly configured business — the crochet shop from the spec.
