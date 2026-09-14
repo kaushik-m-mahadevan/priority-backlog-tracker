@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { orderTrackerApi } from "../api";
 import { useBusiness } from "../BusinessContext";
+import AddToGroupModal from "../AddToGroupModal";
 import {
   AddOnsFields,
   MandatoryItemsFields,
@@ -342,6 +343,7 @@ export default function OrderDetailPage() {
   const [editing, setEditing] = useState(false);
   const [paymentAmount, setPaymentAmount] = useState(0);
   const [paymentType, setPaymentType] = useState<PaymentType>("ADVANCE");
+  const [addingToGroup, setAddingToGroup] = useState(false);
 
   const load = () => {
     Promise.all([
@@ -390,11 +392,13 @@ export default function OrderDetailPage() {
         </select>
         <span className="badge">{order.paymentStatus}</span>
         <span className="spacer" />
+        <button onClick={() => setAddingToGroup(true)}>Add to Priority Tracker</button>
         {!editing && (
           <button onClick={() => setEditing(true)}>Edit order</button>
         )}
       </div>
       <p className="page-sub">{order.itemName}</p>
+      {addingToGroup && <AddToGroupModal order={order} onClose={() => setAddingToGroup(false)} />}
 
       <div className="toolbar" style={{ marginBottom: 20 }}>
         <div className="order-progress-track">
