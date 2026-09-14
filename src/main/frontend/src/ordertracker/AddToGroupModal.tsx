@@ -104,8 +104,15 @@ export default function AddToGroupModal({ order, onClose }: { order: OrderView; 
   };
 
   return (
-    <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal" onClick={(e) => e.stopPropagation()}>
+    <div
+      className="modal-backdrop"
+      onClick={onClose}
+      onKeyDown={(e) => {
+        if (e.key === "Escape") onClose();
+      }}
+    >
+      <div className="modal" role="dialog" aria-modal="true" aria-label="Add to Priority Tracker"
+        onClick={(e) => e.stopPropagation()}>
         <div className="modal-head">
           <h3>Add to Priority Tracker</h3>
         </div>
@@ -126,7 +133,7 @@ export default function AddToGroupModal({ order, onClose }: { order: OrderView; 
           <form onSubmit={submit}>
             <div className="form-row">
               <label htmlFor="atg-group">Group</label>
-              <select id="atg-group" value={groupId} onChange={(e) => setGroupId(e.target.value)} required>
+              <select id="atg-group" autoFocus value={groupId} onChange={(e) => setGroupId(e.target.value)} required>
                 <option value="" disabled>
                   Select a group…
                 </option>
