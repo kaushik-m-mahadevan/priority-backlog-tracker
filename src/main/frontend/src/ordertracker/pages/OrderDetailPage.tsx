@@ -727,8 +727,9 @@ export default function OrderDetailPage() {
                 <span className="muted">Qty {v.quantity}</span>
                 <span className="spacer" />
                 <span className="muted">Crochet {v.craftingTimeHours}h/unit · Assembly {v.assemblyTimeHours}h/unit</span>
-                <span>₹{v.perUnitCost.toFixed(2)}/unit</span>
-                <span>Total ₹{v.totalCost.toFixed(2)}</span>
+                <span className="muted" title="Estimated">~{v.perUnitTimeHours.toFixed(2)}h/unit · {v.totalTimeHours.toFixed(2)}h total</span>
+                <span title="Estimated">~₹{v.perUnitCost.toFixed(2)}/unit</span>
+                <span title="Estimated">Total ~₹{v.totalCost.toFixed(2)}</span>
               </div>
               <div className="muted" style={{ fontSize: 12, fontWeight: 600, marginBottom: 4 }}>
                 Materials
@@ -867,6 +868,40 @@ export default function OrderDetailPage() {
               );
             })}
           </div>
+
+          <div className="card" style={{ marginBottom: 16 }}>
+            <h2>Contributor timelines — estimate</h2>
+            <p className="muted" style={{ fontSize: 12, marginTop: -4, marginBottom: 10 }}>
+              Each creator's own target finish date, based on their assigned hours and their own pace.
+            </p>
+            {(() => {
+              const variants = order.bulkDetails?.variants ?? [];
+              const creatorIds = [...new Set(variants.flatMap((v) => v.splitAllocation.map((s) => s.creatorId)))];
+              if (creatorIds.length === 0) {
+                return <p className="empty">Nobody assigned yet.</p>;
+              }
+              return creatorIds.map((creatorId) => {
+                const hours = variants.reduce((sum, v) => {
+                  const split = v.splitAllocation.find((s) => s.creatorId === creatorId);
+                  return sum + (split ? split.quantityAssigned * v.perUnitTimeHours : 0);
+                }, 0);
+                const hoursPerDay = creators.find((c) => c.id === creatorId)?.hoursAvailablePerDay ?? 0;
+                const days = hoursPerDay > 0 ? Math.max(1, Math.ceil(hours / hoursPerDay)) : null;
+                const target = days !== null && order.orderReceivedDate
+                  ? new Date(new Date(order.orderReceivedDate).getTime() + days * 86400000)
+                  : null;
+                return (
+                  <div className="row" key={creatorId}>
+                    <span className="k">{creatorName(creatorId)}</span>
+                    <span className="v">
+                      {hours.toFixed(1)}h at {hoursPerDay}h/day
+                      {target && <> — target {target.toLocaleDateString()}</>}
+                    </span>
+                  </div>
+                );
+              });
+            })()}
+          </div>
         </>
       )}
 
@@ -897,24 +932,31 @@ export default function OrderDetailPage() {
 
       <div className="grid cols-2">
         <div className="card cost-card" style={{ background: "var(--bg-elev-2)" }}>
-          <h2>Cost &amp; time</h2>
+          <h2>Cost &amp; time — estimate</h2>
+          <p className="muted" style={{ fontSize: 12, marginTop: -4, marginBottom: 10 }}>
+            Calculated from what's entered above. Not a final invoice — record the real numbers once the order ships.
+          </p>
           {order.orderType === "INDIVIDUAL" && order.costEstimate ? (
             <>
               {order.costEstimate.itemizedBreakdown.map((b) => (
                 <div className="row" key={b.label}><span className="k">{b.label}</span><span className="v">₹{b.amount.toFixed(2)}</span></div>
               ))}
-              <div className="cost-total"><span className="k">Final price</span><span className="v">₹{order.costEstimate.finalCost.toFixed(2)}</span></div>
-              <div className="row" style={{ marginTop: 8 }}><span className="k">Total time</span><span className="v">{order.costEstimate.grossTimeHours}h</span></div>
+              <div className="cost-total"><span className="k">Estimated price</span><span className="v">₹{order.costEstimate.finalCost.toFixed(2)}</span></div>
+              <div className="row" style={{ marginTop: 8 }}><span className="k">Estimated time</span><span className="v">{order.costEstimate.grossTimeHours}h</span></div>
             </>
           ) : (
             <>
               <div className="row"><span className="k">Total quantity</span><span className="v">{order.bulkDetails?.totalQuantity}</span></div>
-              <div className="cost-total"><span className="k">Total cost</span><span className="v">₹{order.bulkDetails?.totalFinalCost.toFixed(2)}</span></div>
-              <div className="row" style={{ marginTop: 8 }}><span className="k">Total time</span><span className="v">{order.bulkDetails?.totalTimeHours}h</span></div>
+              <div className="cost-total"><span className="k">Estimated total cost</span><span className="v">₹{order.bulkDetails?.totalFinalCost.toFixed(2)}</span></div>
+              <div className="row" style={{ marginTop: 8 }}><span className="k">Estimated total time</span><span className="v">{order.bulkDetails?.totalTimeHours}h</span></div>
             </>
           )}
-          <div className="row"><span className="k">Promised delivery</span>
+          <div className="row"><span className="k">Estimated delivery</span>
             <span className="v">{dueDate ? new Date(dueDate).toLocaleDateString() : "—"}</span></div>
+          {order.quotedDeliveryDate && (
+            <div className="row"><span className="k">Quoted to customer</span>
+              <span className="v">{new Date(order.quotedDeliveryDate).toLocaleDateString()}</span></div>
+          )}
         </div>
 
         <div className="card">

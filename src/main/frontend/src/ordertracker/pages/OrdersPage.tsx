@@ -57,7 +57,7 @@ export default function OrdersPage() {
                 <th>Type</th>
                 <th>Status</th>
                 <th>Completion</th>
-                <th>Due</th>
+                <th>Due (est.)</th>
                 <th>Payment</th>
               </tr>
             </thead>
