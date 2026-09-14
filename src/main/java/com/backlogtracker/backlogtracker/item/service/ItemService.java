@@ -158,7 +158,7 @@ public class ItemService {
     }
 
     private void validateCategory(String groupId, String category) {
-        List<String> allowed = groupCategoryService.categoriesFor(groupId);
+        List<String> allowed = groupCategoryService.effectiveCategories(groupId);
         if (!allowed.contains(category)) {
             throw new IllegalArgumentException(
                     "Unknown category '" + category + "'. Allowed: " + allowed);

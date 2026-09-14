@@ -35,8 +35,16 @@ public class GroupCategoryService {
     private final MongoOperations mongo;
 
     /** The effective list for a group — its own saved document, or the shared defaults
-     *  if it has never edited them. */
-    public List<String> categoriesFor(String groupId) {
+     *  if it has never edited them. For the controller; checks membership itself. */
+    public List<String> categoriesFor(String groupId, String userId) {
+        groupService.requireMember(groupId, userId);
+        return effectiveCategories(groupId);
+    }
+
+    /** Same lookup, no membership check — for internal callers (e.g. ItemService's own
+     *  category validation) that are already downstream of their own membership check on
+     *  the same request and would otherwise redo it pointlessly. */
+    public List<String> effectiveCategories(String groupId) {
         return repository.findById(groupId)
                 .map(GroupCategories::getCategories)
                 .orElse(GroupCategories.DEFAULTS);

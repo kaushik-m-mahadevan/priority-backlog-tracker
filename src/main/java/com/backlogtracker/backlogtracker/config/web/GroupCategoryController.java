@@ -33,7 +33,7 @@ public class GroupCategoryController {
 
     @GetMapping
     public CategoriesView get(@PathVariable String id, @AuthenticationPrincipal AuthUser actor) {
-        return new CategoriesView(categoryService.categoriesFor(id));
+        return new CategoriesView(categoryService.categoriesFor(id, actor.id()));
     }
 
     /** Add a category to this group's own list. Any member may. */
