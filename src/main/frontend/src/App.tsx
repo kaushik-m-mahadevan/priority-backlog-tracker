@@ -21,6 +21,7 @@ import { QuickWinsPage, AttentionPage, TeamPage } from "./pages/RailPages";
 import OrderTrackerRoot from "./ordertracker/OrderTrackerRoot";
 import CustomersPage from "./ordertracker/pages/CustomersPage";
 import OrdersPage from "./ordertracker/pages/OrdersPage";
+import MyWorkPage from "./ordertracker/pages/MyWorkPage";
 import NewOrderPage from "./ordertracker/pages/NewOrderPage";
 import OrderDetailPage from "./ordertracker/pages/OrderDetailPage";
 import BusinessSettingsPage from "./ordertracker/pages/BusinessSettingsPage";
@@ -82,6 +83,7 @@ export default function App() {
                 <Route path="/ordertracker" element={<OrderTrackerRoot />}>
                   <Route index element={<Navigate to="orders" replace />} />
                   <Route path="orders" element={<OrdersPage />} />
+                  <Route path="my-work" element={<MyWorkPage />} />
                   <Route path="orders/new" element={<NewOrderPage />} />
                   <Route path="orders/:orderId" element={<OrderDetailPage />} />
                   <Route path="customers" element={<CustomersPage />} />

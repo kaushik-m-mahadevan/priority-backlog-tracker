@@ -1,5 +1,6 @@
 package com.backlogtracker.ordertracker.order.web;
 
+import java.time.Instant;
 import java.util.List;
 
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -10,6 +11,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.backlogtracker.commons.security.AuthUser;
@@ -41,6 +43,14 @@ public class OrderController {
     @GetMapping
     public List<OrderView> all(@PathVariable String groupId, @AuthenticationPrincipal AuthUser actor) {
         return orderService.all(groupId, actor.id());
+    }
+
+    @GetMapping("/my-work")
+    public List<OrderView> myWork(@PathVariable String groupId, @AuthenticationPrincipal AuthUser actor,
+                                  @RequestParam(required = false) String status,
+                                  @RequestParam(required = false) Instant from,
+                                  @RequestParam(required = false) Instant to) {
+        return orderService.myWork(groupId, actor.id(), status, from, to);
     }
 
     @GetMapping("/{orderId}")

@@ -46,6 +46,14 @@ export const orderTrackerApi = {
   },
 
   orders: (groupId: string) => api.get<OrderView[]>(`${base(groupId)}/orders`),
+  myWork: (groupId: string, params: { status?: "pending" | "done" | "all"; from?: string; to?: string }) => {
+    const query = new URLSearchParams();
+    if (params.status) query.set("status", params.status);
+    if (params.from) query.set("from", params.from);
+    if (params.to) query.set("to", params.to);
+    const qs = query.toString();
+    return api.get<OrderView[]>(`${base(groupId)}/orders/my-work${qs ? `?${qs}` : ""}`);
+  },
   order: (groupId: string, orderId: string) => api.get<OrderView>(`${base(groupId)}/orders/${orderId}`),
   changeLog: (groupId: string, orderId: string) => api.get<ChangeLog[]>(`${base(groupId)}/orders/${orderId}/change-log`),
   createOrder: (groupId: string, body: unknown) => api.post<OrderView>(`${base(groupId)}/orders`, body),

@@ -68,6 +68,75 @@ public class OrderService {
         return repository.findByGroupId(groupId).stream().map(o -> view(o, userId)).toList();
     }
 
+    /** Orders where the caller's own Creator profile has assigned work — individual orders
+     *  via {@code stageAssignments}, bulk orders via each variant's {@code splitAllocation}.
+     *  {@code completionFilter}: "pending" (default, incomplete-for-me only), "done"
+     *  (complete-for-me only), or "all". Date range is optional, on {@code orderReceivedDate}. */
+    public List<OrderView> myWork(String groupId, String userId, String completionFilter, Instant from, Instant to) {
+        groupService.requireMember(groupId, userId);
+        Creator me = creatorService.myProfile(groupId, userId);
+        if (me == null) {
+            return List.of();
+        }
+        BusinessConfig cfg = businessConfigService.get(groupId, userId);
+        String filter = completionFilter == null ? "pending" : completionFilter;
+        return repository.findByGroupId(groupId).stream()
+                .filter(o -> isMyWork(o, me.getId()))
+                .filter(o -> from == null || (o.getOrderReceivedDate() != null && !o.getOrderReceivedDate().isBefore(from)))
+                .filter(o -> to == null || (o.getOrderReceivedDate() != null && !o.getOrderReceivedDate().isAfter(to)))
+                .filter(o -> switch (filter) {
+                    case "done" -> isCompleteForMe(o, me.getId(), cfg);
+                    case "all" -> true;
+                    default -> !isCompleteForMe(o, me.getId(), cfg);
+                })
+                .map(o -> view(o, userId))
+                .toList();
+    }
+
+    private boolean isMyWork(Order order, String creatorId) {
+        if (order.getOrderType() == OrderType.INDIVIDUAL) {
+            return order.getStageAssignments().stream()
+                    .anyMatch(sa -> creatorId.equals(sa.getAssignedCreatorId()));
+        }
+        if (order.getBulkDetails() == null) {
+            return false;
+        }
+        return order.getBulkDetails().getVariants().stream()
+                .flatMap(v -> v.getSplitAllocation().stream())
+                .anyMatch(s -> creatorId.equals(s.getCreatorId()));
+    }
+
+    private boolean isCompleteForMe(Order order, String creatorId, BusinessConfig cfg) {
+        if (order.getOrderType() == OrderType.INDIVIDUAL) {
+            return order.getStageAssignments().stream()
+                    .filter(sa -> creatorId.equals(sa.getAssignedCreatorId()))
+                    .allMatch(sa -> sa.getUnitsCompleted() >= sa.getTotalUnits());
+        }
+        if (order.getBulkDetails() == null) {
+            return true;
+        }
+        for (Variant v : order.getBulkDetails().getVariants()) {
+            for (SplitLine s : v.getSplitAllocation()) {
+                if (!creatorId.equals(s.getCreatorId())) {
+                    continue;
+                }
+                for (BusinessConfig.WorkStageType stage : cfg.getWorkStages()) {
+                    if (!stage.splitTracked()) {
+                        continue;
+                    }
+                    int completed = s.getStageProgress().stream()
+                            .filter(sp -> stage.stageKey().equals(sp.getStageKey()))
+                            .mapToInt(Order.StageProgressEntry::getUnitsCompleted)
+                            .findFirst().orElse(0);
+                    if (completed < s.getQuantityAssigned()) {
+                        return false;
+                    }
+                }
+            }
+        }
+        return true;
+    }
+
     public OrderView get(String groupId, String userId, String orderId) {
         groupService.requireMember(groupId, userId);
         return view(requireById(groupId, orderId), userId);

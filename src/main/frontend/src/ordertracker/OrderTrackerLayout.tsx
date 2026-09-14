@@ -69,6 +69,7 @@ export default function OrderTrackerLayout() {
         {currentGroupId && (
           <div className="nav-links">
             <NavLink to="/ordertracker/orders">Orders</NavLink>
+            <NavLink to="/ordertracker/my-work">My Work</NavLink>
             <NavLink to="/ordertracker/customers">Customers</NavLink>
             <NavLink to="/ordertracker/manage-business">Manage business</NavLink>
             <NavLink to="/ordertracker/business-settings">Business</NavLink>
@@ -101,6 +102,7 @@ export default function OrderTrackerLayout() {
       {currentGroupId && (
         <nav className="tabbar text">
           <NavLink to="/ordertracker/orders">Orders</NavLink>
+          <NavLink to="/ordertracker/my-work">My Work</NavLink>
           <NavLink to="/ordertracker/customers">Customers</NavLink>
           <NavLink to="/ordertracker/manage-business">Team</NavLink>
           <NavLink to="/ordertracker/business-settings">Business</NavLink>
