@@ -5,6 +5,7 @@ target/
 .idea/
 *.iml
 .vscode/
+.claude/
 
 # Node / frontend build
 node_modules/

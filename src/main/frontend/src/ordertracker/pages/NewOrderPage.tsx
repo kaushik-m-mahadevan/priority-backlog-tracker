@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { orderTrackerApi } from "../api";
 import { useBusiness } from "../BusinessContext";
 import {
@@ -124,6 +124,21 @@ export default function NewOrderPage() {
   };
 
   if (!config) return <p className="muted">Loading…</p>;
+
+  if (creators.length === 0) {
+    return (
+      <div className="card">
+        <h1 className="page-title">New order</h1>
+        <p>
+          You need a creator profile before you can log an order — it's what "Logged by" and creator splits use to
+          identify you.
+        </p>
+        <Link to="/ordertracker/business-settings" className="primary">
+          Set up your creator profile
+        </Link>
+      </div>
+    );
+  }
 
   return (
     <div>

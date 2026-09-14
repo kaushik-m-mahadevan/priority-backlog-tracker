@@ -51,6 +51,21 @@ export interface WorkStageType {
   splitTracked: boolean;
 }
 
+export type CostConfigChangeStatus = "PENDING" | "APPROVED" | "REJECTED";
+
+export interface CostConfigChangeRequest {
+  id: string;
+  groupId: string;
+  proposedOverheadPercentage: number;
+  proposedProfitMarginPercentage: number;
+  proposedByUserId: string;
+  approvedByUserIds: string[];
+  status: CostConfigChangeStatus;
+  rejectedByUserId: string | null;
+  createdAt: string;
+  resolvedAt: string | null;
+}
+
 export interface BusinessConfig {
   groupId: string;
   overheadPercentage: number;

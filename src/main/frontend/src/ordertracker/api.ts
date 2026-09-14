@@ -1,12 +1,26 @@
 import { api } from "../api/client";
-import type { BusinessConfig, ChangeLog, Creator, Customer, OrderView, PresetOption } from "./types";
+import type { BusinessConfig, ChangeLog, CostConfigChangeRequest, Creator, Customer, MandatoryItemType, OrderView, PresetOption, WorkStageType } from "./types";
 
 const base = (groupId: string) => `/ordertracker/groups/${groupId}`;
 
 export const orderTrackerApi = {
   businessConfig: (groupId: string) => api.get<BusinessConfig>(`${base(groupId)}/business-config`),
-  updateBusinessConfig: (groupId: string, body: Omit<BusinessConfig, "groupId" | "individualOrderTypeCode" | "bulkOrderTypeCode">) =>
-    api.put<BusinessConfig>(`${base(groupId)}/business-config`, body),
+  updateBusinessConfig: (
+    groupId: string,
+    body: { currency: string; mandatoryItemTypes: MandatoryItemType[]; workStages: WorkStageType[] }
+  ) => api.put<BusinessConfig>(`${base(groupId)}/business-config`, body),
+
+  costConfigChangeRequests: (groupId: string) =>
+    api.get<CostConfigChangeRequest[]>(`${base(groupId)}/business-config/change-requests`),
+  proposeCostConfigChange: (groupId: string, overheadPercentage: number, profitMarginPercentage: number) =>
+    api.post<CostConfigChangeRequest>(`${base(groupId)}/business-config/change-requests`, {
+      overheadPercentage,
+      profitMarginPercentage,
+    }),
+  approveCostConfigChange: (groupId: string, requestId: string) =>
+    api.post<CostConfigChangeRequest>(`${base(groupId)}/business-config/change-requests/${requestId}/approve`),
+  rejectCostConfigChange: (groupId: string, requestId: string) =>
+    api.post<CostConfigChangeRequest>(`${base(groupId)}/business-config/change-requests/${requestId}/reject`),
 
   myCreatorProfile: (groupId: string) => api.get<Creator | null>(`${base(groupId)}/creators/me`),
   upsertMyCreatorProfile: (groupId: string, body: { baseLocation: string; hoursAvailablePerDay: number }) =>
