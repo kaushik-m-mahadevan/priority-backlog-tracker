@@ -1,11 +1,12 @@
 import { test, expect, type Page } from "@playwright/test";
 
 /**
- * Order Tracker's own smoke test (design: platform integration, Phase 6) — the same
- * spirit as core-flow.spec.ts but for the second applet: log in, create a business, set up
- * a creator profile, add a customer, create an order, and confirm the computed order
- * number/cost and a payment round-trip through the UI. Not exhaustive — bulk orders,
- * shipment plans, and change history are covered by backend tests only.
+ * Order Tracker's own smoke test (design: platform integration, Phase 6, spec-accurate
+ * rebuild) — the same spirit as core-flow.spec.ts but for the second applet: log in,
+ * create a business, set up a creator profile, add a customer, create an individual order,
+ * and confirm the computed order number/cost and a payment round-trip through the UI. Not
+ * exhaustive — bulk orders, shipment plans, and change history are covered by backend
+ * tests only.
  */
 
 const ADMIN_EMAIL = "test123";
@@ -47,7 +48,7 @@ test("create a business, set up a creator, add a customer, place an order, recor
   await expect(page.getByRole("combobox").filter({ hasText: businessName })).toBeVisible();
 
   // --- set up a creator profile ---------------------------------------------
-  await page.getByRole("link", { name: "Business" }).click();
+  await page.getByRole("link", { name: "Business", exact: true }).click();
   await formField(page, "Base location").fill("Bangalore");
   await page.getByRole("button", { name: "Save" }).click();
   await expect(page.getByText(/Creator code/)).toBeVisible();
@@ -59,19 +60,19 @@ test("create a business, set up a creator, add a customer, place an order, recor
   await page.getByRole("button", { name: "Save customer" }).click();
   await expect(page.getByText(customerName)).toBeVisible();
 
-  // --- create an order ---------------------------------------------------------
+  // --- create an individual order ---------------------------------------------
   await page.getByRole("link", { name: "Orders", exact: true }).click();
-  await page.getByRole("button", { name: "+ New order" }).click();
-  await formField(page, "Materials cost").fill("500");
+  await page.getByRole("link", { name: "+ New order" }).click();
+  await formField(page, "Item name").fill("Amigurumi bear");
+  await formField(page, "Crafting time (hours)").fill("4");
   await page.getByRole("button", { name: "Create order" }).click();
 
-  // 14-digit order number, computed total shown, unpaid until a payment lands
+  // lands on the order detail page: 14-digit order number, unpaid until a payment lands
   await expect(page.locator(".mono").first()).toHaveText(/^\d{14}$/);
   await expect(page.getByText("UNPAID")).toBeVisible();
 
   // --- record a payment and confirm status flips ------------------------------
-  await page.locator(".mono").first().click();
-  await page.getByPlaceholder("Amount").fill("690");
-  await page.getByRole("button", { name: "Record payment" }).click();
-  await expect(page.getByText("PAID", { exact: true })).toBeVisible();
+  await page.getByPlaceholder("Amount").fill("100");
+  await page.getByRole("button", { name: "Record" }).click();
+  await expect(page.getByText("PAID_IN_FULL")).toBeVisible();
 });

@@ -1,6 +1,7 @@
 import { ReactNode } from "react";
 import { useDock, DockSection } from "../dock/DockContext";
 import { QuickGlyph, AttentionGlyph, TeamGlyph, ChevronIcon } from "./icons";
+
 import { QuickWinsBody, AttentionBody, TeamBody } from "./rail/panels";
 import type { Item, NeedsAttention, RankedItem, WorkloadOverview } from "../types";
 
@@ -23,7 +24,7 @@ const META: Record<DockSection, { label: string; icon: ReactNode }> = {
  * accordion — exactly one section open at a time, Quick wins first by default.
  */
 export default function LeftDock({ quick, attention, team, onOpen }: Props) {
-  const { shown, setShown, active, setActive } = useDock();
+  const { shown, active, setActive } = useDock();
   if (!shown) return null;
 
   const open: DockSection = active ?? "quick";
@@ -45,9 +46,6 @@ export default function LeftDock({ quick, attention, team, onOpen }: Props) {
     <aside className="dock-acc">
       <div className="dock-acc-head">
         <span className="rp-title">Panels</span>
-        <button className="iconbtn" aria-label="Hide panels" onClick={() => setShown(false)}>
-          <ChevronIcon open={false} size={16} />
-        </button>
       </div>
 
       {ORDER.map((s) => {

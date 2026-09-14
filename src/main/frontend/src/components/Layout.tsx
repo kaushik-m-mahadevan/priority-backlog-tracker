@@ -6,7 +6,7 @@ import NavMenu from "./NavMenu";
 import GroupSwitcher from "./GroupSwitcher";
 import Grove from "./Grove";
 import {
-  SidebarIcon,
+  HomeIcon,
   PriorityGlyph,
   QuickGlyph,
   AttentionGlyph,
@@ -34,19 +34,13 @@ export default function Layout() {
   return (
     <div className="app">
       <nav className="nav">
-        {onDashboard && (
-          <button
-            className={`iconbtn dock-toggle${shown ? " on" : ""}`}
-            title={shown ? "Hide panels" : "Show panels"}
-            aria-label={shown ? "Hide panels" : "Show panels"}
-            onClick={() => setShown(!shown)}
-          >
-            <SidebarIcon />
-          </button>
-        )}
-        {/* Goes to the applet launcher, not the Backlog Tracker dashboard — this is also
-            rendered on /settings, which isn't under /backlog (Phase 4 reshapes that). */}
-        <Link to="/" className="brand">
+        {/* Distinct from the brand link below: this always goes to the applet launcher,
+            the brand always stays inside Backlog Tracker (design: platform integration
+            follow-up — clicking an applet's own name should never bounce you out of it). */}
+        <Link to="/" className="iconbtn" title="Back to console" aria-label="Back to console">
+          <HomeIcon />
+        </Link>
+        <Link to="/backlog" className="brand">
           ◆ Backlog Tracker
         </Link>
         <div className="nav-links">
@@ -57,6 +51,17 @@ export default function Layout() {
         <Bell />
         <NavMenu />
       </nav>
+
+      {onDashboard && (
+        <button
+          className={`dock-edge-tab${shown ? " open" : ""}`}
+          title={shown ? "Hide panels" : "Show panels"}
+          aria-label={shown ? "Hide panels" : "Show panels"}
+          onClick={() => setShown(!shown)}
+        >
+          {shown ? "‹" : "›"}
+        </button>
+      )}
 
       <div className={`container${withGrove ? " has-grove" : ""}`}>
         {withGrove ? (

@@ -41,6 +41,15 @@ export const SidebarIcon = ({ size = 18 }: P) => (
   </svg>
 );
 
+/** Back to the applet launcher — distinct from an applet's own brand link, which now
+ *  stays inside that applet (design: platform integration follow-up). */
+export const HomeIcon = ({ size = 18 }: P) => (
+  <svg {...base(size)}>
+    <path d="M3 11.5 12 4l9 7.5" />
+    <path d="M5.5 10v9a1 1 0 0 0 1 1H10v-5a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v5h3.5a1 1 0 0 0 1-1v-9" />
+  </svg>
+);
+
 /* rail section icons */
 export const PriorityGlyph = ({ size = 17 }: P) => (
   <svg {...base(size)}>

@@ -794,8 +794,10 @@ input[aria-invalid="true"] {
   grid-template-columns: minmax(12px, 0.5fr) minmax(0, 600px) minmax(0, 1fr);
 }
 .dash.with-dock {
-  grid-template-columns: auto minmax(0, 1fr);
-  gap: 18px;
+  grid-template-columns: minmax(0, 1fr);
+  /* the dock itself is position:fixed (viewport-pinned, not grid-flow) — this just
+     reserves the room so the centre column doesn't sit underneath it */
+  padding-left: 318px;
 }
 .dash-gutter {
   min-width: 0;
@@ -1131,19 +1133,25 @@ input[aria-invalid="true"] {
   font-size: 11px;
 }
 
-/* ---------- left dock — full-height accordion ---------- */
+/* ---------- left dock — fixed to the viewport, full height, not part of page scroll
+   (design: platform integration follow-up — was position:sticky inside the centred
+   .container, which reads as "floating" rather than a real dock; this pins it to the
+   left edge of the screen like an IDE sidebar, headers always visible, its own content
+   scrolls internally via .acc-body below). ---------- */
 .dock-acc {
   width: 300px;
-  position: sticky;
+  position: fixed;
   top: 60px;
-  align-self: start;
-  height: calc(100dvh - 72px);
+  left: 0;
+  bottom: 0;
   display: flex;
   flex-direction: column;
   background: var(--bg-elev);
   border: 1px solid var(--border-soft);
-  border-radius: var(--radius);
+  border-left: none;
+  border-radius: 0 var(--radius) var(--radius) 0;
   overflow: hidden;
+  z-index: 24;
 }
 .dock-acc-head {
   display: flex;
@@ -1418,9 +1426,35 @@ input[aria-invalid="true"] {
   line-height: 1.4;
 }
 
-.dock-toggle.on {
-  color: var(--accent);
+/* small edge tab that opens/closes the dock — fixed to the viewport edge, not part of the
+   nav bar's own button row, so it reads as "grab this to reveal the panel" (design:
+   platform integration follow-up, modelled on an IDE's collapsed-sidebar tab). */
+.dock-edge-tab {
+  position: fixed;
+  top: 76px;
+  left: 0;
+  width: 20px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-elev);
+  color: var(--text-dim);
+  border: 1px solid var(--border-soft);
+  border-left: none;
+  border-radius: 0 8px 8px 0;
+  cursor: pointer;
+  font-size: 15px;
+  line-height: 1;
+  z-index: 26;
+  transition: left 0.15s ease;
+}
+.dock-edge-tab:hover {
+  color: var(--text);
   background: var(--bg-elev-2);
+}
+.dock-edge-tab.open {
+  left: 300px;
 }
 
 /* ---------- mobile bottom bar ---------- */
@@ -1431,10 +1465,12 @@ input[aria-invalid="true"] {
   .dash,
   .dash.with-dock {
     grid-template-columns: minmax(0, 1fr);
+    padding-left: 0;
   }
   .dash-aside,
   .dash-gutter,
-  .dock-acc {
+  .dock-acc,
+  .dock-edge-tab {
     display: none;
   }
   .head-grove {
@@ -1443,7 +1479,7 @@ input[aria-invalid="true"] {
 }
 @media (max-width: 760px) {
   .dock-acc,
-  .dock-toggle {
+  .dock-edge-tab {
     display: none !important;
   }
   .dash.with-dock {

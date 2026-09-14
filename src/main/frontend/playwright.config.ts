@@ -17,6 +17,12 @@ export default defineConfig({
   workers: 1,
   retries: 0,
   reporter: [["list"]],
+  // core-flow.spec.ts alone is ~10 sequential logins/page-loads/network round-trips
+  // (register -> approve -> group-create -> invite -> accept -> create item) -- the
+  // 30s default is marginal for that even with no other load; observed real runs land
+  // 30-45s under a merely-busy machine, so this isn't padding for flakiness, it's
+  // sizing the timeout to what the flow actually does.
+  timeout: 60_000,
   use: {
     baseURL: "http://localhost:8080",
     trace: "retain-on-failure",

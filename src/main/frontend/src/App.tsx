@@ -14,15 +14,17 @@ import LauncherPage from "./pages/LauncherPage";
 import DashboardPage from "./pages/DashboardPage";
 import ItemsPage from "./pages/ItemsPage";
 import ArchivePage from "./pages/ArchivePage";
-import SettingsPage from "./pages/SettingsPage";
+import SettingsShell from "./pages/SettingsShell";
 import AdminShell from "./pages/AdminShell";
 import GroupsPage from "./pages/GroupsPage";
 import { QuickWinsPage, AttentionPage, TeamPage } from "./pages/RailPages";
 import OrderTrackerRoot from "./ordertracker/OrderTrackerRoot";
 import CustomersPage from "./ordertracker/pages/CustomersPage";
 import OrdersPage from "./ordertracker/pages/OrdersPage";
-import BulkOrdersPage from "./ordertracker/pages/BulkOrdersPage";
+import NewOrderPage from "./ordertracker/pages/NewOrderPage";
+import OrderDetailPage from "./ordertracker/pages/OrderDetailPage";
 import BusinessSettingsPage from "./ordertracker/pages/BusinessSettingsPage";
+import ManageBusinessPage from "./ordertracker/pages/ManageBusinessPage";
 
 export default function App() {
   const { user, loading } = useAuth();
@@ -68,13 +70,11 @@ export default function App() {
                   <Route path="/backlog/items" element={<ItemsPage />} />
                   <Route path="/backlog/archive" element={<ArchivePage />} />
                   <Route path="/backlog/groups" element={<GroupsPage />} />
-                  {/* Still rendered with Backlog Tracker's own Layout/nav for now — Phase 4
-                      (migrate Settings) is what actually reshapes this into a shared hub. */}
-                  <Route path="/settings" element={<SettingsPage />} />
                 </Route>
-                {/* Admin Console is its own applet (design: platform integration follow-up)
-                    — user administration is platform-wide, not Backlog-Tracker-specific,
-                    so it sits outside Layout entirely, same as the launcher. */}
+                {/* Settings and Admin Console are their own top-level shells (design:
+                    platform integration follow-up) — both are platform-level, not
+                    Backlog-Tracker-specific, so neither renders inside Layout/nav/tabbar. */}
+                <Route path="/settings" element={<SettingsShell />} />
                 <Route
                   path="/admin"
                   element={user.role === "ADMIN" ? <AdminShell /> : <Navigate to="/" replace />}
@@ -82,8 +82,10 @@ export default function App() {
                 <Route path="/ordertracker" element={<OrderTrackerRoot />}>
                   <Route index element={<Navigate to="orders" replace />} />
                   <Route path="orders" element={<OrdersPage />} />
-                  <Route path="bulk-orders" element={<BulkOrdersPage />} />
+                  <Route path="orders/new" element={<NewOrderPage />} />
+                  <Route path="orders/:orderId" element={<OrderDetailPage />} />
                   <Route path="customers" element={<CustomersPage />} />
+                  <Route path="manage-business" element={<ManageBusinessPage />} />
                   <Route path="business-settings" element={<BusinessSettingsPage />} />
                 </Route>
                 <Route path="*" element={<Navigate to="/" replace />} />

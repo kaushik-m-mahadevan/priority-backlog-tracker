@@ -53,14 +53,9 @@ export default function NavMenu() {
           <Link to="/backlog/archive" role="menuitem" onClick={() => setOpen(false)}>
             Completed
           </Link>
-          {user?.role === "ADMIN" && (
-            <Link to="/admin" role="menuitem" onClick={() => setOpen(false)}>
-              Admin console
-            </Link>
-          )}
-          <Link to="/settings" role="menuitem" onClick={() => setOpen(false)}>
-            Settings
-          </Link>
+          {/* Settings and Admin console are platform-level, not Backlog-Tracker-specific —
+              reached from the launcher's own cards, not shortcut here (design: platform
+              integration follow-up, keeps every applet's own nav scoped to that applet). */}
           <button
             type="button"
             role="menuitem"

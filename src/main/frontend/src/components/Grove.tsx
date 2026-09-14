@@ -41,6 +41,10 @@ export default function Grove({
   const [stats, setStats] = useState<CompletionStats | null>(null);
   const [sick, setSick] = useState(0);
   const [tick, setTick] = useState(0);
+  // count===0 is both "genuinely nothing completed yet" and "haven't heard back from the
+  // API yet" -- without this flag the tree renders the stage-0 seedling as a default
+  // during every load, which reads as real state rather than "still loading."
+  const [loading, setLoading] = useState(true);
 
   // every mounted Grove refreshes when anything completes an item, anywhere
   useItemsChanged(() => setTick((t) => t + 1));
@@ -49,12 +53,15 @@ export default function Grove({
     if (!currentGroupId) {
       setStats({ count: 0, days: 30, lastCompletedAt: null });
       setSick(0);
+      setLoading(false);
       return;
     }
+    setLoading(true);
     api
       .get<CompletionStats>(`/insights/completions?days=30&groupId=${currentGroupId}`)
       .then(setStats)
-      .catch(() => setStats({ count: 0, days: 30, lastCompletedAt: null }));
+      .catch(() => setStats({ count: 0, days: 30, lastCompletedAt: null }))
+      .finally(() => setLoading(false));
 
     if (animations) {
       api
@@ -65,6 +72,16 @@ export default function Grove({
       setSick(0);
     }
   }, [refreshKey, tick, currentGroupId, animations]);
+
+  if (loading) {
+    // nothing, not the stage-0 seedling -- an empty box the same size as the real thing,
+    // so nothing jumps once data arrives.
+    return compact ? (
+      <div className="grove compact" style={{ width: 52, height: 46 }} />
+    ) : (
+      <div className={solo ? "grove solo" : "grove"} style={{ width: solo ? 224 : 150, height: solo ? 176 : 118 }} />
+    );
+  }
 
   const count = stats?.count ?? 0;
   const stage = stageFor(count);

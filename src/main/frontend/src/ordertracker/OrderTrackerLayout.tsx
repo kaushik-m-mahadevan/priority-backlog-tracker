@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Link, NavLink, Outlet } from "react-router-dom";
+import { HomeIcon } from "../components/icons";
 import { useBusiness } from "./BusinessContext";
 
 function BusinessSwitcher() {
@@ -59,14 +60,17 @@ export default function OrderTrackerLayout() {
   return (
     <div className="app">
       <nav className="nav">
-        <Link to="/" className="brand">
+        <Link to="/" className="iconbtn" title="Back to console" aria-label="Back to console">
+          <HomeIcon />
+        </Link>
+        <Link to="/ordertracker/orders" className="brand">
           ✂ Order Tracker
         </Link>
         {currentGroupId && (
           <div className="nav-links">
             <NavLink to="/ordertracker/orders">Orders</NavLink>
-            <NavLink to="/ordertracker/bulk-orders">Bulk Orders</NavLink>
             <NavLink to="/ordertracker/customers">Customers</NavLink>
+            <NavLink to="/ordertracker/manage-business">Manage business</NavLink>
             <NavLink to="/ordertracker/business-settings">Business</NavLink>
           </div>
         )}
@@ -97,8 +101,8 @@ export default function OrderTrackerLayout() {
       {currentGroupId && (
         <nav className="tabbar text">
           <NavLink to="/ordertracker/orders">Orders</NavLink>
-          <NavLink to="/ordertracker/bulk-orders">Bulk</NavLink>
           <NavLink to="/ordertracker/customers">Customers</NavLink>
+          <NavLink to="/ordertracker/manage-business">Team</NavLink>
           <NavLink to="/ordertracker/business-settings">Business</NavLink>
         </nav>
       )}
