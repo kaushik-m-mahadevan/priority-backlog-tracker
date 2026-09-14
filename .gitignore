@@ -32,5 +32,9 @@ application-local.yml
 .DS_Store
 Thumbs.db
 
+# Local dev-data seed script (hits a running local instance directly over REST;
+# not part of the build, never committed — see scripts/seed-local-data.mjs)
+/scripts/
+
 # compiled one-off ops tools
 /ops/**/*.class
