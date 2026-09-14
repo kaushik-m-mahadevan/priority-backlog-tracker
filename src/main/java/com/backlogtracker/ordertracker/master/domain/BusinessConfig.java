@@ -45,10 +45,16 @@ public class BusinessConfig {
     public record MandatoryItemType(String itemKey, String label, List<String> allowedValues) {
     }
 
-    /** No weight field — stage-completion weighting is derived per-order from each
-     *  stage's own estimated hours (platform integration decision), not a fixed number
-     *  configured here. sequenceOrder is display/workflow order only. */
-    public record WorkStageType(String stageKey, String label, int sequenceOrder) {
+    /**
+     * sequenceOrder is display/workflow order only. {@code splitTracked} distinguishes how
+     * a bulk order tracks progress on this stage (spec §5.11): {@code true} for a stage
+     * naturally split by creator (e.g. Crocheting, Assembly) — progress lives per creator
+     * per variant; {@code false} for a stage typically done once across the whole batch
+     * (e.g. Packaging, Shipment) — progress lives once at the order level. Individual-order
+     * completion is an equal-weighted average across all stages (spec §5.11's stated
+     * default) regardless of this flag.
+     */
+    public record WorkStageType(String stageKey, String label, int sequenceOrder, boolean splitTracked) {
     }
 
     /** Starting point for a newly configured business — the crochet shop from the spec.
@@ -63,10 +69,10 @@ public class BusinessConfig {
                         new MandatoryItemType("wool", "Wool", null),
                         new MandatoryItemType("needle", "Needle", null))))
                 .workStages(new ArrayList<>(List.of(
-                        new WorkStageType("crocheting", "Crocheting", 1),
-                        new WorkStageType("assembly", "Assembly", 2),
-                        new WorkStageType("packaging", "Packaging", 3),
-                        new WorkStageType("shipment", "Shipment", 4))))
+                        new WorkStageType("crocheting", "Crocheting", 1, true),
+                        new WorkStageType("assembly", "Assembly", 2, true),
+                        new WorkStageType("packaging", "Packaging", 3, false),
+                        new WorkStageType("shipment", "Shipment", 4, false))))
                 .build();
     }
 }

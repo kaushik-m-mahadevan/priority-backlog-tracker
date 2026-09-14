@@ -7,19 +7,25 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.backlogtracker.commons.security.AuthUser;
 import com.backlogtracker.commons.security.RequiresUser;
+import com.backlogtracker.ordertracker.order.domain.OrderChangeLog;
 import com.backlogtracker.ordertracker.order.dto.AddPaymentRequest;
 import com.backlogtracker.ordertracker.order.dto.CreateOrderRequest;
-import com.backlogtracker.ordertracker.order.dto.MarkLegRequest;
+import com.backlogtracker.ordertracker.order.dto.MarkShipmentStopRequest;
 import com.backlogtracker.ordertracker.order.dto.OrderView;
-import com.backlogtracker.ordertracker.order.dto.ShipmentLegRequest;
+import com.backlogtracker.ordertracker.order.dto.ShipmentPlanRequest;
+import com.backlogtracker.ordertracker.order.dto.UpdateBulkDetailsRequest;
+import com.backlogtracker.ordertracker.order.dto.UpdateBulkSplitProgressRequest;
+import com.backlogtracker.ordertracker.order.dto.UpdateBulkStageProgressRequest;
+import com.backlogtracker.ordertracker.order.dto.UpdateOrderRequest;
 import com.backlogtracker.ordertracker.order.dto.UpdateOrderStatusRequest;
-import com.backlogtracker.ordertracker.order.dto.UpdateStageRequest;
+import com.backlogtracker.ordertracker.order.dto.UpdateStageAssignmentRequest;
 import com.backlogtracker.ordertracker.order.service.OrderService;
 
 import lombok.RequiredArgsConstructor;
@@ -43,23 +49,29 @@ public class OrderController {
         return orderService.get(groupId, actor.id(), orderId);
     }
 
+    @GetMapping("/{orderId}/change-log")
+    public List<OrderChangeLog> changeLog(@PathVariable String groupId, @PathVariable String orderId,
+                                          @AuthenticationPrincipal AuthUser actor) {
+        return orderService.getChangeLog(groupId, actor.id(), orderId);
+    }
+
     @PostMapping
     public OrderView create(@PathVariable String groupId, @RequestBody CreateOrderRequest request,
                             @AuthenticationPrincipal AuthUser actor) {
         return orderService.create(groupId, actor.id(), request);
     }
 
-    @PatchMapping("/{orderId}/stages/{stageKey}")
-    public OrderView updateStage(@PathVariable String groupId, @PathVariable String orderId,
-                                 @PathVariable String stageKey, @RequestBody UpdateStageRequest request,
-                                 @AuthenticationPrincipal AuthUser actor) {
-        return orderService.updateStageProgress(groupId, actor.id(), orderId, stageKey, request);
+    @PutMapping("/{orderId}")
+    public OrderView update(@PathVariable String groupId, @PathVariable String orderId,
+                            @RequestBody UpdateOrderRequest request, @AuthenticationPrincipal AuthUser actor) {
+        return orderService.update(groupId, actor.id(), orderId, request);
     }
 
-    @PostMapping("/{orderId}/payments")
-    public OrderView addPayment(@PathVariable String groupId, @PathVariable String orderId,
-                                @RequestBody AddPaymentRequest request, @AuthenticationPrincipal AuthUser actor) {
-        return orderService.addPayment(groupId, actor.id(), orderId, request);
+    @PutMapping("/{orderId}/bulk-details")
+    public OrderView updateBulkDetails(@PathVariable String groupId, @PathVariable String orderId,
+                                       @RequestBody UpdateBulkDetailsRequest request,
+                                       @AuthenticationPrincipal AuthUser actor) {
+        return orderService.updateBulkDetails(groupId, actor.id(), orderId, request);
     }
 
     @PatchMapping("/{orderId}/status")
@@ -68,16 +80,44 @@ public class OrderController {
         return orderService.updateStatus(groupId, actor.id(), orderId, request);
     }
 
-    @PostMapping("/{orderId}/shipment-plan")
-    public OrderView setShipmentPlan(@PathVariable String groupId, @PathVariable String orderId,
-                                     @RequestBody List<ShipmentLegRequest> legs, @AuthenticationPrincipal AuthUser actor) {
-        return orderService.setShipmentPlan(groupId, actor.id(), orderId, legs);
+    @PatchMapping("/{orderId}/stage-assignments/{stageKey}")
+    public OrderView updateStageAssignment(@PathVariable String groupId, @PathVariable String orderId,
+                                           @PathVariable String stageKey, @RequestBody UpdateStageAssignmentRequest request,
+                                           @AuthenticationPrincipal AuthUser actor) {
+        return orderService.updateStageAssignment(groupId, actor.id(), orderId, stageKey, request);
     }
 
-    @PatchMapping("/{orderId}/shipment-plan/{legIndex}")
-    public OrderView markShipmentLeg(@PathVariable String groupId, @PathVariable String orderId,
-                                     @PathVariable int legIndex, @RequestBody MarkLegRequest request,
-                                     @AuthenticationPrincipal AuthUser actor) {
-        return orderService.markShipmentLeg(groupId, actor.id(), orderId, legIndex, request);
+    @PatchMapping("/{orderId}/bulk-stage-progress/{stageKey}")
+    public OrderView updateBulkStageProgress(@PathVariable String groupId, @PathVariable String orderId,
+                                             @PathVariable String stageKey,
+                                             @RequestBody UpdateBulkStageProgressRequest request,
+                                             @AuthenticationPrincipal AuthUser actor) {
+        return orderService.updateBulkStageProgress(groupId, actor.id(), orderId, stageKey, request);
+    }
+
+    @PatchMapping("/{orderId}/bulk-split-progress")
+    public OrderView updateBulkSplitProgress(@PathVariable String groupId, @PathVariable String orderId,
+                                             @RequestBody UpdateBulkSplitProgressRequest request,
+                                             @AuthenticationPrincipal AuthUser actor) {
+        return orderService.updateBulkSplitProgress(groupId, actor.id(), orderId, request);
+    }
+
+    @PostMapping("/{orderId}/payments")
+    public OrderView addPayment(@PathVariable String groupId, @PathVariable String orderId,
+                                @RequestBody AddPaymentRequest request, @AuthenticationPrincipal AuthUser actor) {
+        return orderService.addPayment(groupId, actor.id(), orderId, request);
+    }
+
+    @PutMapping("/{orderId}/shipment-plan")
+    public OrderView setShipmentPlan(@PathVariable String groupId, @PathVariable String orderId,
+                                     @RequestBody ShipmentPlanRequest request, @AuthenticationPrincipal AuthUser actor) {
+        return orderService.setShipmentPlan(groupId, actor.id(), orderId, request);
+    }
+
+    @PatchMapping("/{orderId}/shipment-plan/{stopIndex}")
+    public OrderView markShipmentStop(@PathVariable String groupId, @PathVariable String orderId,
+                                      @PathVariable int stopIndex, @RequestBody MarkShipmentStopRequest request,
+                                      @AuthenticationPrincipal AuthUser actor) {
+        return orderService.markShipmentStop(groupId, actor.id(), orderId, stopIndex, request);
     }
 }

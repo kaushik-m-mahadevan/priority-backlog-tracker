@@ -8,99 +8,200 @@ import java.util.List;
 
 import org.junit.jupiter.api.Test;
 
-import com.backlogtracker.ordertracker.order.domain.Packaging;
-import com.backlogtracker.ordertracker.order.domain.PaymentMode;
-import com.backlogtracker.ordertracker.order.domain.Payment;
+import com.backlogtracker.commons.crypto.EncryptedString;
+import com.backlogtracker.ordertracker.master.domain.BusinessConfig.WorkStageType;
+import com.backlogtracker.ordertracker.order.domain.Order;
+import com.backlogtracker.ordertracker.order.domain.Order.BulkDetails;
+import com.backlogtracker.ordertracker.order.domain.Order.LineItem;
+import com.backlogtracker.ordertracker.order.domain.Order.MandatoryItem;
+import com.backlogtracker.ordertracker.order.domain.Order.Packaging;
+import com.backlogtracker.ordertracker.order.domain.Order.PaymentEntry;
+import com.backlogtracker.ordertracker.order.domain.Order.SplitLine;
+import com.backlogtracker.ordertracker.order.domain.Order.StageAssignment;
+import com.backlogtracker.ordertracker.order.domain.Order.StageProgress;
+import com.backlogtracker.ordertracker.order.domain.Order.StageProgressEntry;
+import com.backlogtracker.ordertracker.order.domain.Order.Variant;
 import com.backlogtracker.ordertracker.order.domain.PaymentStatus;
-import com.backlogtracker.ordertracker.order.domain.StageProgress;
+import com.backlogtracker.ordertracker.order.domain.PaymentType;
+import com.backlogtracker.ordertracker.order.service.OrderCalculator.CreatorWorkload;
 
 class OrderCalculatorTest {
 
     private final OrderCalculator calc = new OrderCalculator();
 
-    private StageProgress stage(String key, double hours, double fraction) {
-        return StageProgress.builder().stageKey(key).estimatedHours(hours).completionFraction(fraction).build();
+    private MandatoryItem item(double qty, double unitCost) {
+        return MandatoryItem.builder().itemKey("wool").value("cream").quantity(qty).unitCost(unitCost).build();
+    }
+
+    private LineItem lineItem(double qty, double unitCost, Double unitTimeHours) {
+        return LineItem.builder().name("Safety eyes").quantity(qty).unitCost(unitCost).unitTimeHours(unitTimeHours).build();
     }
 
     @Test
-    void overallCompletionIsTimeWeightedAcrossStages() {
-        // crocheting 4h fully done, packaging 3h not started -> 4/7 = ~57.1%
-        List<StageProgress> stages = List.of(stage("crocheting", 4, 1.0), stage("packaging", 3, 0.0));
-        assertThat(calc.overallCompletionFraction(stages)).isCloseTo(4.0 / 7.0, within(1e-9));
+    void individualEstimateFollowsSpecFormulaExactly() {
+        // mandatoryItemsCost = 1*120 = 120, addOnsCost = 1*40 = 40, packagingCost = 60 (preset)
+        List<MandatoryItem> mandatory = List.of(item(1, 120));
+        List<LineItem> addOns = List.of(lineItem(1, 40, 0.2));
+        Packaging packaging = Packaging.builder().presetCost(60).presetTimeHours(0.5).itemizedList(List.of()).build();
+
+        Order.CostEstimate estimate = calc.estimateIndividual(mandatory, addOns, packaging, 4.0, 0.15, 0.20,
+                Instant.parse("2026-01-01T00:00:00Z"), 4.0);
+
+        assertThat(estimate.getMandatoryItemsCost()).isEqualTo(120);
+        assertThat(estimate.getAddOnsCost()).isEqualTo(40);
+        assertThat(estimate.getPackagingCost()).isEqualTo(60);
+        double gross = 120 + 40 + 60; // 220
+        double overhead = gross * 0.15; // 33
+        double profit = (gross + overhead) * 0.20; // 50.6
+        assertThat(estimate.getOverheadAmount()).isCloseTo(overhead, within(1e-9));
+        assertThat(estimate.getProfitAmount()).isCloseTo(profit, within(1e-9));
+        assertThat(estimate.getFinalCost()).isCloseTo(gross + overhead + profit, within(1e-9));
+        // grossTimeHours = craftingTimeHours(4) + packagingTime(0.5) + addOnsTime(1*0.2) = 4.7
+        assertThat(estimate.getGrossTimeHours()).isCloseTo(4.7, within(1e-9));
     }
 
     @Test
-    void overallCompletionIsZeroWhenNoHoursEstimatedYet() {
-        List<StageProgress> stages = List.of(stage("crocheting", 0, 0.0));
-        assertThat(calc.overallCompletionFraction(stages)).isEqualTo(0.0);
+    void individualDueDateRoundsUpFromCreatorHoursPerDay() {
+        Packaging packaging = Packaging.builder().presetCost(0).presetTimeHours(0).itemizedList(List.of()).build();
+        Instant received = Instant.parse("2026-01-01T00:00:00Z");
+        // grossTimeHours = 7h crafting / 4h-per-day = 1.75 -> rounds up to 2 days
+        Order.CostEstimate estimate = calc.estimateIndividual(List.of(), List.of(), packaging, 7.0, 0, 0, received, 4.0);
+        assertThat(estimate.getComputedDueDate()).isEqualTo(received.plusSeconds(2 * 24 * 3600));
     }
 
     @Test
-    void overallCompletionHandlesPartialProgressOnMultipleStages() {
-        List<StageProgress> stages = List.of(stage("crocheting", 4, 0.5), stage("packaging", 4, 0.25));
-        // each stage is half the total hours -> 0.5*0.5 + 0.5*0.25 = 0.375
-        assertThat(calc.overallCompletionFraction(stages)).isCloseTo(0.375, within(1e-9));
+    void packagingCostUsesItemizedSumWhenNonEmptyElsePreset() {
+        Packaging withPreset = Packaging.builder().presetCost(60).presetTimeHours(0.5).itemizedList(List.of()).build();
+        assertThat(withPreset.cost()).isEqualTo(60);
+
+        Packaging itemized = Packaging.builder().presetCost(999).itemizedList(List.of(
+                LineItem.builder().name("Kraft box").quantity(1).unitCost(30).unitTimeHours(0.1).build(),
+                LineItem.builder().name("Tissue paper").quantity(2).unitCost(5).unitTimeHours(0.02).build()
+        )).build();
+        assertThat(itemized.cost()).isEqualTo(40); // 30 + 2*5
+        assertThat(itemized.timeHours()).isCloseTo(0.14, within(1e-9)); // 0.1 + 2*0.02
     }
 
     @Test
-    void totalCostAppliesOverheadThenProfitMarginOnTopOfMaterialsPlusPackaging() {
-        Packaging packaging = Packaging.builder().presetCost(40).presetTimeHours(0.25).itemizedList(List.of()).build();
-        // (1000 materials + 40 packaging) * 1.15 overhead * 1.20 margin
-        double expected = (1000 + 40) * 1.15 * 1.20;
-        assertThat(calc.totalCost(1000, packaging, 0.15, 0.20)).isCloseTo(expected, within(1e-6));
+    void individualCompletionIsEqualWeightedAverageAcrossStages() {
+        List<StageAssignment> stages = List.of(
+                StageAssignment.builder().stageKey("crocheting").unitsCompleted(1).totalUnits(1).build(),
+                StageAssignment.builder().stageKey("assembly").unitsCompleted(0).totalUnits(1).build(),
+                StageAssignment.builder().stageKey("packaging").unitsCompleted(0).totalUnits(1).build(),
+                StageAssignment.builder().stageKey("shipment").unitsCompleted(0).totalUnits(1).build());
+        assertThat(calc.individualCompletionFraction(stages)).isCloseTo(0.25, within(1e-9));
     }
 
     @Test
-    void totalCostUsesItemizedPackagingSumWhenPresent() {
-        Packaging packaging = Packaging.builder()
-                .presetCost(999) // must be ignored since itemizedList is non-empty
-                .itemizedList(List.of(
-                        Packaging.LineItem.builder().label("Box").cost(30).timeHours(0.1).build(),
-                        Packaging.LineItem.builder().label("Tape").cost(10).timeHours(0.05).build()))
+    void paymentStatusFollowsSpecFormula() {
+        assertThat(calc.derivePaymentStatus(List.of(), 1000)).isEqualTo(PaymentStatus.UNPAID);
+
+        List<PaymentEntry> partial = List.of(payment(PaymentType.ADVANCE, 400));
+        assertThat(calc.derivePaymentStatus(partial, 1000)).isEqualTo(PaymentStatus.PARTIALLY_PAID);
+
+        List<PaymentEntry> full = List.of(payment(PaymentType.ADVANCE, 400), payment(PaymentType.FINAL, 600));
+        assertThat(calc.derivePaymentStatus(full, 1000)).isEqualTo(PaymentStatus.PAID_IN_FULL);
+
+        List<PaymentEntry> refundedExceeds = List.of(payment(PaymentType.ADVANCE, 400), payment(PaymentType.REFUND, 500));
+        assertThat(calc.derivePaymentStatus(refundedExceeds, 1000)).isEqualTo(PaymentStatus.REFUNDED);
+
+        // paid in full then fully refunded nets to exactly zero -- still distinguishable from
+        // "never paid" because a REFUND entry exists (platform integration decision)
+        List<PaymentEntry> fullyRefunded = List.of(payment(PaymentType.FINAL, 1000), payment(PaymentType.REFUND, 1000));
+        assertThat(calc.derivePaymentStatus(fullyRefunded, 1000)).isEqualTo(PaymentStatus.REFUNDED);
+    }
+
+    @Test
+    void anyPositivePaymentIsPaidInFullAgainstAZeroCostEstimate() {
+        // an order with nothing itemized yet has finalCost == 0 -- any real payment must
+        // still resolve to PAID_IN_FULL (net >= finalCost), not get stuck as PARTIALLY_PAID
+        // forever because of a naive "finalCost > 0" guard
+        List<PaymentEntry> advance = List.of(payment(PaymentType.ADVANCE, 100));
+        assertThat(calc.derivePaymentStatus(advance, 0)).isEqualTo(PaymentStatus.PAID_IN_FULL);
+        assertThat(calc.derivePaymentStatus(List.of(), 0)).isEqualTo(PaymentStatus.UNPAID);
+    }
+
+    private PaymentEntry payment(PaymentType type, double amount) {
+        return PaymentEntry.builder().paymentId("p").type(type).amount(EncryptedString.of(Double.toString(amount)))
+                .date(Instant.now()).build();
+    }
+
+    @Test
+    void bulkVariantPricingMultipliesPerUnitBySpecifiedQuantity() {
+        Variant variant = Variant.builder()
+                .variantId("v1").label("Blue flower").quantity(26)
+                .mandatoryItems(List.of(item(1, 100))) // per unit
+                .addOns(List.of())
+                .packaging(Packaging.builder().presetCost(20).presetTimeHours(0.1).itemizedList(List.of()).build())
+                .craftingTimeHours(1.2)
+                .splitAllocation(List.of())
                 .build();
-        assertThat(packaging.cost()).isEqualTo(40);
-        assertThat(packaging.timeHours()).isCloseTo(0.15, within(1e-9));
+
+        Variant priced = calc.priceVariant(variant, 0.15, 0.20);
+
+        double gross = 100 + 0 + 20; // 120
+        double overhead = gross * 0.15;
+        double profit = (gross + overhead) * 0.20;
+        double perUnitCost = gross + overhead + profit;
+        assertThat(priced.getPerUnitCost()).isCloseTo(perUnitCost, within(1e-9));
+        assertThat(priced.getTotalCost()).isCloseTo(perUnitCost * 26, within(1e-9));
+        assertThat(priced.getPerUnitTimeHours()).isCloseTo(1.2 + 0.1, within(1e-9));
+        assertThat(priced.getTotalTimeHours()).isCloseTo((1.2 + 0.1) * 26, within(1e-9));
     }
 
     @Test
-    void computedDueDateRoundsUpToWholeDaysBasedOnPrimaryCreatorHoursPerDay() {
-        Instant created = Instant.parse("2026-01-01T00:00:00Z");
-        List<StageProgress> stages = List.of(stage("crocheting", 4, 0), stage("packaging", 3, 0));
-        // 7 hours crafting + 0.25h packaging = 7.25h / 4h-per-day = 1.8125 -> rounds up to 2 days
-        Instant due = calc.computedDueDate(created, stages, 0.25, 4.0);
-        assertThat(due).isEqualTo(created.plusSeconds(2 * 24 * 3600));
+    void bulkDueDateIsDrivenByTheSlowestLoadedCreatorAcrossAllTheirVariants() {
+        Variant v1 = calc.priceVariant(Variant.builder().variantId("v1").quantity(20)
+                .craftingTimeHours(1).packaging(Packaging.builder().itemizedList(List.of()).build())
+                .splitAllocation(List.of(SplitLine.builder().creatorId("A").quantityAssigned(20).build()))
+                .build(), 0, 0);
+        Variant v2 = calc.priceVariant(Variant.builder().variantId("v2").quantity(5)
+                .craftingTimeHours(1).packaging(Packaging.builder().itemizedList(List.of()).build())
+                .splitAllocation(List.of(SplitLine.builder().creatorId("B").quantityAssigned(5).build()))
+                .build(), 0, 0);
+
+        double hoursA = calc.creatorTotalHours("A", List.of(v1, v2)); // 20 * 1h = 20h
+        double hoursB = calc.creatorTotalHours("B", List.of(v1, v2)); // 5 * 1h = 5h
+        assertThat(hoursA).isEqualTo(20);
+        assertThat(hoursB).isEqualTo(5);
+
+        Instant received = Instant.parse("2026-01-01T00:00:00Z");
+        // A: 20h/4h-per-day = 5 days; B: 5h/8h-per-day = 1 day -> driven by A, no buffer
+        Instant due = calc.computeBulkDueDate(received,
+                List.of(new CreatorWorkload(hoursA, 4), new CreatorWorkload(hoursB, 8)), 0);
+        assertThat(due).isEqualTo(received.plusSeconds(5 * 24 * 3600));
     }
 
     @Test
-    void computedDueDateNeverGoesBelowOneDayEvenForTinyEstimates() {
-        Instant created = Instant.parse("2026-01-01T00:00:00Z");
-        Instant due = calc.computedDueDate(created, List.of(stage("crocheting", 0.1, 0)), 0, 8.0);
-        assertThat(due).isEqualTo(created.plusSeconds(24 * 3600));
+    void bulkDueDateAddsTheLogisticsBufferWhenPresent() {
+        Instant received = Instant.parse("2026-01-01T00:00:00Z");
+        Instant due = calc.computeBulkDueDate(received, List.of(new CreatorWorkload(20, 4)), 2);
+        assertThat(due).isEqualTo(received.plusSeconds(7 * 24 * 3600)); // 5 days + 2-day buffer
     }
 
     @Test
-    void paymentStatusIsUnpaidWithNoPayments() {
-        assertThat(calc.derivePaymentStatus(List.of(), 1000)).isEqualTo(PaymentStatus.UNPAID);
-    }
+    void bulkCompletionAveragesSplitTrackedAndBatchTrackedStages() {
+        List<WorkStageType> stages = List.of(
+                new WorkStageType("crocheting", "Crocheting", 1, true),
+                new WorkStageType("packaging", "Packaging", 2, false));
 
-    @Test
-    void paymentStatusIsPartiallyPaidWhenLessThanTotal() {
-        List<Payment> payments = List.of(Payment.of(400, PaymentMode.UPI, null, Instant.now()));
-        assertThat(calc.derivePaymentStatus(payments, 1000)).isEqualTo(PaymentStatus.PARTIALLY_PAID);
-    }
+        Variant variant = Variant.builder().variantId("v1").quantity(10)
+                .splitAllocation(List.of(
+                        SplitLine.builder().creatorId("A").quantityAssigned(6)
+                                .stageProgress(List.of(StageProgressEntry.builder().stageKey("crocheting").unitsCompleted(6).build()))
+                                .build(),
+                        SplitLine.builder().creatorId("B").quantityAssigned(4)
+                                .stageProgress(List.of(StageProgressEntry.builder().stageKey("crocheting").unitsCompleted(0).build()))
+                                .build()))
+                .build();
 
-    @Test
-    void paymentStatusIsPaidWhenNetMeetsOrExceedsTotal() {
-        List<Payment> payments = List.of(Payment.of(1000, PaymentMode.CASH, null, Instant.now()));
-        assertThat(calc.derivePaymentStatus(payments, 1000)).isEqualTo(PaymentStatus.PAID);
-    }
+        BulkDetails details = BulkDetails.builder()
+                .variants(List.of(variant))
+                .totalQuantity(10)
+                .stageProgress(List.of(StageProgress.builder().stageKey("packaging").unitsCompleted(0).totalUnits(10).build()))
+                .build();
 
-    @Test
-    void paymentStatusDistinguishesFullyRefundedFromNeverPaid() {
-        List<Payment> refunded = List.of(
-                Payment.of(1000, PaymentMode.CASH, "paid in full", Instant.now()),
-                Payment.of(-1000, PaymentMode.CASH, "refunded", Instant.now()));
-        assertThat(calc.derivePaymentStatus(refunded, 1000)).isEqualTo(PaymentStatus.FULLY_REFUNDED);
-        assertThat(calc.derivePaymentStatus(List.of(), 1000)).isEqualTo(PaymentStatus.UNPAID);
+        // crocheting: 6/10 = 60% split-tracked; packaging: 0/10 = 0% batch-tracked; average = 30%
+        assertThat(calc.bulkCompletionFraction(details, stages)).isCloseTo(0.30, within(1e-9));
     }
 }

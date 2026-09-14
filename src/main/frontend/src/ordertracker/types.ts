@@ -1,7 +1,18 @@
 export type AcquisitionChannel = "INSTAGRAM" | "WHATSAPP" | "REFERRAL" | "WORD_OF_MOUTH" | "WALK_IN" | "OTHER";
-export type OrderStatus = "RECEIVED" | "IN_PROGRESS" | "READY_FOR_SHIPMENT" | "SHIPPED" | "DELIVERED" | "CANCELLED";
-export type PaymentStatus = "UNPAID" | "PARTIALLY_PAID" | "PAID" | "FULLY_REFUNDED";
-export type PaymentMode = "CASH" | "UPI" | "BANK_TRANSFER" | "CARD" | "OTHER";
+export type OrderType = "INDIVIDUAL" | "BULK";
+export type OrderStatus =
+  | "INQUIRY"
+  | "CONFIRMED"
+  | "IN_PROGRESS"
+  | "READY_TO_SHIP"
+  | "SHIPPED"
+  | "DELIVERED"
+  | "CANCELLED";
+export type PaymentStatus = "UNPAID" | "PARTIALLY_PAID" | "PAID_IN_FULL" | "REFUNDED";
+export type PaymentType = "ADVANCE" | "INSTALLMENT" | "FINAL" | "REFUND";
+export type PatternType = "TEMPLATE" | "CUSTOM";
+export type ResearchItemType = "VIDEO" | "LINK" | "IMAGE" | "NOTE";
+export type ShipmentStopType = "INTERNAL_TRANSFER" | "FINAL_DELIVERY";
 
 export interface Customer {
   id: string;
@@ -36,6 +47,7 @@ export interface WorkStageType {
   stageKey: string;
   label: string;
   sequenceOrder: number;
+  splitTracked: boolean;
 }
 
 export interface BusinessConfig {
@@ -56,95 +68,201 @@ export interface PresetOption {
   estimatedTimeHours: number;
 }
 
-export interface StageProgress {
-  stageKey: string;
+export interface Pattern {
+  patternType: PatternType | null;
+  templateName: string | null;
+  customPatternNotes: string | null;
+  attachmentUrls: string[];
+}
+
+export interface ResearchItem {
+  type: ResearchItemType;
+  url: string | null;
+  description: string | null;
+}
+
+export interface MandatoryItem {
+  itemKey: string;
+  value: string;
+  quantity: number;
+  unitCost: number;
+}
+
+export interface LineItem {
+  name: string;
+  category: string | null;
+  attributes: Record<string, string>;
+  quantity: number;
+  unitCost: number;
+  unitTimeHours: number | null;
+  note: string | null;
+}
+
+export interface Packaging {
+  tentativePresetId: string | null;
+  cost: number;
+  timeHours: number;
+  itemizedList: LineItem[];
+}
+
+export interface BreakdownLine {
   label: string;
-  sequenceOrder: number;
-  assigneeCreatorId: string | null;
-  estimatedHours: number;
-  completionFraction: number;
+  amount: number;
+}
+
+export interface CostEstimate {
+  mandatoryItemsCost: number;
+  addOnsCost: number;
+  packagingCost: number;
+  grossCost: number;
+  overheadAmount: number;
+  profitAmount: number;
+  finalCost: number;
+  grossTimeHours: number;
+  itemizedBreakdown: BreakdownLine[];
+  computedDueDate: string;
+}
+
+export interface StageAssignment {
+  stageKey: string;
+  assignedCreatorId: string | null;
+  unitsCompleted: number;
+  totalUnits: number;
+  lastUpdatedAt: string | null;
 }
 
 export interface PaymentView {
+  paymentId: string;
+  type: PaymentType;
   amount: number;
-  mode: PaymentMode;
+  date: string;
+  mode: string | null;
   note: string | null;
-  paidAt: string;
 }
 
-export interface ShipmentLegView {
+export interface ShipmentStopView {
+  stopOrder: number;
+  type: ShipmentStopType;
   originLocationCode: string;
   destinationLocationCode: string;
-  carrier: string | null;
-  trackingNumber: string | null;
+  laneId: string | null;
   estimatedCost: number;
   estimatedTimeHours: number;
-  shippedAt: string | null;
-  deliveredAt: string | null;
+  carrier: string | null;
+  trackingNumber: string | null;
+  triggerDate: string | null;
+  shippedDate: string | null;
+  deliveredConfirmed: boolean;
 }
 
-export interface ChangeLogEntry {
-  field: string;
-  oldValue: string | null;
-  newValue: string | null;
-  changedByUserId: string;
-  changedAt: string;
+export interface StageProgressEntry {
+  stageKey: string;
+  unitsCompleted: number;
+}
+
+export interface SplitLine {
+  creatorId: string;
+  quantityAssigned: number;
+  stageProgress: StageProgressEntry[];
+}
+
+export interface Variant {
+  variantId: string;
+  label: string;
+  quantity: number;
+  mandatoryItems: MandatoryItem[];
+  addOns: LineItem[];
+  packaging: Packaging | null;
+  craftingTimeHours: number;
+  perUnitCost: number;
+  totalCost: number;
+  perUnitTimeHours: number;
+  totalTimeHours: number;
+  splitAllocation: SplitLine[];
+}
+
+export interface BulkStageProgress {
+  stageKey: string;
+  unitsCompleted: number;
+  totalUnits: number;
+}
+
+export interface BulkDetails {
+  variants: Variant[];
+  totalQuantity: number;
+  totalFinalCost: number;
+  totalTimeHours: number;
+  coordinatingCreatorId: string | null;
+  stageAssignments: StageAssignment[];
+  stageProgress: BulkStageProgress[];
+  logisticsBufferDays: number;
+  computedDueDate: string | null;
 }
 
 export interface OrderView {
   id: string;
   orderNumber: string;
+  orderType: OrderType;
   customerId: string;
-  primaryCreatorId: string;
-  description: string | null;
-  mandatoryItems: Record<string, string> | null;
-  addOns: string[] | null;
-  stageProgress: StageProgress[];
-  overallCompletionPercent: number;
-  materialsCost: number;
-  packagingCost: number;
-  totalCost: number;
+  createdByCreatorId: string;
+  status: OrderStatus;
+  itemName: string | null;
+  orderReceivedDate: string | null;
+  quotedDeliveryDate: string | null;
+  actualDeliveryDate: string | null;
+  pattern: Pattern | null;
+  researchItems: ResearchItem[];
+  recipeSteps: string[];
+  mandatoryItems: MandatoryItem[];
+  addOns: LineItem[];
+  packaging: Packaging | null;
+  craftingTimeHours: number;
+  costEstimate: CostEstimate | null;
+  stageAssignments: StageAssignment[];
+  completionPercentage: number;
   payments: PaymentView[];
   paymentStatus: PaymentStatus;
-  status: OrderStatus;
-  computedDueDate: string;
-  shipmentPlan: ShipmentLegView[];
-  changeLog: ChangeLogEntry[];
+  netPaid: number;
+  balanceAmount: number;
+  shipmentPlan: ShipmentStopView[];
+  bulkDetails: BulkDetails | null;
   createdAt: string;
   updatedAt: string;
 }
 
-export interface BulkVariant {
-  label: string;
-  quantity: number;
-  mandatoryItems: Record<string, string> | null;
-}
-
-export interface CreatorSplit {
-  creatorId: string;
-  assignedQuantity: number;
-  estimatedHoursPerUnit: number;
-  completionFraction: number;
-}
-
-export interface BulkOrderView {
-  id: string;
-  orderNumber: string;
-  customerId: string;
-  description: string | null;
-  variants: BulkVariant[];
-  totalQuantity: number;
-  creatorSplits: CreatorSplit[];
-  overallCompletionPercent: number;
-  materialsCost: number;
-  packagingCost: number;
-  totalCost: number;
-  payments: PaymentView[];
-  paymentStatus: PaymentStatus;
-  status: OrderStatus;
-  computedDueDate: string;
-  shipmentPlan: ShipmentLegView[];
-  changeLog: ChangeLogEntry[];
-  createdAt: string;
-  updatedAt: string;
+export interface ChangeLog {
+  orderStatusChangeHistory: { status: OrderStatus; changedByCreatorId: string; changeTimestamp: string }[];
+  assigneeChangeHistory: {
+    stageKey: string;
+    oldValue: string | null;
+    newValue: string | null;
+    changedByCreatorId: string;
+    changeTimestamp: string;
+  }[];
+  deliveryDateChangeHistory: {
+    oldValue: string | null;
+    newValue: string | null;
+    changedByCreatorId: string;
+    changeTimestamp: string;
+  }[];
+  paymentStatusChangeHistory: {
+    oldValue: PaymentStatus;
+    newValue: PaymentStatus;
+    changedByCreatorId: string;
+    changeTimestamp: string;
+  }[];
+  quantityChangeHistory: {
+    oldValue: number;
+    newValue: number;
+    variantId: string | null;
+    changedByCreatorId: string;
+    changeTimestamp: string;
+  }[];
+  splitReallocationHistory: {
+    variantId: string;
+    oldAllocation: SplitLine[];
+    newAllocation: SplitLine[];
+    changedByCreatorId: string;
+    changeTimestamp: string;
+  }[];
 }

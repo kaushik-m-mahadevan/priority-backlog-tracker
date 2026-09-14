@@ -6,90 +6,224 @@ import java.util.List;
 
 import org.springframework.stereotype.Component;
 
+import com.backlogtracker.ordertracker.master.domain.BusinessConfig.WorkStageType;
 import com.backlogtracker.ordertracker.order.domain.Order;
-import com.backlogtracker.ordertracker.order.domain.Packaging;
-import com.backlogtracker.ordertracker.order.domain.Payment;
+import com.backlogtracker.ordertracker.order.domain.Order.BulkDetails;
+import com.backlogtracker.ordertracker.order.domain.Order.LineItem;
+import com.backlogtracker.ordertracker.order.domain.Order.MandatoryItem;
+import com.backlogtracker.ordertracker.order.domain.Order.Packaging;
+import com.backlogtracker.ordertracker.order.domain.Order.PaymentEntry;
+import com.backlogtracker.ordertracker.order.domain.Order.StageAssignment;
+import com.backlogtracker.ordertracker.order.domain.Order.StageProgress;
+import com.backlogtracker.ordertracker.order.domain.Order.Variant;
 import com.backlogtracker.ordertracker.order.domain.PaymentStatus;
-import com.backlogtracker.ordertracker.order.domain.StageProgress;
+import com.backlogtracker.ordertracker.order.domain.PaymentType;
 
 /**
- * Pure math for an individual order (design §5/§6/§10) — no I/O, fully unit-testable.
+ * Pure math for cost/time estimation, due dates, completion percentages, and payment
+ * status (spec §5.10, §5.11, §6, §9) — no I/O, fully unit-testable.
  */
 @Component
 public class OrderCalculator {
 
-    /** Total estimated crafting time across all stages, hours. */
-    public double totalEstimatedHours(List<StageProgress> stages) {
-        return stages.stream().mapToDouble(StageProgress::getEstimatedHours).sum();
+    public double mandatoryItemsCost(List<MandatoryItem> items) {
+        return items.stream().mapToDouble(i -> i.getUnitCost() * i.getQuantity()).sum();
     }
 
-    /**
-     * Overall completion % = sum over stages of (stage's own completion fraction × that
-     * stage's share of the order's total estimated hours) — the time-weighted formula
-     * (platform integration decision), not a flat average or a fixed configured weight.
-     * Zero-hour orders (no stages estimated yet) read as 0% rather than dividing by zero.
-     */
-    public double overallCompletionFraction(List<StageProgress> stages) {
-        double totalHours = totalEstimatedHours(stages);
-        if (totalHours <= 0) {
+    public double lineItemsCost(List<LineItem> items) {
+        return items.stream().mapToDouble(i -> i.getUnitCost() * i.getQuantity()).sum();
+    }
+
+    public double lineItemsTimeHours(List<LineItem> items) {
+        return items.stream()
+                .mapToDouble(i -> (i.getUnitTimeHours() == null ? 0 : i.getUnitTimeHours()) * i.getQuantity())
+                .sum();
+    }
+
+    /** grossCost = mandatoryItemsCost + addOnsCost + packagingCost (spec §5.10). */
+    public double grossCost(double mandatoryItemsCost, double addOnsCost, double packagingCost) {
+        return mandatoryItemsCost + addOnsCost + packagingCost;
+    }
+
+    public double overheadAmount(double grossCost, double overheadPercentage) {
+        return grossCost * overheadPercentage;
+    }
+
+    public double profitAmount(double grossCost, double overheadAmount, double profitMarginPercentage) {
+        return (grossCost + overheadAmount) * profitMarginPercentage;
+    }
+
+    public double finalCost(double grossCost, double overheadAmount, double profitAmount) {
+        return grossCost + overheadAmount + profitAmount;
+    }
+
+    /** grossTimeHours = craftingTimeHours + packaging time + add-on assembly time (spec §5.10). */
+    public double grossTimeHours(double craftingTimeHours, Packaging packaging, List<LineItem> addOns) {
+        return craftingTimeHours + packaging.timeHours() + lineItemsTimeHours(addOns);
+    }
+
+    /** Builds the full computed snapshot for an individual order (spec §5.10). */
+    public Order.CostEstimate estimateIndividual(List<MandatoryItem> mandatoryItems, List<LineItem> addOns,
+                                                 Packaging packaging, double craftingTimeHours,
+                                                 double overheadPct, double profitMarginPct,
+                                                 Instant orderReceivedDate, double assignedCreatorHoursPerDay) {
+        double mandatoryItemsCost = mandatoryItemsCost(mandatoryItems);
+        double addOnsCost = lineItemsCost(addOns);
+        double packagingCost = packaging.cost();
+        double gross = grossCost(mandatoryItemsCost, addOnsCost, packagingCost);
+        double overhead = overheadAmount(gross, overheadPct);
+        double profit = profitAmount(gross, overhead, profitMarginPct);
+        double finalCost = finalCost(gross, overhead, profit);
+        double grossTimeHours = grossTimeHours(craftingTimeHours, packaging, addOns);
+
+        return Order.CostEstimate.builder()
+                .mandatoryItemsCost(mandatoryItemsCost)
+                .addOnsCost(addOnsCost)
+                .packagingCost(packagingCost)
+                .grossCost(gross)
+                .overheadAmount(overhead)
+                .profitAmount(profit)
+                .finalCost(finalCost)
+                .grossTimeHours(grossTimeHours)
+                .itemizedBreakdown(List.of(
+                        new Order.BreakdownLine("Mandatory items", mandatoryItemsCost),
+                        new Order.BreakdownLine("Add-ons", addOnsCost),
+                        new Order.BreakdownLine("Packaging", packagingCost),
+                        new Order.BreakdownLine("Overhead", overhead),
+                        new Order.BreakdownLine("Profit margin", profit)))
+                .computedDueDate(dueDate(orderReceivedDate, grossTimeHours, assignedCreatorHoursPerDay))
+                .build();
+    }
+
+    private Instant dueDate(Instant from, double hours, double hoursPerDay) {
+        long days = Math.max(1, (long) Math.ceil(hours / hoursPerDay));
+        return from.plus(days, ChronoUnit.DAYS);
+    }
+
+    /** Individual-order completion = equal-weighted average of each stage's own
+     *  (unitsCompleted / totalUnits) (spec §5.11's stated default). */
+    public double individualCompletionFraction(List<StageAssignment> stageAssignments) {
+        if (stageAssignments.isEmpty()) {
             return 0.0;
         }
-        double weighted = 0.0;
-        for (StageProgress s : stages) {
-            weighted += s.getCompletionFraction() * (s.getEstimatedHours() / totalHours);
+        return stageAssignments.stream()
+                .mapToDouble(s -> s.getTotalUnits() <= 0 ? 0.0 : (double) s.getUnitsCompleted() / s.getTotalUnits())
+                .average().orElse(0.0);
+    }
+
+    // ---- Bulk orders (spec §8/§9) ----
+
+    /** Computes a variant's per-unit and total cost/time and returns an updated copy of the
+     *  variant with those fields (and each line's own cost/time) filled in — the caller
+     *  saves the result. */
+    public Variant priceVariant(Variant variant, double overheadPct, double profitMarginPct) {
+        double mandatoryItemsCost = mandatoryItemsCost(variant.getMandatoryItems());
+        double addOnsCost = lineItemsCost(variant.getAddOns());
+        double packagingCost = variant.getPackaging() == null ? 0 : variant.getPackaging().cost();
+        double gross = grossCost(mandatoryItemsCost, addOnsCost, packagingCost);
+        double overhead = overheadAmount(gross, overheadPct);
+        double profit = profitAmount(gross, overhead, profitMarginPct);
+        double perUnitCost = finalCost(gross, overhead, profit);
+        double perUnitTimeHours = grossTimeHours(variant.getCraftingTimeHours(),
+                variant.getPackaging() == null ? Order.Packaging.builder().itemizedList(List.of()).build() : variant.getPackaging(),
+                variant.getAddOns());
+
+        variant.setPerUnitCost(perUnitCost);
+        variant.setTotalCost(perUnitCost * variant.getQuantity());
+        variant.setPerUnitTimeHours(perUnitTimeHours);
+        variant.setTotalTimeHours(perUnitTimeHours * variant.getQuantity());
+        return variant;
+    }
+
+    /** creatorTotalHours = Σ (their quantity in a variant × that variant's perUnitTimeHours),
+     *  summed across every variant they contribute to (spec §9 step 3). */
+    public double creatorTotalHours(String creatorId, List<Variant> variants) {
+        double total = 0;
+        for (Variant v : variants) {
+            for (Order.SplitLine split : v.getSplitAllocation()) {
+                if (split.getCreatorId().equals(creatorId)) {
+                    total += split.getQuantityAssigned() * v.getPerUnitTimeHours();
+                }
+            }
         }
-        return weighted;
-    }
-
-    /** Materials + packaging, marked up by overhead then profit margin (design §5.10). */
-    public double totalCost(double materialsCost, Packaging packaging, double overheadPct, double profitMarginPct) {
-        double base = materialsCost + packaging.cost();
-        double withOverhead = base * (1 + overheadPct);
-        return withOverhead * (1 + profitMarginPct);
-    }
-
-    public double totalCost(Order order) {
-        return totalCost(order.getMaterialsCost(), order.getPackaging(),
-                order.getOverheadPercentage(), order.getProfitMarginPercentage());
-    }
-
-    /** created + (total estimated hours / primary creator's hours-per-day), rounded up to
-     *  a whole day (design §5, one primary creator's capacity governs the whole order). */
-    public Instant computedDueDate(Instant createdAt, List<StageProgress> stages, double packagingHours,
-                                    double creatorHoursPerDay) {
-        double hours = totalEstimatedHours(stages) + packagingHours;
-        long days = Math.max(1, (long) Math.ceil(hours / creatorHoursPerDay));
-        return createdAt.plus(days, ChronoUnit.DAYS);
-    }
-
-    /** Bulk orders use the max-across-every-assigned-creator offset (design §9), unlike
-     *  individual orders' single-primary-creator rule — the batch isn't done until its
-     *  slowest-loaded creator finishes their own split. */
-    public Instant computedBulkDueDate(Instant createdAt, List<CreatorWorkload> workloads) {
-        long maxDays = workloads.stream()
-                .mapToLong(w -> Math.max(1, (long) Math.ceil(w.hours() / w.hoursPerDay())))
-                .max().orElse(1);
-        return createdAt.plus(maxDays, ChronoUnit.DAYS);
+        return total;
     }
 
     public record CreatorWorkload(double hours, double hoursPerDay) {
     }
 
-    /**
-     * Net paid = sum of payments (a refund is recorded as a negative-amount Payment).
-     * {@link PaymentStatus#FULLY_REFUNDED} is distinguished from {@link PaymentStatus#UNPAID}
-     * by checking whether any positive payment ever existed, even though both read as
-     * {@code netPaid <= 0} under the spec's literal formula (platform integration decision).
-     */
-    public PaymentStatus derivePaymentStatus(List<Payment> payments, double totalCost) {
-        double net = payments.stream().mapToDouble(Payment::amountValue).sum();
-        boolean everHadPositivePayment = payments.stream().anyMatch(p -> p.amountValue() > 0);
+    /** computedDueDate = orderReceivedDate + max(creatorDueOffsetDays across all involved
+     *  creators) + a manual buffer if the shipment plan includes an INTERNAL_TRANSFER stop
+     *  before final delivery (spec §9 steps 4-5). */
+    public Instant computeBulkDueDate(Instant orderReceivedDate, List<CreatorWorkload> workloads, int bufferDays) {
+        long maxDays = workloads.stream()
+                .mapToLong(w -> Math.max(1, (long) Math.ceil(w.hours() / w.hoursPerDay())))
+                .max().orElse(1);
+        return orderReceivedDate.plus(maxDays + bufferDays, ChronoUnit.DAYS);
+    }
 
-        if (net >= totalCost && totalCost > 0) {
-            return PaymentStatus.PAID;
+    /**
+     * Bulk completion (spec §5.11): for a split-tracked stage, sum {@code unitsCompleted}
+     * across every creator/variant for that stage and divide by {@code totalQuantity}; for
+     * a batch-tracked stage, use its single {@link StageProgress} entry directly. Then
+     * average across all configured stages (equal weighting, same default as individual).
+     */
+    public double bulkCompletionFraction(BulkDetails details, List<WorkStageType> workStages) {
+        if (workStages.isEmpty()) {
+            return 0.0;
         }
+        double sum = 0;
+        for (WorkStageType stage : workStages) {
+            if (stage.splitTracked()) {
+                int completed = 0;
+                for (Variant v : details.getVariants()) {
+                    for (Order.SplitLine split : v.getSplitAllocation()) {
+                        completed += split.getStageProgress().stream()
+                                .filter(sp -> sp.getStageKey().equals(stage.stageKey()))
+                                .mapToInt(Order.StageProgressEntry::getUnitsCompleted)
+                                .sum();
+                    }
+                }
+                sum += details.getTotalQuantity() <= 0 ? 0.0 : (double) completed / details.getTotalQuantity();
+            } else {
+                sum += details.getStageProgress().stream()
+                        .filter(sp -> sp.getStageKey().equals(stage.stageKey()))
+                        .findFirst()
+                        .map(sp -> sp.getTotalUnits() <= 0 ? 0.0 : (double) sp.getUnitsCompleted() / sp.getTotalUnits())
+                        .orElse(0.0);
+            }
+        }
+        return sum / workStages.size();
+    }
+
+    // ---- Payments (spec §6) ----
+
+    /** netPaid = Σ(amount where type != REFUND) − Σ(amount where type = REFUND). */
+    public double netPaid(List<PaymentEntry> payments) {
+        double collected = payments.stream().filter(p -> p.getType() != PaymentType.REFUND)
+                .mapToDouble(PaymentEntry::amountValue).sum();
+        double refunded = payments.stream().filter(p -> p.getType() == PaymentType.REFUND)
+                .mapToDouble(PaymentEntry::amountValue).sum();
+        return collected - refunded;
+    }
+
+    public double balanceAmount(List<PaymentEntry> payments, double finalCost) {
+        return finalCost - netPaid(payments);
+    }
+
+    /** UNPAID (netPaid <= 0) -> PARTIALLY_PAID (0 < netPaid < finalCost) -> PAID_IN_FULL
+     *  (netPaid >= finalCost) -> REFUNDED (netPaid < 0, or netPaid == 0 with at least one
+     *  REFUND entry — the exact-cancel-out case the literal formula alone can't
+     *  distinguish from "never paid"; see {@link PaymentStatus#REFUNDED}). */
+    public PaymentStatus derivePaymentStatus(List<PaymentEntry> payments, double finalCost) {
+        double net = netPaid(payments);
+        boolean hasRefund = payments.stream().anyMatch(p -> p.getType() == PaymentType.REFUND);
+
         if (net <= 0) {
-            return everHadPositivePayment ? PaymentStatus.FULLY_REFUNDED : PaymentStatus.UNPAID;
+            return hasRefund ? PaymentStatus.REFUNDED : PaymentStatus.UNPAID;
+        }
+        if (net >= finalCost) {
+            return PaymentStatus.PAID_IN_FULL;
         }
         return PaymentStatus.PARTIALLY_PAID;
     }

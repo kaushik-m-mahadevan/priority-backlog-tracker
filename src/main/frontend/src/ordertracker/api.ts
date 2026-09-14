@@ -1,12 +1,5 @@
 import { api } from "../api/client";
-import type {
-  BulkOrderView,
-  BusinessConfig,
-  Creator,
-  Customer,
-  OrderView,
-  PresetOption,
-} from "./types";
+import type { BusinessConfig, ChangeLog, Creator, Customer, OrderView, PresetOption } from "./types";
 
 const base = (groupId: string) => `/ordertracker/groups/${groupId}`;
 
@@ -33,22 +26,39 @@ export const orderTrackerApi = {
 
   orders: (groupId: string) => api.get<OrderView[]>(`${base(groupId)}/orders`),
   order: (groupId: string, orderId: string) => api.get<OrderView>(`${base(groupId)}/orders/${orderId}`),
+  changeLog: (groupId: string, orderId: string) => api.get<ChangeLog[]>(`${base(groupId)}/orders/${orderId}/change-log`),
   createOrder: (groupId: string, body: unknown) => api.post<OrderView>(`${base(groupId)}/orders`, body),
-  updateOrderStage: (groupId: string, orderId: string, stageKey: string, completionFraction: number) =>
-    api.patch<OrderView>(`${base(groupId)}/orders/${orderId}/stages/${stageKey}`, { completionFraction }),
-  addOrderPayment: (groupId: string, orderId: string, body: unknown) =>
-    api.post<OrderView>(`${base(groupId)}/orders/${orderId}/payments`, body),
-  updateOrderStatus: (groupId: string, orderId: string, status: string) =>
+  updateOrder: (groupId: string, orderId: string, body: unknown) =>
+    api.put<OrderView>(`${base(groupId)}/orders/${orderId}`, body),
+  updateBulkDetails: (groupId: string, orderId: string, body: unknown) =>
+    api.put<OrderView>(`${base(groupId)}/orders/${orderId}/bulk-details`, body),
+  updateStatus: (groupId: string, orderId: string, status: string) =>
     api.patch<OrderView>(`${base(groupId)}/orders/${orderId}/status`, { status }),
-  setShipmentPlan: (groupId: string, orderId: string, legs: unknown[]) =>
-    api.post<OrderView>(`${base(groupId)}/orders/${orderId}/shipment-plan`, legs),
-  markShipmentLeg: (groupId: string, orderId: string, legIndex: number, body: { shippedAt?: string; deliveredAt?: string }) =>
-    api.patch<OrderView>(`${base(groupId)}/orders/${orderId}/shipment-plan/${legIndex}`, body),
-
-  bulkOrders: (groupId: string) => api.get<BulkOrderView[]>(`${base(groupId)}/bulk-orders`),
-  createBulkOrder: (groupId: string, body: unknown) => api.post<BulkOrderView>(`${base(groupId)}/bulk-orders`, body),
-  updateCreatorSplit: (groupId: string, orderId: string, creatorId: string, completionFraction: number) =>
-    api.patch<BulkOrderView>(`${base(groupId)}/bulk-orders/${orderId}/creator-splits/${creatorId}`, { completionFraction }),
-  addBulkOrderPayment: (groupId: string, orderId: string, body: unknown) =>
-    api.post<BulkOrderView>(`${base(groupId)}/bulk-orders/${orderId}/payments`, body),
+  updateStageAssignment: (groupId: string, orderId: string, stageKey: string, assignedCreatorId: string | null, unitsCompleted: number) =>
+    api.patch<OrderView>(`${base(groupId)}/orders/${orderId}/stage-assignments/${stageKey}`, {
+      assignedCreatorId,
+      unitsCompleted,
+    }),
+  updateBulkStageProgress: (groupId: string, orderId: string, stageKey: string, unitsCompleted: number) =>
+    api.patch<OrderView>(`${base(groupId)}/orders/${orderId}/bulk-stage-progress/${stageKey}`, { unitsCompleted }),
+  updateBulkSplitProgress: (
+    groupId: string,
+    orderId: string,
+    variantId: string,
+    creatorId: string,
+    stageKey: string,
+    unitsCompleted: number
+  ) =>
+    api.patch<OrderView>(`${base(groupId)}/orders/${orderId}/bulk-split-progress`, {
+      variantId,
+      creatorId,
+      stageKey,
+      unitsCompleted,
+    }),
+  addPayment: (groupId: string, orderId: string, body: unknown) =>
+    api.post<OrderView>(`${base(groupId)}/orders/${orderId}/payments`, body),
+  setShipmentPlan: (groupId: string, orderId: string, stops: unknown[]) =>
+    api.put<OrderView>(`${base(groupId)}/orders/${orderId}/shipment-plan`, { stops }),
+  markShipmentStop: (groupId: string, orderId: string, stopIndex: number, body: { shippedDate?: string; deliveredConfirmed?: boolean }) =>
+    api.patch<OrderView>(`${base(groupId)}/orders/${orderId}/shipment-plan/${stopIndex}`, body),
 };

@@ -1,16 +1,44 @@
 package com.backlogtracker.ordertracker.order.dto;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 
-public record CreateOrderRequest(String customerId, String primaryCreatorId, String description,
-                                 Map<String, String> mandatoryItems, List<String> addOns,
-                                 String packagingPresetId, List<LineItemInput> itemizedPackaging,
-                                 List<StageInput> stages, double materialsCost) {
+import com.backlogtracker.ordertracker.order.domain.Order.PatternType;
+import com.backlogtracker.ordertracker.order.domain.Order.ResearchItemType;
 
-    public record StageInput(String stageKey, String assigneeCreatorId, double estimatedHours) {
+public record CreateOrderRequest(String customerId, String orderType, String createdByCreatorId,
+                                 String itemName, Instant orderReceivedDate, Instant quotedDeliveryDate,
+                                 PatternInput pattern, List<ResearchItemInput> researchItems,
+                                 List<String> recipeSteps,
+                                 // individual-only
+                                 List<MandatoryItemInput> mandatoryItems, List<LineItemInput> addOns,
+                                 String packagingPresetId, List<LineItemInput> itemizedPackaging,
+                                 double craftingTimeHours,
+                                 // bulk-only
+                                 List<VariantInput> variants, String coordinatingCreatorId,
+                                 int logisticsBufferDays) {
+
+    public record PatternInput(PatternType patternType, String templateName, String customPatternNotes,
+                               List<String> attachmentUrls) {
     }
 
-    public record LineItemInput(String label, double cost, double timeHours) {
+    public record ResearchItemInput(ResearchItemType type, String url, String description) {
+    }
+
+    public record MandatoryItemInput(String itemKey, String value, double quantity, double unitCost) {
+    }
+
+    public record LineItemInput(String name, String category, Map<String, String> attributes,
+                                double quantity, double unitCost, Double unitTimeHours, String note) {
+    }
+
+    public record SplitLineInput(String creatorId, int quantityAssigned) {
+    }
+
+    public record VariantInput(String variantId, String label, int quantity,
+                               List<MandatoryItemInput> mandatoryItems, List<LineItemInput> addOns,
+                               String packagingPresetId, List<LineItemInput> itemizedPackaging,
+                               double craftingTimeHours, List<SplitLineInput> splitAllocation) {
     }
 }

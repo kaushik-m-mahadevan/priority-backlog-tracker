@@ -2,8 +2,7 @@ package com.backlogtracker.ordertracker.order.dto;
 
 import java.time.Instant;
 
-import com.backlogtracker.ordertracker.order.domain.PaymentMode;
+import com.backlogtracker.ordertracker.order.domain.PaymentType;
 
-/** amount may be negative to record a refund (design §6). */
-public record AddPaymentRequest(double amount, PaymentMode mode, String note, Instant paidAt) {
+public record AddPaymentRequest(PaymentType type, double amount, Instant date, String mode, String note) {
 }

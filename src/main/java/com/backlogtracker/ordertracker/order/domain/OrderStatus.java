@@ -1,7 +1,8 @@
 package com.backlogtracker.ordertracker.order.domain;
 
-/** Free-form — any status can move to any other, matching the ItemStatus precedent of no
- *  guarded state machine (platform integration decision). */
+/** Spec §5.1. Free-form assignment — any status can move to any other, matching the
+ *  existing ItemStatus precedent of no guarded state machine (platform integration
+ *  decision) — the sequence below is the expected happy path, not an enforced one. */
 public enum OrderStatus {
-    RECEIVED, IN_PROGRESS, READY_FOR_SHIPMENT, SHIPPED, DELIVERED, CANCELLED
+    INQUIRY, CONFIRMED, IN_PROGRESS, READY_TO_SHIP, SHIPPED, DELIVERED, CANCELLED
 }

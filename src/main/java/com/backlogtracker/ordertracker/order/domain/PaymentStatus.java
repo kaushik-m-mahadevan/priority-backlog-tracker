@@ -1,12 +1,15 @@
 package com.backlogtracker.ordertracker.order.domain;
 
 /**
- * Derived from the payments ledger (design §6), never set directly.
+ * Derived from the payments ledger (spec §6), never set directly.
+ * {@code netPaid = Σ(amount where type != REFUND) - Σ(amount where type == REFUND)}.
  *
- * <p>{@link #FULLY_REFUNDED} exists specifically so a full refund is distinguishable from
- * never having been paid at all — both would otherwise read as {@code netPaid <= 0} under
- * the spec's literal formula (platform integration decision).
+ * <p>{@link #REFUNDED} additionally covers the {@code netPaid == 0} case when at least one
+ * REFUND entry exists (a full refund exactly cancelling out prior payments) — the spec's
+ * literal {@code netPaid < 0} threshold would otherwise read that identically to
+ * {@link #UNPAID}, which platform-integration decision explicitly calls out as needing a
+ * concrete resolution (distinguish "never paid" from "paid in full then fully refunded").
  */
 public enum PaymentStatus {
-    UNPAID, PARTIALLY_PAID, PAID, FULLY_REFUNDED
+    UNPAID, PARTIALLY_PAID, PAID_IN_FULL, REFUNDED
 }
