@@ -24,7 +24,7 @@ const META: Record<DockSection, { label: string; icon: ReactNode }> = {
  * accordion — exactly one section open at a time, Quick wins first by default.
  */
 export default function LeftDock({ quick, attention, team, onOpen }: Props) {
-  const { shown, active, setActive } = useDock();
+  const { shown, setShown, active, setActive } = useDock();
   if (!shown) return null;
 
   const open: DockSection = active ?? "quick";
@@ -46,6 +46,9 @@ export default function LeftDock({ quick, attention, team, onOpen }: Props) {
     <aside className="dock-acc">
       <div className="dock-acc-head">
         <span className="rp-title">Panels</span>
+        <button className="dock-collapse-btn" aria-label="Hide panels" title="Hide panels" onClick={() => setShown(false)}>
+          ‹
+        </button>
       </div>
 
       {ORDER.map((s) => {

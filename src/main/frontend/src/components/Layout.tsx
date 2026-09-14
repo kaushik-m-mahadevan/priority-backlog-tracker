@@ -1,5 +1,6 @@
 import { Link, NavLink, Outlet, useLocation } from "react-router-dom";
 import { useDock } from "../dock/DockContext";
+import { useGroups } from "../groups/GroupContext";
 import { useKeepAlive } from "../lib/useKeepAlive";
 import Bell from "./Bell";
 import NavMenu from "./NavMenu";
@@ -26,6 +27,7 @@ const GROVE_ROUTES = [
 
 export default function Layout() {
   const { shown, setShown } = useDock();
+  const { currentGroupId } = useGroups();
   const pathname = useLocation().pathname;
   const onDashboard = pathname === "/backlog";
   const withGrove = GROVE_ROUTES.includes(pathname);
@@ -52,14 +54,12 @@ export default function Layout() {
         <NavMenu />
       </nav>
 
-      {onDashboard && (
-        <button
-          className={`dock-edge-tab${shown ? " open" : ""}`}
-          title={shown ? "Hide panels" : "Show panels"}
-          aria-label={shown ? "Hide panels" : "Show panels"}
-          onClick={() => setShown(!shown)}
-        >
-          {shown ? "‹" : "›"}
+      {/* Only the "show panels" affordance floats off the edge — nothing to show when
+          there's no group yet, and the "hide" control lives inline in the panel's own
+          header once it's open (LeftDock), not as a second floating button. */}
+      {onDashboard && currentGroupId && !shown && (
+        <button className="dock-edge-tab" title="Show panels" aria-label="Show panels" onClick={() => setShown(true)}>
+          ›
         </button>
       )}
 

@@ -1281,6 +1281,25 @@ input[aria-invalid="true"] {
 .dock-acc-head .rp-title {
   flex: 1;
 }
+.dock-collapse-btn {
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: 1px solid var(--border-soft);
+  border-radius: 6px;
+  color: var(--text-dim);
+  font-size: 13px;
+  line-height: 1;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.dock-collapse-btn:hover {
+  color: var(--text);
+  background: var(--bg-elev-2);
+}
 .acc-sec {
   display: flex;
   flex-direction: column;
