@@ -17,7 +17,7 @@ import com.backlogtracker.ordertracker.order.dto.CreateOrderRequest.VariantInput
 public record UpdateBulkDetailsRequest(String customerId, String itemName, Instant orderReceivedDate,
                                        Instant quotedDeliveryDate, PatternInput pattern,
                                        List<ResearchItemInput> researchItems, double researchTimeHours,
-                                       List<String> recipeSteps,
+                                       List<String> recipeSteps, String assemblyPackagingInstructions,
                                        List<VariantInput> variants, String coordinatingCreatorId,
                                        int logisticsBufferDays) {
 }

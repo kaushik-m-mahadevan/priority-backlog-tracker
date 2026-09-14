@@ -58,6 +58,7 @@ function EditOrderForm({
   const [templateName, setTemplateName] = useState(order.pattern?.templateName ?? "");
   const [customPatternNotes, setCustomPatternNotes] = useState(order.pattern?.customPatternNotes ?? "");
   const [recipeStepsText, setRecipeStepsText] = useState(order.recipeSteps.join("\n"));
+  const [assemblyPackagingInstructions, setAssemblyPackagingInstructions] = useState(order.assemblyPackagingInstructions ?? "");
   const [mandatoryItems, setMandatoryItems] = useState<MandatoryItemDraft[]>(
     order.mandatoryItems.length > 0
       ? order.mandatoryItems.map((m) => ({ itemKey: m.itemKey, value: m.value, quantity: m.quantity, unitCost: m.unitCost, notes: m.notes ?? "" }))
@@ -93,6 +94,7 @@ function EditOrderForm({
         researchItems: order.researchItems,
         researchTimeHours,
         recipeSteps: recipeStepsText.split("\n").map((s) => s.trim()).filter(Boolean),
+        assemblyPackagingInstructions: assemblyPackagingInstructions.trim() || null,
         mandatoryItems: mandatoryItems.filter((m) => m.value.trim()),
         tools: tools.filter((t) => t.value.trim()),
         addOns: addOns.filter((a) => a.name.trim()),
@@ -167,6 +169,14 @@ function EditOrderForm({
         <label htmlFor="eod-research-time">Research time (hours)</label>
         <input id="eod-research-time" type="number" min={0} step={0.25} value={researchTimeHours}
           onChange={(e) => setResearchTimeHours(Number(e.target.value))} />
+      </div>
+
+      <h2 className="settings-section">Assembly &amp; packaging</h2>
+      <div className="form-row">
+        <label htmlFor="eod-assembly-packaging">How to assemble and pack this order</label>
+        <textarea id="eod-assembly-packaging" value={assemblyPackagingInstructions}
+          onChange={(e) => setAssemblyPackagingInstructions(e.target.value)}
+          placeholder="Which materials/tools go where, assembly steps, how it gets boxed up" />
       </div>
 
       <h2 className="settings-section">Materials</h2>
@@ -244,6 +254,7 @@ function EditBulkDetailsForm({
   const [templateName, setTemplateName] = useState(order.pattern?.templateName ?? "");
   const [customPatternNotes, setCustomPatternNotes] = useState(order.pattern?.customPatternNotes ?? "");
   const [recipeStepsText, setRecipeStepsText] = useState(order.recipeSteps.join("\n"));
+  const [assemblyPackagingInstructions, setAssemblyPackagingInstructions] = useState(order.assemblyPackagingInstructions ?? "");
   const [researchTimeHours, setResearchTimeHours] = useState(order.researchTimeHours);
   const [variants, setVariants] = useState<VariantDraft[]>(
     (order.bulkDetails?.variants ?? []).map((v) => ({
@@ -283,6 +294,7 @@ function EditBulkDetailsForm({
         researchItems: order.researchItems,
         researchTimeHours,
         recipeSteps: recipeStepsText.split("\n").map((s) => s.trim()).filter(Boolean),
+        assemblyPackagingInstructions: assemblyPackagingInstructions.trim() || null,
         variants: variants
           .filter((v) => v.label.trim())
           .map((v) => ({
@@ -366,6 +378,13 @@ function EditBulkDetailsForm({
         <label htmlFor="ebd-research-time">Research time (hours)</label>
         <input id="ebd-research-time" type="number" min={0} step={0.25} value={researchTimeHours}
           onChange={(e) => setResearchTimeHours(Number(e.target.value))} />
+      </div>
+      <h2 className="settings-section">Assembly &amp; packaging</h2>
+      <div className="form-row">
+        <label htmlFor="ebd-assembly-packaging">How to assemble and pack this order</label>
+        <textarea id="ebd-assembly-packaging" value={assemblyPackagingInstructions}
+          onChange={(e) => setAssemblyPackagingInstructions(e.target.value)}
+          placeholder="Which materials/tools go where, assembly steps, how it gets boxed up" />
       </div>
 
       <h2 className="settings-section">Logistics</h2>
@@ -653,6 +672,15 @@ export default function OrderDetailPage() {
                 <li key={i}>{s}</li>
               ))}
             </ol>
+          )}
+        </div>
+
+        <div className="card">
+          <h2>Assembly &amp; packaging</h2>
+          {order.assemblyPackagingInstructions ? (
+            <p style={{ whiteSpace: "pre-wrap", margin: 0 }}>{order.assemblyPackagingInstructions}</p>
+          ) : (
+            <p className="empty">Not recorded.</p>
           )}
         </div>
       </div>

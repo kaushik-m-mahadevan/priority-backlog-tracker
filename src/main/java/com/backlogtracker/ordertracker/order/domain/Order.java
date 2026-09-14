@@ -93,6 +93,11 @@ public class Order {
     // ---- 5.8 prototyping / recipe ----
     @Builder.Default
     private List<String> recipeSteps = new ArrayList<>();
+    /** Free-text how-to for assembly and packaging (which materials/tools go where, the
+     *  steps to put it together and box it up) — distinct from recipeSteps, which is the
+     *  crochet pattern itself, not what happens after the pieces are made. Design-decision
+     *  extension, not in the original spec. */
+    private String assemblyPackagingInstructions;
 
     // ---- 5.9 crocheting/assembly time (individual only; bulk uses per-variant) ----
     private double craftingTimeHours;

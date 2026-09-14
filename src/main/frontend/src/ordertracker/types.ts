@@ -239,6 +239,7 @@ export interface OrderView {
   researchItems: ResearchItem[];
   researchTimeHours: number;
   recipeSteps: string[];
+  assemblyPackagingInstructions: string | null;
   mandatoryItems: MandatoryItem[];
   tools: Tool[];
   addOns: LineItem[];

@@ -15,7 +15,7 @@ import com.backlogtracker.ordertracker.order.dto.CreateOrderRequest.ToolInput;
 public record UpdateOrderRequest(String customerId, String itemName, Instant orderReceivedDate,
                                  Instant quotedDeliveryDate,
                                  PatternInput pattern, List<ResearchItemInput> researchItems,
-                                 double researchTimeHours, List<String> recipeSteps,
+                                 double researchTimeHours, List<String> recipeSteps, String assemblyPackagingInstructions,
                                  List<MandatoryItemInput> mandatoryItems, List<ToolInput> tools,
                                  List<LineItemInput> addOns, String packagingPresetId,
                                  List<LineItemInput> itemizedPackaging, double craftingTimeHours,

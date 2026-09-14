@@ -48,6 +48,7 @@ export default function NewOrderPage() {
   const [templateName, setTemplateName] = useState("");
   const [customPatternNotes, setCustomPatternNotes] = useState("");
   const [recipeStepsText, setRecipeStepsText] = useState("");
+  const [assemblyPackagingInstructions, setAssemblyPackagingInstructions] = useState("");
   const [researchTimeHours, setResearchTimeHours] = useState(0);
 
   // individual-only
@@ -157,6 +158,7 @@ export default function NewOrderPage() {
         researchItems: [],
         researchTimeHours,
         recipeSteps,
+        assemblyPackagingInstructions: assemblyPackagingInstructions.trim() || null,
       };
       if (orderType === "INDIVIDUAL") {
         body.mandatoryItems = mandatoryItems.filter((m) => m.value.trim());
@@ -362,6 +364,16 @@ export default function NewOrderPage() {
           <label htmlFor="no-research-time">Research time (hours)</label>
           <input id="no-research-time" type="number" min={0} step={0.25} value={researchTimeHours}
             onChange={(e) => setResearchTimeHours(Number(e.target.value))} />
+        </div>
+
+        <h2 className="settings-section">Assembly &amp; packaging</h2>
+        <div className="form-row">
+          <label htmlFor="no-assembly-packaging" className="sr-only">
+            How to assemble and pack this order
+          </label>
+          <textarea id="no-assembly-packaging" value={assemblyPackagingInstructions}
+            onChange={(e) => setAssemblyPackagingInstructions(e.target.value)}
+            placeholder={"Which materials/tools go where, assembly steps, how it gets boxed up"} />
         </div>
 
         {orderType === "INDIVIDUAL" ? (
