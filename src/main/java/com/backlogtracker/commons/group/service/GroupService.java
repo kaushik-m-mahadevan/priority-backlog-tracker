@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.mongodb.core.MongoOperations;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
@@ -13,6 +14,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 import com.backlogtracker.commons.group.domain.Group;
 import com.backlogtracker.commons.group.domain.PlatformConfig;
+import com.backlogtracker.commons.group.event.MemberLeftGroupEvent;
 import com.backlogtracker.commons.group.repository.GroupRepository;
 import com.backlogtracker.commons.group.repository.PlatformConfigRepository;
 import com.backlogtracker.commons.user.dto.UserSummary;
@@ -35,6 +37,7 @@ public class GroupService {
     private final PlatformConfigRepository platformConfig;
     private final UserRepository users;
     private final MongoOperations mongo;
+    private final ApplicationEventPublisher events;
 
     private PlatformConfig config() {
         return platformConfig.findById(PlatformConfig.SINGLETON_ID)
@@ -135,6 +138,7 @@ public class GroupService {
             log.info("Group {} deleted by its last member; {} live items removed", groupId, deletedItems);
         } else {
             groups.save(g);
+            events.publishEvent(new MemberLeftGroupEvent(groupId, userId));
         }
     }
 

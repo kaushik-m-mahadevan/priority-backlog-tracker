@@ -8,7 +8,7 @@ import { formatDateTime } from "../lib/format";
 
 interface NotificationView {
   id: string;
-  type: "GROUP_INVITE" | "ARCHIVE_REQUEST" | "ARCHIVE_RESULT" | "PASSWORD_RESULT";
+  type: "GROUP_INVITE" | "ARCHIVE_REQUEST" | "ARCHIVE_RESULT" | "PASSWORD_RESULT" | "COST_CONFIG_INVALIDATED";
   status: "PENDING" | "ACCEPTED" | "DECLINED";
   createdAt: string | null;
   groupId: string;
@@ -153,7 +153,7 @@ export default function Bell() {
                 </>
               )}
 
-              {(n.type === "ARCHIVE_RESULT" || n.type === "PASSWORD_RESULT") && (
+              {(n.type === "ARCHIVE_RESULT" || n.type === "PASSWORD_RESULT" || n.type === "COST_CONFIG_INVALIDATED") && (
                 <>
                   <div>{n.message}</div>
                   <div className="sub">{formatDateTime(n.createdAt)}</div>

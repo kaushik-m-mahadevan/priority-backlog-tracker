@@ -8,5 +8,8 @@ public enum NotificationType {
     /** Informational: an archive request you were part of was resolved. */
     ARCHIVE_RESULT,
     /** Informational: an admin acted on your password request. */
-    PASSWORD_RESULT
+    PASSWORD_RESULT,
+    /** Informational: your pending overhead/profit-margin proposal was auto-cancelled
+     *  because a member left the group mid-approval — you can re-propose. */
+    COST_CONFIG_INVALIDATED
 }

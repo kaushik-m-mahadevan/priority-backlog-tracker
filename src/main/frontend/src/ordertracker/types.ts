@@ -51,7 +51,7 @@ export interface WorkStageType {
   splitTracked: boolean;
 }
 
-export type CostConfigChangeStatus = "PENDING" | "APPROVED" | "REJECTED";
+export type CostConfigChangeStatus = "PENDING" | "APPROVED" | "REJECTED" | "INVALIDATED";
 
 export interface CostConfigChangeRequest {
   id: string;

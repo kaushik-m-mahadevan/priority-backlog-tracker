@@ -4,17 +4,23 @@ import java.time.Clock;
 import java.time.Instant;
 import java.util.List;
 
+import org.springframework.context.event.EventListener;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
 import com.backlogtracker.commons.group.domain.Group;
+import com.backlogtracker.commons.group.event.MemberLeftGroupEvent;
 import com.backlogtracker.commons.group.service.GroupService;
+import com.backlogtracker.commons.notification.domain.NotificationType;
+import com.backlogtracker.commons.notification.service.NotificationService;
 import com.backlogtracker.ordertracker.master.domain.CostConfigChangeRequest;
 import com.backlogtracker.ordertracker.master.domain.CostConfigChangeStatus;
 import com.backlogtracker.ordertracker.master.repository.CostConfigChangeRequestRepository;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * Proposes and resolves changes to a business's overhead %/profit margin %. Every current
@@ -24,11 +30,15 @@ import lombok.RequiredArgsConstructor;
  */
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class CostConfigChangeService {
+
+    private static final int MAX_APPROVE_RETRIES = 3;
 
     private final CostConfigChangeRequestRepository repository;
     private final GroupService groupService;
     private final BusinessConfigService businessConfigService;
+    private final NotificationService notificationService;
     private final Clock clock;
 
     public CostConfigChangeRequest propose(String groupId, String userId,
@@ -51,14 +61,27 @@ public class CostConfigChangeService {
         return repository.save(request);
     }
 
+    /** Retries on a lost-update race (two members approving the same request at once) by
+     *  re-reading the latest approvedByUserIds and reapplying this approval on top of it,
+     *  rather than silently losing whichever save lost the race. */
     public CostConfigChangeRequest approve(String groupId, String userId, String requestId) {
         Group group = groupService.requireMember(groupId, userId);
-        CostConfigChangeRequest request = pendingRequest(groupId, requestId);
-        if (!request.getApprovedByUserIds().contains(userId)) {
-            request.getApprovedByUserIds().add(userId);
+        for (int attempt = 1; attempt <= MAX_APPROVE_RETRIES; attempt++) {
+            CostConfigChangeRequest request = pendingRequest(groupId, requestId);
+            if (!request.getApprovedByUserIds().contains(userId)) {
+                request.getApprovedByUserIds().add(userId);
+            }
+            resolveIfUnanimous(request, group);
+            try {
+                return repository.save(request);
+            } catch (OptimisticLockingFailureException e) {
+                if (attempt == MAX_APPROVE_RETRIES) {
+                    throw e;
+                }
+                log.info("Cost-config approve race on request {} — retrying (attempt {})", requestId, attempt);
+            }
         }
-        resolveIfUnanimous(request, group);
-        return repository.save(request);
+        throw new IllegalStateException("unreachable");
     }
 
     /** A lone proposer in a single-member group already satisfies unanimity the moment they
@@ -85,6 +108,25 @@ public class CostConfigChangeService {
     public List<CostConfigChangeRequest> list(String groupId, String userId) {
         groupService.requireMember(groupId, userId);
         return repository.findByGroupId(groupId);
+    }
+
+    /** A member leaving mid-approval can reasonably change how the remaining members would
+     *  have voted, so the pending proposal is cancelled outright rather than silently
+     *  resolved on whoever's left — the proposer is notified and can simply propose again
+     *  (propose() only refuses while one is still PENDING, so nothing else to "retrigger"). */
+    @EventListener
+    public void onMemberLeft(MemberLeftGroupEvent event) {
+        repository.findByGroupIdAndStatus(event.groupId(), CostConfigChangeStatus.PENDING)
+                .ifPresent(request -> {
+                    request.setStatus(CostConfigChangeStatus.INVALIDATED);
+                    request.setResolvedAt(Instant.now(clock));
+                    repository.save(request);
+                    notificationService.info(request.getProposedByUserId(), NotificationType.COST_CONFIG_INVALIDATED,
+                            "Your proposed overhead/profit-margin change was cancelled because a member left "
+                                    + "the group mid-approval. You can propose it again.");
+                    log.info("Cost-config request {} invalidated — member {} left group {}",
+                            request.getId(), event.userId(), event.groupId());
+                });
     }
 
     private CostConfigChangeRequest pendingRequest(String groupId, String requestId) {
