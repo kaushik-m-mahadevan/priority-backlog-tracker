@@ -30,6 +30,7 @@ public class LegacyDataMigration implements ApplicationRunner {
 
     @Override
     public void run(ApplicationArguments args) {
+        log.info("LegacyDataMigration: starting");
         long admins = mongo.updateMulti(
                 new Query(Criteria.where("role").is("OWNER")),
                 new Update().set("role", "ADMIN"), "users").getModifiedCount();
@@ -63,6 +64,7 @@ public class LegacyDataMigration implements ApplicationRunner {
             // already dropped, or never existed (fresh DB) — fine
         }
 
+        log.info("LegacyDataMigration: users/config/handle fixups done, starting items scope cleanup");
         long capped = mongo.updateFirst(
                 new Query(Criteria.where("_id").is(AppConfig.SINGLETON_ID)
                         .and("maxGroupsPerUser").exists(false)),
@@ -74,6 +76,7 @@ public class LegacyDataMigration implements ApplicationRunner {
         mongo.updateMulti(new Query(Criteria.where("scope").exists(true)),
                 new Update().unset("scope"), "archivedItems");
 
+        log.info("LegacyDataMigration: items scope cleanup done, starting orderTrackerOrders status fixups");
         // Order Tracker's rebuild (commit 54c7b29) renamed OrderStatus/PaymentStatus values;
         // a pre-rebuild order document still carrying an old value 400s on read with
         // "No enum constant ...OrderStatus.RECEIVED" the same way the OWNER/CONTRIBUTOR
@@ -81,15 +84,19 @@ public class LegacyDataMigration implements ApplicationRunner {
         long ordersReceived = mongo.updateMulti(
                 new Query(Criteria.where("status").is("RECEIVED")),
                 new Update().set("status", "INQUIRY"), "orderTrackerOrders").getModifiedCount();
+        log.info("LegacyDataMigration: orderTrackerOrders RECEIVED->INQUIRY done ({})", ordersReceived);
         long ordersReady = mongo.updateMulti(
                 new Query(Criteria.where("status").is("READY_FOR_SHIPMENT")),
                 new Update().set("status", "READY_TO_SHIP"), "orderTrackerOrders").getModifiedCount();
+        log.info("LegacyDataMigration: orderTrackerOrders READY_FOR_SHIPMENT->READY_TO_SHIP done ({})", ordersReady);
         long paymentsPaid = mongo.updateMulti(
                 new Query(Criteria.where("paymentStatus").is("PAID")),
                 new Update().set("paymentStatus", "PAID_IN_FULL"), "orderTrackerOrders").getModifiedCount();
+        log.info("LegacyDataMigration: orderTrackerOrders PAID->PAID_IN_FULL done ({})", paymentsPaid);
         long paymentsRefunded = mongo.updateMulti(
                 new Query(Criteria.where("paymentStatus").is("FULLY_REFUNDED")),
                 new Update().set("paymentStatus", "REFUNDED"), "orderTrackerOrders").getModifiedCount();
+        log.info("LegacyDataMigration: orderTrackerOrders FULLY_REFUNDED->REFUNDED done ({})", paymentsRefunded);
 
         if (admins + users + activated + renamed + capped > 0) {
             log.info("LegacyDataMigration: OWNER->ADMIN x{}, CONTRIBUTOR/VIEWER->USER x{}, "
@@ -108,5 +115,6 @@ public class LegacyDataMigration implements ApplicationRunner {
             log.warn("LegacyDataMigration: no ADMIN account exists ({} users) — approvals and "
                     + "formula settings are unavailable until one registers", totalUsers);
         }
+        log.info("LegacyDataMigration: finished");
     }
 }
