@@ -25,11 +25,17 @@ public final class AuthTestSupport {
     /** Creates a fresh group owned by the given token's user and returns its id. */
     public static String createGroup(MockMvc mvc, ObjectMapper mapper, String token, String name)
             throws Exception {
-        String body = mvc.perform(post("/api/groups")
+        var result = mvc.perform(post("/api/groups")
                         .header("Authorization", "Bearer " + token)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"name\":\"" + name + "\"}"))
-                .andReturn().getResponse().getContentAsString();
-        return mapper.readTree(body).get("id").asText();
+                .andReturn();
+        String body = result.getResponse().getContentAsString();
+        var node = mapper.readTree(body).get("id");
+        if (node == null) {
+            throw new IllegalStateException("createGroup failed: status="
+                    + result.getResponse().getStatus() + " body=" + body);
+        }
+        return node.asText();
     }
 }

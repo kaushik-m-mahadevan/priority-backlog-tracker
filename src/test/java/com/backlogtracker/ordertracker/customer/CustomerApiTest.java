@@ -19,6 +19,7 @@ import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 
+import com.backlogtracker.commons.group.repository.GroupRepository;
 import com.backlogtracker.commons.security.JwtService;
 import com.backlogtracker.commons.user.domain.AccountStatus;
 import com.backlogtracker.commons.user.domain.Role;
@@ -41,6 +42,7 @@ class CustomerApiTest {
     @Autowired JwtService jwt;
     @Autowired CustomerRepository customers;
     @Autowired MongoOperations mongo;
+    @Autowired GroupRepository groups;
 
     private String token;
     private String outsiderToken;
@@ -52,6 +54,9 @@ class CustomerApiTest {
         for (String e : new String[] {"custouter@ot.test"}) {
             users.findByEmailIgnoreCase(e).ifPresent(users::delete);
         }
+        // the bootstrap admin's group membership accumulates across test classes sharing the
+        // embedded Mongo — without this, a full-suite run can hit the 5-group cap and fail here.
+        groups.deleteAll();
         token = AuthTestSupport.devToken(mvc, mapper);
         groupId = AuthTestSupport.createGroup(mvc, mapper, token, "Crochet Co " + System.nanoTime());
 

@@ -72,6 +72,9 @@ class OrderApiTest {
         for (String e : new String[] {"orderapitest-b@ot.test"}) {
             users.findByEmailIgnoreCase(e).ifPresent(users::delete);
         }
+        // the bootstrap admin's group membership accumulates across test classes sharing the
+        // embedded Mongo — without this, a full-suite run can hit the 5-group cap and fail here.
+        groups.deleteAll();
 
         token = AuthTestSupport.devToken(mvc, mapper);
         groupId = AuthTestSupport.createGroup(mvc, mapper, token, "Crochet Co " + System.nanoTime());
