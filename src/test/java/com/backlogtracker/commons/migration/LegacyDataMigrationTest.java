@@ -40,16 +40,19 @@ class LegacyDataMigrationTest {
 
     @Test
     void rewritesLegacyOrderAndPaymentStatuses() {
-        mongo.getCollection("orders").insertOne(new Document("orderNumber", "LEGACY-1")
+        // "orderTrackerOrders" is Order.java's real @Document collection name — not
+        // "orders". A prior version of this test used the wrong name, which meant it (and
+        // the migration itself) silently touched zero real documents in production.
+        mongo.getCollection("orderTrackerOrders").insertOne(new Document("orderNumber", "LEGACY-1")
                 .append("status", "RECEIVED").append("paymentStatus", "PAID"));
-        mongo.getCollection("orders").insertOne(new Document("orderNumber", "LEGACY-2")
+        mongo.getCollection("orderTrackerOrders").insertOne(new Document("orderNumber", "LEGACY-2")
                 .append("status", "READY_FOR_SHIPMENT").append("paymentStatus", "FULLY_REFUNDED"));
 
         migration.run(null);
 
-        Document o1 = mongo.getCollection("orders")
+        Document o1 = mongo.getCollection("orderTrackerOrders")
                 .find(new Document("orderNumber", "LEGACY-1")).first();
-        Document o2 = mongo.getCollection("orders")
+        Document o2 = mongo.getCollection("orderTrackerOrders")
                 .find(new Document("orderNumber", "LEGACY-2")).first();
 
         assertThat(o1.getString("status")).isEqualTo("INQUIRY");
@@ -57,6 +60,6 @@ class LegacyDataMigrationTest {
         assertThat(o2.getString("status")).isEqualTo("READY_TO_SHIP");
         assertThat(o2.getString("paymentStatus")).isEqualTo("REFUNDED");
 
-        mongo.remove(new Query(Criteria.where("orderNumber").regex("^LEGACY-")), "orders");
+        mongo.remove(new Query(Criteria.where("orderNumber").regex("^LEGACY-")), "orderTrackerOrders");
     }
 }

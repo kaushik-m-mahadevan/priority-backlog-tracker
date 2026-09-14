@@ -80,16 +80,16 @@ public class LegacyDataMigration implements ApplicationRunner {
         // roles above did before this migration existed.
         long ordersReceived = mongo.updateMulti(
                 new Query(Criteria.where("status").is("RECEIVED")),
-                new Update().set("status", "INQUIRY"), "orders").getModifiedCount();
+                new Update().set("status", "INQUIRY"), "orderTrackerOrders").getModifiedCount();
         long ordersReady = mongo.updateMulti(
                 new Query(Criteria.where("status").is("READY_FOR_SHIPMENT")),
-                new Update().set("status", "READY_TO_SHIP"), "orders").getModifiedCount();
+                new Update().set("status", "READY_TO_SHIP"), "orderTrackerOrders").getModifiedCount();
         long paymentsPaid = mongo.updateMulti(
                 new Query(Criteria.where("paymentStatus").is("PAID")),
-                new Update().set("paymentStatus", "PAID_IN_FULL"), "orders").getModifiedCount();
+                new Update().set("paymentStatus", "PAID_IN_FULL"), "orderTrackerOrders").getModifiedCount();
         long paymentsRefunded = mongo.updateMulti(
                 new Query(Criteria.where("paymentStatus").is("FULLY_REFUNDED")),
-                new Update().set("paymentStatus", "REFUNDED"), "orders").getModifiedCount();
+                new Update().set("paymentStatus", "REFUNDED"), "orderTrackerOrders").getModifiedCount();
 
         if (admins + users + activated + renamed + capped > 0) {
             log.info("LegacyDataMigration: OWNER->ADMIN x{}, CONTRIBUTOR/VIEWER->USER x{}, "
