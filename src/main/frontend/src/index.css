@@ -380,10 +380,14 @@ label {
 }
 .row .k {
   color: var(--text-dim);
+  min-width: 0;
+  overflow-wrap: break-word;
 }
 .row .v {
   text-align: right;
   font-weight: 500;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 .cost-total {
   display: flex;
