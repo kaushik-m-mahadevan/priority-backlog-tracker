@@ -55,6 +55,16 @@ public class LegacyDataMigration implements ApplicationRunner {
                 new Query(Criteria.where("userCode").exists(true)),
                 new Update().rename("userCode", "handle"), "users").getModifiedCount();
 
+        // superseded by the "handle_unique_partial" partial-filter index declared on User
+        // now (the old sparse one has the same null-collision bug linkedOrderId had) — the
+        // new index is created fresh under its own name at startup regardless of this, so
+        // dropping the old one here (after, not blocking, that) is just cleanup.
+        try {
+            mongo.indexOps("users").dropIndex("handle");
+        } catch (RuntimeException ignored) {
+            // already dropped, or never existed (fresh DB) — fine
+        }
+
         long capped = mongo.updateFirst(
                 new Query(Criteria.where("_id").is(AppConfig.SINGLETON_ID)
                         .and("maxGroupsPerUser").exists(false)),

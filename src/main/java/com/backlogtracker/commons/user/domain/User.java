@@ -43,9 +43,18 @@ public class User {
     /** null on legacy documents — treated as {@link AccountStatus#ACTIVE}. */
     private AccountStatus status;
 
-    /** Short, unique, user-facing handle — the alternative invite target to email.
-     *  Sparse: legacy documents have none until {@code LegacyDataMigration} renames it. */
-    @Indexed(unique = true, sparse = true)
+    /** Short, unique, user-facing handle — the alternative invite target to email. A
+     *  partial filter (not {@code sparse}) — legacy documents have none until
+     *  {@code LegacyDataMigration} renames it, and a full-document resave of one of those
+     *  (e.g. {@code UserService.approve}/{@code updateProfile}) writes {@code handle: null}
+     *  explicitly; {@code sparse} doesn't exclude that from the index (same root cause as
+     *  the {@code Item.linkedOrderId} outage), so a second such resave would 11000.
+     *
+     *  <p>Named differently from the old {@code sparse} index it replaces (still live in
+     *  prod under the name "handle") so the two can coexist at startup instead of Mongo
+     *  rejecting a same-named index with different options; {@code LegacyDataMigration}
+     *  drops the superseded one once this one exists. */
+    @Indexed(name = "handle_unique_partial", unique = true, partialFilter = "{'handle': {'$type': 'string'}}")
     private String handle;
 
     @CreatedDate
