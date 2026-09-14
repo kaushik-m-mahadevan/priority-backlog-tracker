@@ -1,11 +1,14 @@
 package com.backlogtracker.ordertracker.customer.service;
 
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
+import com.backlogtracker.commons.crypto.BlindIndexService;
 import com.backlogtracker.commons.crypto.EncryptedString;
 import com.backlogtracker.commons.group.service.GroupService;
 import com.backlogtracker.ordertracker.customer.domain.Customer;
@@ -22,6 +25,7 @@ public class CustomerService {
 
     private final CustomerRepository repository;
     private final GroupService groupService;
+    private final BlindIndexService blindIndex;
 
     public List<CustomerView> all(String groupId, String userId) {
         groupService.requireMember(groupId, userId);
@@ -31,6 +35,33 @@ public class CustomerService {
     public CustomerView get(String groupId, String userId, String customerId) {
         groupService.requireMember(groupId, userId);
         return CustomerView.of(requireById(groupId, customerId));
+    }
+
+    /**
+     * Blind-index lookup so the order form can offer "use this existing customer" as soon
+     * as a matching email/IG handle/phone is entered, without ever having to decrypt every
+     * customer to compare (spec §4.5's ciphertext-is-unqueryable trade-off, worked around
+     * for exactly this one case via a deterministic hash — see {@link BlindIndexService}).
+     * Matches across whichever of the three fields are provided are unioned, de-duplicated
+     * by customer id.
+     */
+    public List<CustomerView> search(String groupId, String userId, String email, String instagramHandle,
+                                     String contactNumber) {
+        groupService.requireMember(groupId, userId);
+        Map<String, Customer> matches = new LinkedHashMap<>();
+        String emailHash = blindIndex.hash(email);
+        if (emailHash != null) {
+            repository.findByGroupIdAndEmailHash(groupId, emailHash).forEach(c -> matches.put(c.getId(), c));
+        }
+        String igHash = blindIndex.hash(instagramHandle);
+        if (igHash != null) {
+            repository.findByGroupIdAndInstagramHandleHash(groupId, igHash).forEach(c -> matches.put(c.getId(), c));
+        }
+        String phoneHash = blindIndex.hash(contactNumber);
+        if (phoneHash != null) {
+            repository.findByGroupIdAndContactNumberHash(groupId, phoneHash).forEach(c -> matches.put(c.getId(), c));
+        }
+        return matches.values().stream().map(CustomerView::of).toList();
     }
 
     public CustomerView create(String groupId, String userId, UpsertCustomerRequest request) {
@@ -46,6 +77,7 @@ public class CustomerService {
                 .shippingAddress(EncryptedString.of(request.shippingAddress()))
                 .notes(EncryptedString.of(request.notes()))
                 .build();
+        applyHashes(customer, request);
         return CustomerView.of(repository.save(customer));
     }
 
@@ -60,7 +92,14 @@ public class CustomerService {
         customer.setFirstContactDate(request.firstContactDate());
         customer.setShippingAddress(EncryptedString.of(request.shippingAddress()));
         customer.setNotes(EncryptedString.of(request.notes()));
+        applyHashes(customer, request);
         return CustomerView.of(repository.save(customer));
+    }
+
+    private void applyHashes(Customer customer, UpsertCustomerRequest request) {
+        customer.setEmailHash(blindIndex.hash(request.email()));
+        customer.setInstagramHandleHash(blindIndex.hash(request.instagramHandle()));
+        customer.setContactNumberHash(blindIndex.hash(request.contactNumber()));
     }
 
     /** Existence + group-scoping check only — used by other Order Tracker services that

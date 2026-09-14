@@ -13,8 +13,11 @@ export default function CustomersPage() {
   const [showForm, setShowForm] = useState(false);
   const [name, setName] = useState("");
   const [contactNumber, setContactNumber] = useState("");
+  const [email, setEmail] = useState("");
+  const [instagramHandle, setInstagramHandle] = useState("");
   const [channel, setChannel] = useState<AcquisitionChannel>("INSTAGRAM");
   const [error, setError] = useState<string | null>(null);
+  const [existingMatch, setExistingMatch] = useState<Customer | null>(null);
 
   const load = async () => {
     setLoading(true);
@@ -30,14 +33,49 @@ export default function CustomersPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [groupId]);
 
+  const checkForExisting = async () => {
+    if (!email.trim() && !instagramHandle.trim()) {
+      setExistingMatch(null);
+      return;
+    }
+    try {
+      const matches = await orderTrackerApi.searchCustomers(groupId, {
+        email: email.trim() || undefined,
+        instagramHandle: instagramHandle.trim() || undefined,
+      });
+      setExistingMatch(matches[0] ?? null);
+    } catch {
+      setExistingMatch(null);
+    }
+  };
+
+  const useExistingMatch = () => {
+    if (!existingMatch) return;
+    setName(existingMatch.name);
+    setContactNumber(existingMatch.contactNumber ?? "");
+    setEmail(existingMatch.email ?? "");
+    setInstagramHandle(existingMatch.instagramHandle ?? "");
+    setChannel(existingMatch.acquisitionChannel);
+    setExistingMatch(null);
+  };
+
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     if (!name.trim()) return;
     try {
-      await orderTrackerApi.createCustomer(groupId, { name: name.trim(), contactNumber, acquisitionChannel: channel });
+      await orderTrackerApi.createCustomer(groupId, {
+        name: name.trim(),
+        contactNumber,
+        email: email.trim() || null,
+        instagramHandle: instagramHandle.trim() || null,
+        acquisitionChannel: channel,
+      });
       setName("");
       setContactNumber("");
+      setEmail("");
+      setInstagramHandle("");
+      setExistingMatch(null);
       setShowForm(false);
       await load();
     } catch (err) {
@@ -68,6 +106,24 @@ export default function CustomersPage() {
             <label>Contact number</label>
             <input value={contactNumber} onChange={(e) => setContactNumber(e.target.value)} />
           </div>
+          <div className="form-grid">
+            <div className="form-row">
+              <label>Email</label>
+              <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} onBlur={checkForExisting} />
+            </div>
+            <div className="form-row">
+              <label>Instagram handle</label>
+              <input value={instagramHandle} onChange={(e) => setInstagramHandle(e.target.value)} onBlur={checkForExisting} />
+            </div>
+          </div>
+          {existingMatch && (
+            <div className="hint" style={{ marginBottom: 12 }}>
+              Found an existing customer: <strong>{existingMatch.name}</strong>.{" "}
+              <button type="button" onClick={useExistingMatch}>
+                Use this customer's details
+              </button>
+            </div>
+          )}
           <div className="form-row">
             <label>Acquisition channel</label>
             <select value={channel} onChange={(e) => setChannel(e.target.value as AcquisitionChannel)}>

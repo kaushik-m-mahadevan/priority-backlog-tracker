@@ -3,6 +3,8 @@ package com.backlogtracker.ordertracker.customer.domain;
 import java.time.Instant;
 
 import org.springframework.data.annotation.Id;
+import org.springframework.data.mongodb.core.index.CompoundIndex;
+import org.springframework.data.mongodb.core.index.CompoundIndexes;
 import org.springframework.data.mongodb.core.index.Indexed;
 import org.springframework.data.mongodb.core.mapping.Document;
 
@@ -26,6 +28,11 @@ import lombok.Setter;
  * level, which ciphertext can't support).
  */
 @Document("orderTrackerCustomers")
+@CompoundIndexes({
+        @CompoundIndex(name = "group_emailHash", def = "{'groupId': 1, 'emailHash': 1}", sparse = true),
+        @CompoundIndex(name = "group_igHash", def = "{'groupId': 1, 'instagramHandleHash': 1}", sparse = true),
+        @CompoundIndex(name = "group_phoneHash", def = "{'groupId': 1, 'contactNumberHash': 1}", sparse = true)
+})
 @Getter
 @Setter
 @Builder
@@ -44,6 +51,16 @@ public class Customer {
     /** Optional. */
     private EncryptedString email;
     private EncryptedString instagramHandle;
+
+    /**
+     * Blind-index hashes (see {@code BlindIndexService}) letting the app look a customer up
+     * by email/IG handle/phone despite those fields being encrypted at rest — not unique
+     * (two customers could plausibly share a number, e.g. a shared family contact), just
+     * indexed for an exact-match lookup. Recomputed whenever the underlying field changes.
+     */
+    private String emailHash;
+    private String instagramHandleHash;
+    private String contactNumberHash;
 
     private AcquisitionChannel acquisitionChannel;
     private Instant firstContactDate;

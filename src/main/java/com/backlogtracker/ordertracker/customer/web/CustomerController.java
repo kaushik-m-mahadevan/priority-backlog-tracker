@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.backlogtracker.commons.security.AuthUser;
@@ -36,6 +37,18 @@ public class CustomerController {
     public CustomerView get(@PathVariable String groupId, @PathVariable String customerId,
                             @AuthenticationPrincipal AuthUser actor) {
         return customerService.get(groupId, actor.id(), customerId);
+    }
+
+    /** Exact-match lookup by email/IG handle/phone (blind-indexed — see CustomerService) so
+     *  the order form can offer "use this existing customer" instead of creating a
+     *  duplicate. Any combination of the three params may be supplied. */
+    @GetMapping("/search")
+    public List<CustomerView> search(@PathVariable String groupId,
+                                     @RequestParam(required = false) String email,
+                                     @RequestParam(required = false) String instagramHandle,
+                                     @RequestParam(required = false) String contactNumber,
+                                     @AuthenticationPrincipal AuthUser actor) {
+        return customerService.search(groupId, actor.id(), email, instagramHandle, contactNumber);
     }
 
     @PostMapping

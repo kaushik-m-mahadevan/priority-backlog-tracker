@@ -23,6 +23,13 @@ export const orderTrackerApi = {
   createCustomer: (groupId: string, body: Partial<Customer>) => api.post<Customer>(`${base(groupId)}/customers`, body),
   updateCustomer: (groupId: string, customerId: string, body: Partial<Customer>) =>
     api.put<Customer>(`${base(groupId)}/customers/${customerId}`, body),
+  searchCustomers: (groupId: string, params: { email?: string; instagramHandle?: string; contactNumber?: string }) => {
+    const query = new URLSearchParams();
+    if (params.email) query.set("email", params.email);
+    if (params.instagramHandle) query.set("instagramHandle", params.instagramHandle);
+    if (params.contactNumber) query.set("contactNumber", params.contactNumber);
+    return api.get<Customer[]>(`${base(groupId)}/customers/search?${query.toString()}`);
+  },
 
   orders: (groupId: string) => api.get<OrderView[]>(`${base(groupId)}/orders`),
   order: (groupId: string, orderId: string) => api.get<OrderView>(`${base(groupId)}/orders/${orderId}`),
