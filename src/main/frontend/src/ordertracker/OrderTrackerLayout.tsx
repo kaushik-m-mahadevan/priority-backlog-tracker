@@ -90,6 +90,18 @@ export default function OrderTrackerLayout() {
           <Outlet />
         )}
       </div>
+
+      {/* .nav-links (the desktop nav) hides below 760px, same as Backlog Tracker's own
+          Layout — this is Order Tracker's equivalent bottom bar so Business/Customers
+          stay reachable on mobile instead of just disappearing. */}
+      {currentGroupId && (
+        <nav className="tabbar text">
+          <NavLink to="/ordertracker/orders">Orders</NavLink>
+          <NavLink to="/ordertracker/bulk-orders">Bulk</NavLink>
+          <NavLink to="/ordertracker/customers">Customers</NavLink>
+          <NavLink to="/ordertracker/business-settings">Business</NavLink>
+        </nav>
+      )}
     </div>
   );
 }

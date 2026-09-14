@@ -40,6 +40,10 @@ export const orderTrackerApi = {
     api.post<OrderView>(`${base(groupId)}/orders/${orderId}/payments`, body),
   updateOrderStatus: (groupId: string, orderId: string, status: string) =>
     api.patch<OrderView>(`${base(groupId)}/orders/${orderId}/status`, { status }),
+  setShipmentPlan: (groupId: string, orderId: string, legs: unknown[]) =>
+    api.post<OrderView>(`${base(groupId)}/orders/${orderId}/shipment-plan`, legs),
+  markShipmentLeg: (groupId: string, orderId: string, legIndex: number, body: { shippedAt?: string; deliveredAt?: string }) =>
+    api.patch<OrderView>(`${base(groupId)}/orders/${orderId}/shipment-plan/${legIndex}`, body),
 
   bulkOrders: (groupId: string) => api.get<BulkOrderView[]>(`${base(groupId)}/bulk-orders`),
   createBulkOrder: (groupId: string, body: unknown) => api.post<BulkOrderView>(`${base(groupId)}/bulk-orders`, body),

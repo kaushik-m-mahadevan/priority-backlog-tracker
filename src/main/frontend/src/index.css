@@ -1475,6 +1475,15 @@ input[aria-invalid="true"] {
   .tabbar a.active {
     color: var(--accent);
   }
+  /* Order Tracker's tabbar carries text labels, not icon glyphs (design: platform
+     integration follow-up) — give those room instead of the icon-sized padding above. */
+  .tabbar.text a {
+    flex: 1;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 8px 4px;
+  }
 }
 
 /* Applet launcher (design: platform integration) */

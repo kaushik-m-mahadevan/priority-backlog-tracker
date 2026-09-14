@@ -18,7 +18,7 @@ function NewOrderForm({
   customers: Customer[];
   creators: Creator[];
   presets: PresetOption[];
-  onCreated: () => void;
+  onCreated: (order: OrderView) => void;
 }) {
   const [customerId, setCustomerId] = useState(customers[0]?.id ?? "");
   const [primaryCreatorId, setPrimaryCreatorId] = useState(creators[0]?.id ?? "");
@@ -26,6 +26,8 @@ function NewOrderForm({
   const [materialsCost, setMaterialsCost] = useState(0);
   const [packagingPresetId, setPackagingPresetId] = useState(presets[0]?.id ?? "");
   const [stageHours, setStageHours] = useState<Record<string, number>>({});
+  const [mandatoryItems, setMandatoryItems] = useState<Record<string, string>>({});
+  const [addOnsText, setAddOnsText] = useState("");
   const [error, setError] = useState<string | null>(null);
 
   const submit = async (e: React.FormEvent) => {
@@ -36,12 +38,15 @@ function NewOrderForm({
       return;
     }
     try {
-      await orderTrackerApi.createOrder(groupId, {
+      const created = await orderTrackerApi.createOrder(groupId, {
         customerId,
         primaryCreatorId,
         description,
-        mandatoryItems: {},
-        addOns: [],
+        mandatoryItems,
+        addOns: addOnsText
+          .split(",")
+          .map((s) => s.trim())
+          .filter(Boolean),
         packagingPresetId: packagingPresetId || null,
         stages: config.workStages.map((s) => ({
           stageKey: s.stageKey,
@@ -50,7 +55,7 @@ function NewOrderForm({
         })),
         materialsCost,
       });
-      onCreated();
+      onCreated(created);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to create order");
     }
@@ -91,6 +96,36 @@ function NewOrderForm({
         <label>Description</label>
         <input value={description} onChange={(e) => setDescription(e.target.value)} placeholder="e.g. Amigurumi bear" />
       </div>
+
+      {config.mandatoryItemTypes.length > 0 && (
+        <div className="form-row">
+          <label>Materials</label>
+          <div className="form-grid">
+            {config.mandatoryItemTypes.map((it) => (
+              <div key={it.itemKey}>
+                <label className="muted" style={{ fontSize: 12 }}>
+                  {it.label}
+                </label>
+                <input
+                  value={mandatoryItems[it.itemKey] ?? ""}
+                  onChange={(e) => setMandatoryItems((prev) => ({ ...prev, [it.itemKey]: e.target.value }))}
+                  placeholder={it.label}
+                />
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <div className="form-row">
+        <label>Add-ons</label>
+        <input
+          value={addOnsText}
+          onChange={(e) => setAddOnsText(e.target.value)}
+          placeholder="Comma-separated, e.g. Gift wrap, Extra keychain"
+        />
+      </div>
+
       <div className="form-row">
         <label>Estimated hours per stage</label>
         <div className="form-grid">
@@ -134,9 +169,168 @@ function NewOrderForm({
   );
 }
 
-function OrderRow({ groupId, order, onChanged }: { groupId: string; order: OrderView; onChanged: () => void }) {
+function ShipmentSection({
+  groupId,
+  order,
+  onUpdated,
+}: {
+  groupId: string;
+  order: OrderView;
+  onUpdated: (o: OrderView) => void;
+}) {
+  const [showForm, setShowForm] = useState(false);
+  const [origin, setOrigin] = useState("");
+  const [destination, setDestination] = useState("");
+  const [carrier, setCarrier] = useState("");
+  const [tracking, setTracking] = useState("");
+  const [cost, setCost] = useState(0);
+  const [hours, setHours] = useState(0);
+
+  const addLeg = async () => {
+    if (!origin.trim() || !destination.trim()) return;
+    const legs = order.shipmentPlan.map((l) => ({
+      originLocationCode: l.originLocationCode,
+      destinationLocationCode: l.destinationLocationCode,
+      carrier: l.carrier,
+      trackingNumber: l.trackingNumber,
+      estimatedCost: l.estimatedCost,
+      estimatedTimeHours: l.estimatedTimeHours,
+    }));
+    legs.push({
+      originLocationCode: origin.trim(),
+      destinationLocationCode: destination.trim(),
+      carrier: carrier.trim() || null,
+      trackingNumber: tracking.trim() || null,
+      estimatedCost: cost,
+      estimatedTimeHours: hours,
+    });
+    const updated = await orderTrackerApi.setShipmentPlan(groupId, order.id, legs);
+    onUpdated(updated);
+    setShowForm(false);
+    setOrigin("");
+    setDestination("");
+    setCarrier("");
+    setTracking("");
+    setCost(0);
+    setHours(0);
+  };
+
+  return (
+    <div>
+      <h3 style={{ fontSize: 13, textTransform: "uppercase", color: "var(--text-dim)" }}>Shipment plan</h3>
+      {order.shipmentPlan.length === 0 ? (
+        <p className="empty" style={{ padding: "4px 0" }}>
+          No shipment legs yet.
+        </p>
+      ) : (
+        <div className="table-wrap" style={{ marginBottom: 8 }}>
+          <table>
+            <thead>
+              <tr>
+                <th>Route</th>
+                <th>Carrier</th>
+                <th>Tracking</th>
+                <th>Est.</th>
+                <th>Shipped</th>
+                <th>Delivered</th>
+              </tr>
+            </thead>
+            <tbody>
+              {order.shipmentPlan.map((leg, i) => (
+                <tr key={i}>
+                  <td className="mono">
+                    {leg.originLocationCode} → {leg.destinationLocationCode}
+                  </td>
+                  <td>{leg.carrier || <span className="muted">—</span>}</td>
+                  <td className="mono">{leg.trackingNumber || <span className="muted">—</span>}</td>
+                  <td>
+                    ₹{leg.estimatedCost} · {leg.estimatedTimeHours}h
+                  </td>
+                  <td>
+                    {leg.shippedAt ? (
+                      new Date(leg.shippedAt).toLocaleDateString()
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          const updated = await orderTrackerApi.markShipmentLeg(groupId, order.id, i, {
+                            shippedAt: new Date().toISOString(),
+                          });
+                          onUpdated(updated);
+                        }}
+                      >
+                        Mark shipped
+                      </button>
+                    )}
+                  </td>
+                  <td>
+                    {leg.deliveredAt ? (
+                      new Date(leg.deliveredAt).toLocaleDateString()
+                    ) : leg.shippedAt ? (
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          const updated = await orderTrackerApi.markShipmentLeg(groupId, order.id, i, {
+                            deliveredAt: new Date().toISOString(),
+                          });
+                          onUpdated(updated);
+                        }}
+                      >
+                        Mark delivered
+                      </button>
+                    ) : (
+                      <span className="muted">—</span>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {showForm ? (
+        <div className="toolbar" style={{ flexWrap: "wrap" }}>
+          <input placeholder="Origin code" value={origin} onChange={(e) => setOrigin(e.target.value)} />
+          <input placeholder="Destination code" value={destination} onChange={(e) => setDestination(e.target.value)} />
+          <input placeholder="Carrier" value={carrier} onChange={(e) => setCarrier(e.target.value)} />
+          <input placeholder="Tracking number" value={tracking} onChange={(e) => setTracking(e.target.value)} />
+          <input type="number" placeholder="Cost" value={cost || ""} onChange={(e) => setCost(Number(e.target.value))} />
+          <input
+            type="number"
+            placeholder="Hours"
+            value={hours || ""}
+            onChange={(e) => setHours(Number(e.target.value))}
+          />
+          <button className="primary" type="button" onClick={addLeg}>
+            Add leg
+          </button>
+          <button type="button" onClick={() => setShowForm(false)}>
+            Cancel
+          </button>
+        </div>
+      ) : (
+        <button type="button" onClick={() => setShowForm(true)}>
+          + Add shipment leg
+        </button>
+      )}
+    </div>
+  );
+}
+
+function OrderRow({
+  groupId,
+  order,
+  onUpdated,
+}: {
+  groupId: string;
+  order: OrderView;
+  onUpdated: (o: OrderView) => void;
+}) {
   const [open, setOpen] = useState(false);
   const [paymentAmount, setPaymentAmount] = useState(0);
+
+  const mandatoryEntries = Object.entries(order.mandatoryItems ?? {}).filter(([, v]) => v);
 
   return (
     <tr>
@@ -154,7 +348,35 @@ function OrderRow({ groupId, order, onChanged }: { groupId: string; order: Order
 
           {open && (
             <div>
-              <p className="muted">{order.description}</p>
+              {order.description && <p className="muted">{order.description}</p>}
+
+              <h3 style={{ fontSize: 13, textTransform: "uppercase", color: "var(--text-dim)" }}>
+                Materials &amp; add-ons
+              </h3>
+              <div className="kv" style={{ marginBottom: 12 }}>
+                {mandatoryEntries.length === 0 && (!order.addOns || order.addOns.length === 0) ? (
+                  <span className="muted">None recorded.</span>
+                ) : (
+                  <>
+                    {mandatoryEntries.map(([k, v]) => (
+                      <span key={k} className="chip">
+                        {k}: {v}
+                      </span>
+                    ))}
+                    {(order.addOns ?? []).map((a, i) => (
+                      <span key={`addon-${i}`} className="chip">
+                        + {a}
+                      </span>
+                    ))}
+                  </>
+                )}
+              </div>
+
+              <h3 style={{ fontSize: 13, textTransform: "uppercase", color: "var(--text-dim)" }}>Cost breakdown</h3>
+              <p className="muted" style={{ marginTop: 0, fontSize: 13 }}>
+                Materials ₹{order.materialsCost.toFixed(2)} + packaging ₹{order.packagingCost.toFixed(2)}, marked up to
+                a total of <strong style={{ color: "var(--text)" }}>₹{order.totalCost.toFixed(2)}</strong>
+              </p>
 
               <h3 style={{ fontSize: 13, textTransform: "uppercase", color: "var(--text-dim)" }}>Stages</h3>
               <div className="kv" style={{ marginBottom: 12 }}>
@@ -167,8 +389,13 @@ function OrderRow({ groupId, order, onChanged }: { groupId: string; order: Order
                       max={100}
                       value={s.completionFraction * 100}
                       onChange={async (e) => {
-                        await orderTrackerApi.updateOrderStage(groupId, order.id, s.stageKey, Number(e.target.value) / 100);
-                        onChanged();
+                        const updated = await orderTrackerApi.updateOrderStage(
+                          groupId,
+                          order.id,
+                          s.stageKey,
+                          Number(e.target.value) / 100
+                        );
+                        onUpdated(updated);
                       }}
                     />
                   </span>
@@ -179,8 +406,8 @@ function OrderRow({ groupId, order, onChanged }: { groupId: string; order: Order
               <select
                 value={order.status}
                 onChange={async (e) => {
-                  await orderTrackerApi.updateOrderStatus(groupId, order.id, e.target.value);
-                  onChanged();
+                  const updated = await orderTrackerApi.updateOrderStatus(groupId, order.id, e.target.value);
+                  onUpdated(updated);
                 }}
                 style={{ marginBottom: 12 }}
               >
@@ -193,13 +420,14 @@ function OrderRow({ groupId, order, onChanged }: { groupId: string; order: Order
 
               <h3 style={{ fontSize: 13, textTransform: "uppercase", color: "var(--text-dim)" }}>Payments</h3>
               <div className="kv" style={{ marginBottom: 8 }}>
+                {order.payments.length === 0 && <span className="muted">No payments recorded.</span>}
                 {order.payments.map((p, i) => (
                   <span key={i} className="chip">
                     ₹{p.amount} via {p.mode}
                   </span>
                 ))}
               </div>
-              <div className="toolbar">
+              <div className="toolbar" style={{ marginBottom: 16 }}>
                 <input
                   type="number"
                   placeholder="Amount"
@@ -210,14 +438,19 @@ function OrderRow({ groupId, order, onChanged }: { groupId: string; order: Order
                   className="primary"
                   onClick={async () => {
                     if (!paymentAmount) return;
-                    await orderTrackerApi.addOrderPayment(groupId, order.id, { amount: paymentAmount, mode: "UPI" });
+                    const updated = await orderTrackerApi.addOrderPayment(groupId, order.id, {
+                      amount: paymentAmount,
+                      mode: "UPI",
+                    });
                     setPaymentAmount(0);
-                    onChanged();
+                    onUpdated(updated);
                   }}
                 >
                   Record payment
                 </button>
               </div>
+
+              <ShipmentSection groupId={groupId} order={order} onUpdated={onUpdated} />
             </div>
           )}
         </div>
@@ -262,6 +495,14 @@ export default function OrdersPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [groupId]);
 
+  // Every row-level edit (stage slider, status, payment, shipment leg) patches this order
+  // in place instead of re-fetching the whole list — a full reload would unmount every
+  // OrderRow (including whichever one is expanded) and dump the user back at the
+  // collapsed list on every single slider tick.
+  const patchOrder = (updated: OrderView) => {
+    setOrders((prev) => prev.map((o) => (o.id === updated.id ? updated : o)));
+  };
+
   return (
     <div>
       <div className="toolbar">
@@ -286,9 +527,9 @@ export default function OrdersPage() {
           customers={customers}
           creators={creators}
           presets={presets}
-          onCreated={() => {
+          onCreated={(created) => {
             setShowForm(false);
-            void load();
+            setOrders((prev) => [created, ...prev]);
           }}
         />
       )}
@@ -301,7 +542,7 @@ export default function OrdersPage() {
         <table>
           <tbody>
             {orders.map((o) => (
-              <OrderRow key={o.id} groupId={groupId} order={o} onChanged={load} />
+              <OrderRow key={o.id} groupId={groupId} order={o} onUpdated={patchOrder} />
             ))}
           </tbody>
         </table>
