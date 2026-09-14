@@ -28,7 +28,13 @@ import lombok.Setter;
 @CompoundIndexes({
         @CompoundIndex(name = "group_status", def = "{'groupId': 1, 'status': 1}"),
         @CompoundIndex(name = "group_owner", def = "{'groupId': 1, 'ownerId': 1}"),
-        @CompoundIndex(name = "group_linkedOrder", def = "{'groupId': 1, 'linkedOrderId': 1}", unique = true, sparse = true)
+        /* `sparse` only excludes documents where the key is entirely absent — Spring Data's
+         * MongoConverter writes every field, including unset ones, as an explicit BSON null,
+         * so a sparse index here still collides across every item with no link. A partial
+         * filter that only indexes actual string values is the fix (caused a prod outage:
+         * E11000 on {linkedOrderId: null} the first time this index tried to build). */
+        @CompoundIndex(name = "group_linkedOrder", def = "{'groupId': 1, 'linkedOrderId': 1}", unique = true,
+                partialFilter = "{'linkedOrderId': {'$type': 'string'}}")
 })
 @Getter
 @Setter
