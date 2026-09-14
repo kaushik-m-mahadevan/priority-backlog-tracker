@@ -33,6 +33,24 @@ function stageIcon(stageKey: string): string {
   return STAGE_ICONS[stageKey.toLowerCase()] ?? "🔧";
 }
 
+/** Collapsible top-level grouping for the order detail view — open by default on wide
+ *  screens (so the page reads as one organized document), collapsed by default on
+ *  narrow ones (so a phone isn't hit with everything at once). */
+function Section({ title, icon, children }: { title: string; icon: string; children: React.ReactNode }) {
+  const [open, setOpen] = useState(() => (typeof window === "undefined" ? true : window.innerWidth >= 768));
+  return (
+    <section className="order-section">
+      <button type="button" className="order-section-toggle" onClick={() => setOpen((o) => !o)} aria-expanded={open}>
+        <span className="order-section-title">
+          <span aria-hidden="true">{icon}</span> {title}
+        </span>
+        <span className="order-section-chevron" aria-hidden="true">{open ? "▾" : "▸"}</span>
+      </button>
+      {open && <div className="order-section-body">{children}</div>}
+    </section>
+  );
+}
+
 function EditOrderForm({
   groupId,
   order,
@@ -652,6 +670,7 @@ export default function OrderDetailPage() {
         />
       )}
 
+      <Section title="Summary" icon="📋">
       <div className="grid cols-3">
         <div className="card">
           <h2>Customer</h2>
@@ -711,9 +730,10 @@ export default function OrderDetailPage() {
           )}
         </div>
       </div>
+      </Section>
 
       {order.orderType === "INDIVIDUAL" ? (
-        <>
+        <Section title="Materials" icon="🧶">
         <h2 className="settings-section">Materials &amp; packaging</h2>
         <div className="grid cols-3">
           <div className="card">
@@ -771,9 +791,9 @@ export default function OrderDetailPage() {
           <div className="row"><span className="k">Crochet time</span><span className="v">{order.craftingTimeHours}h</span></div>
           <div className="row"><span className="k">Assembly time</span><span className="v">{order.assemblyTimeHours}h</span></div>
         </div>
-        </>
+        </Section>
       ) : (
-        <>
+        <Section title="Materials" icon="🧶">
           <h2 className="settings-section">Variants</h2>
           {order.bulkDetails?.variants.map((v) => (
             <div className="card" key={v.variantId} style={{ marginBottom: 12 }}>
@@ -895,7 +915,11 @@ export default function OrderDetailPage() {
               </div>
             </div>
           ))}
+        </Section>
+      )}
 
+      {order.orderType === "BULK" && (
+        <Section title="Assignments" icon="👥">
           <div className="card" style={{ marginBottom: 16 }}>
             <h2>Batch-tracked stages</h2>
             {order.bulkDetails?.stageProgress.map((sp) => {
@@ -957,10 +981,11 @@ export default function OrderDetailPage() {
               });
             })()}
           </div>
-        </>
+        </Section>
       )}
 
       {order.orderType === "INDIVIDUAL" && (
+        <Section title="Assignments" icon="👥">
         <div className="card" style={{ marginBottom: 16 }}>
           <h2>Work stages</h2>
           {order.stageAssignments.map((s) => (
@@ -983,9 +1008,10 @@ export default function OrderDetailPage() {
             </div>
           ))}
         </div>
+        </Section>
       )}
 
-      <div className="grid cols-2">
+      <Section title="Cost & time" icon="💰">
         <div className="card cost-card" style={{ background: "var(--bg-elev-2)" }}>
           <h2>Cost &amp; time — estimate</h2>
           <p className="muted" style={{ fontSize: 12, marginTop: -4, marginBottom: 10 }}>
@@ -1013,7 +1039,9 @@ export default function OrderDetailPage() {
               <span className="v">{new Date(order.quotedDeliveryDate).toLocaleDateString()}</span></div>
           )}
         </div>
+      </Section>
 
+      <Section title="Logistics" icon="🚚">
         <div className="card">
           <h2>Payment</h2>
           {order.payments.length === 0 ? (
@@ -1047,9 +1075,9 @@ export default function OrderDetailPage() {
             </button>
           </div>
         </div>
-      </div>
 
-      <ShippingCard groupId={groupId} order={order} onUpdated={setOrder} />
+        <ShippingCard groupId={groupId} order={order} onUpdated={setOrder} />
+      </Section>
     </div>
   );
 }
