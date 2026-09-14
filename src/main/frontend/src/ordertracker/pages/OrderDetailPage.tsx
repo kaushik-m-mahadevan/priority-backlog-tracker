@@ -20,6 +20,19 @@ import type { BusinessConfig, Creator, Customer, OrderStatus, OrderView, Payment
 
 const STATUSES: OrderStatus[] = ["INQUIRY", "CONFIRMED", "IN_PROGRESS", "READY_TO_SHIP", "SHIPPED", "DELIVERED", "CANCELLED"];
 
+/** Work stages are configurable per business, so this is a best-effort visual cue for the
+ *  common ones rather than a strict mapping — an unrecognized stageKey still gets a
+ *  sensible generic icon rather than nothing. */
+const STAGE_ICONS: Record<string, string> = {
+  crocheting: "🧶",
+  assembly: "🧵",
+  packaging: "📦",
+  shipment: "🚚",
+};
+function stageIcon(stageKey: string): string {
+  return STAGE_ICONS[stageKey.toLowerCase()] ?? "🔧";
+}
+
 function EditOrderForm({
   groupId,
   order,
@@ -534,7 +547,7 @@ export default function OrderDetailPage() {
     return creators.find((c) => c.id === id)?.name ?? <span className="muted">Unknown creator</span>;
   };
   const dueDate = order.orderType === "INDIVIDUAL" ? order.costEstimate?.computedDueDate : order.bulkDetails?.computedDueDate;
-  const splitTrackedStageKeys = config.workStages.filter((s) => s.splitTracked).map((s) => s.stageKey);
+  const splitTrackedStages = config.workStages.filter((s) => s.splitTracked);
 
   return (
     <div>
@@ -788,18 +801,20 @@ export default function OrderDetailPage() {
                   {v.splitAllocation.length === 0 ? (
                     <p className="empty">Nobody assigned yet.</p>
                   ) : (
-                    splitTrackedStageKeys.map((stageKey) => (
-                      <div key={stageKey}>
-                        <div className="muted" style={{ fontSize: 11, textTransform: "uppercase" }}>
-                          {stageKey}
+                    splitTrackedStages.map((stage) => {
+                      const stageKey = stage.stageKey;
+                      return (
+                      <div key={stageKey} style={{ marginBottom: 10 }}>
+                        <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 4 }}>
+                          <span aria-hidden="true">{stageIcon(stageKey)}</span> {stage.label}
                         </div>
                         {v.splitAllocation.map((s) => {
                           const entry = s.stageProgress.find((sp) => sp.stageKey === stageKey);
                           return (
-                            <div key={s.creatorId} className="row">
+                            <div key={s.creatorId} className="row" style={{ paddingLeft: 22 }}>
                               <span className="k">{creatorName(s.creatorId)}</span>
                               <input
-                                aria-label={`${stageKey} units completed by ${creatorName(s.creatorId)}`}
+                                aria-label={`${stage.label} units completed by ${creatorName(s.creatorId)}`}
                                 type="number"
                                 min={0}
                                 max={s.quantityAssigned}
@@ -817,7 +832,8 @@ export default function OrderDetailPage() {
                           );
                         })}
                       </div>
-                    ))
+                      );
+                    })
                   )}
                 </div>
               </div>
@@ -826,12 +842,16 @@ export default function OrderDetailPage() {
 
           <div className="card" style={{ marginBottom: 16 }}>
             <h2>Batch-tracked stages</h2>
-            {order.bulkDetails?.stageProgress.map((sp) => (
+            {order.bulkDetails?.stageProgress.map((sp) => {
+              const stageLabel = config.workStages.find((s) => s.stageKey === sp.stageKey)?.label ?? sp.stageKey;
+              return (
               <div className="row" key={sp.stageKey}>
-                <span className="k">{sp.stageKey}</span>
+                <span className="k">
+                  <span aria-hidden="true">{stageIcon(sp.stageKey)}</span> {stageLabel}
+                </span>
                 <span className="v">
                   <input
-                    aria-label={`${sp.stageKey} units completed`}
+                    aria-label={`${stageLabel} units completed`}
                     type="number"
                     min={0}
                     max={sp.totalUnits}
@@ -844,7 +864,8 @@ export default function OrderDetailPage() {
                   <span className="muted"> / {sp.totalUnits}</span>
                 </span>
               </div>
-            ))}
+              );
+            })}
           </div>
         </>
       )}
