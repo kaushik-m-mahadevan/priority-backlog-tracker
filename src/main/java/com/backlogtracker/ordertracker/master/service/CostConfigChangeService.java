@@ -33,7 +33,7 @@ public class CostConfigChangeService {
 
     public CostConfigChangeRequest propose(String groupId, String userId,
                                            double overheadPercentage, double profitMarginPercentage) {
-        groupService.requireMember(groupId, userId);
+        Group group = groupService.requireMember(groupId, userId);
         repository.findByGroupIdAndStatus(groupId, CostConfigChangeStatus.PENDING).ifPresent(existing -> {
             throw new ResponseStatusException(HttpStatus.CONFLICT,
                     "A cost config change is already pending approval for this group");
@@ -47,6 +47,7 @@ public class CostConfigChangeService {
                 .createdAt(Instant.now(clock))
                 .build();
         request.getApprovedByUserIds().add(userId);
+        resolveIfUnanimous(request, group);
         return repository.save(request);
     }
 
@@ -56,13 +57,20 @@ public class CostConfigChangeService {
         if (!request.getApprovedByUserIds().contains(userId)) {
             request.getApprovedByUserIds().add(userId);
         }
+        resolveIfUnanimous(request, group);
+        return repository.save(request);
+    }
+
+    /** A lone proposer in a single-member group already satisfies unanimity the moment they
+     *  propose — checked here (not just in approve()) so a solo business isn't left waiting
+     *  on an "approval" nobody else can ever give. */
+    private void resolveIfUnanimous(CostConfigChangeRequest request, Group group) {
         if (request.getApprovedByUserIds().containsAll(group.getMemberIds())) {
-            businessConfigService.applyCostConfig(groupId, request.getProposedOverheadPercentage(),
+            businessConfigService.applyCostConfig(request.getGroupId(), request.getProposedOverheadPercentage(),
                     request.getProposedProfitMarginPercentage());
             request.setStatus(CostConfigChangeStatus.APPROVED);
             request.setResolvedAt(Instant.now(clock));
         }
-        return repository.save(request);
     }
 
     public CostConfigChangeRequest reject(String groupId, String userId, String requestId) {
