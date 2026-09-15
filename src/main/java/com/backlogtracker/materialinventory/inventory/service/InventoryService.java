@@ -51,6 +51,29 @@ public class InventoryService {
     public void setMyQuantity(String groupId, String userId, String yarnTypeId, double quantity) {
         groupService.requireMember(groupId, userId);
         yarnTypeService.requireById(groupId, yarnTypeId);
+        applyQuantity(groupId, userId, yarnTypeId, requireQuarterStep(quantity));
+    }
+
+    public double quantityOf(String groupId, String userId, String yarnTypeId) {
+        return repository.findByGroupIdAndUserIdAndYarnTypeId(groupId, userId, yarnTypeId)
+                .map(InventoryEntry::getQuantity).orElse(0.0);
+    }
+
+    /** Used internally by cross-user workflows (yarn transfers) that need to move a
+     *  specific amount between two people's on-hand quantities — the caller here is
+     *  trusted application code that has already authorized the action itself (e.g. only
+     *  the actual holder of the yarn may trigger a transfer out of their own row), not a
+     *  raw self-service request, so there's no "must be yourself" check. {@code delta} may
+     *  be negative (yarn leaving) or positive (yarn arriving). */
+    public void adjustQuantity(String groupId, String userId, String yarnTypeId, double delta) {
+        double updated = quantityOf(groupId, userId, yarnTypeId) + delta;
+        if (updated < -QUARTER_STEP_EPSILON) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Not enough on hand for this transfer");
+        }
+        applyQuantity(groupId, userId, yarnTypeId, requireQuarterStep(Math.max(0, updated)));
+    }
+
+    private double requireQuarterStep(double quantity) {
         if (quantity < 0) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "quantity must not be negative");
         }
@@ -58,7 +81,10 @@ public class InventoryService {
         if (Math.abs(quarters - Math.round(quarters)) > QUARTER_STEP_EPSILON) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "quantity must be in quarter-skein steps (e.g. 0.25, 1.5)");
         }
+        return Math.round(quarters) / 4.0;
+    }
 
+    private void applyQuantity(String groupId, String userId, String yarnTypeId, double quantity) {
         InventoryEntry existing = repository.findByGroupIdAndUserIdAndYarnTypeId(groupId, userId, yarnTypeId).orElse(null);
         if (quantity == 0) {
             if (existing != null) {

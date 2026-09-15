@@ -70,6 +70,7 @@ export default function MaterialInventoryLayout() {
               <NavLink to="/materialinventory" end>
                 My inventory
               </NavLink>
+              <NavLink to="/materialinventory/requests">Requests</NavLink>
             </div>
           )
         }
@@ -100,6 +101,7 @@ export default function MaterialInventoryLayout() {
           <NavLink to="/materialinventory" end>
             My inventory
           </NavLink>
+          <NavLink to="/materialinventory/requests">Requests</NavLink>
         </nav>
       )}
     </div>

@@ -1,5 +1,13 @@
 import { api } from "../api/client";
-import type { CreateYarnTypeRequest, InventoryEntryView, SetInventoryQuantityRequest, YarnTypeView } from "./types";
+import type {
+  CreateTransferRequestRequest,
+  CreateYarnTypeRequest,
+  FulfillTransferRequest,
+  InventoryEntryView,
+  SetInventoryQuantityRequest,
+  TransferRequestView,
+  YarnTypeView,
+} from "./types";
 
 const base = (groupId: string) => `/materialinventory/groups/${groupId}`;
 
@@ -16,4 +24,14 @@ export const materialInventoryApi = {
   myInventory: (groupId: string) => api.get<InventoryEntryView[]>(`${base(groupId)}/inventory/mine`),
   setMyQuantity: (groupId: string, yarnTypeId: string, body: SetInventoryQuantityRequest) =>
     api.put<void>(`${base(groupId)}/inventory/mine/${yarnTypeId}`, body),
+
+  transfers: (groupId: string) => api.get<TransferRequestView[]>(`${base(groupId)}/transfers`),
+  createTransferRequest: (groupId: string, body: CreateTransferRequestRequest) =>
+    api.post<TransferRequestView>(`${base(groupId)}/transfers`, body),
+  fulfillTransferRequest: (groupId: string, requestId: string, body: FulfillTransferRequest) =>
+    api.post<TransferRequestView>(`${base(groupId)}/transfers/${requestId}/fulfill`, body),
+  completeTransferRequest: (groupId: string, requestId: string) =>
+    api.post<TransferRequestView>(`${base(groupId)}/transfers/${requestId}/complete`),
+  cancelTransferRequest: (groupId: string, requestId: string) =>
+    api.post<TransferRequestView>(`${base(groupId)}/transfers/${requestId}/cancel`),
 };

@@ -24,3 +24,27 @@ export interface InventoryEntryView {
 export interface SetInventoryQuantityRequest {
   quantity: number;
 }
+
+export type TransferStatus = "PENDING" | "PARTIALLY_FULFILLED" | "COMPLETED" | "CANCELLED";
+
+export interface TransferRequestView {
+  id: string;
+  requesterId: string;
+  targetUserId: string;
+  yarnTypeId: string;
+  requestedQuantity: number;
+  fulfilledQuantity: number;
+  status: TransferStatus;
+  createdAt: string;
+  resolvedAt: string | null;
+}
+
+export interface CreateTransferRequestRequest {
+  targetUserId: string;
+  yarnTypeId: string;
+  requestedQuantity: number;
+}
+
+export interface FulfillTransferRequest {
+  quantity: number;
+}
