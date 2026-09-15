@@ -52,3 +52,35 @@ export interface SettlementView {
   amount: number;
   createdAt: string;
 }
+
+export type ApprovalStatus = "PENDING" | "APPROVED" | "REJECTED" | "INVALIDATED";
+
+export interface ProfitDistributionRecipientInput {
+  personId: string;
+  unitsCompleted: number;
+  overrideAmount: number | null;
+}
+
+export interface ProposeProfitDistributionRequest {
+  orderReference: string;
+  totalProfit: number;
+  recipients: ProfitDistributionRecipientInput[];
+}
+
+export interface ProfitDistributionRecipientAmount {
+  personId: string;
+  amount: number;
+}
+
+export interface ProfitDistributionView {
+  requestId: string;
+  status: ApprovalStatus;
+  orderReference: string;
+  totalProfit: number;
+  recipients: ProfitDistributionRecipientAmount[];
+  proposedByUserId: string;
+  approvedByUserIds: string[];
+  groupMemberIds: string[];
+  createdAt: string;
+  resolvedAt: string | null;
+}

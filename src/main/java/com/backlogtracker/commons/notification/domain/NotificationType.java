@@ -14,5 +14,8 @@ public enum NotificationType {
     COST_CONFIG_INVALIDATED,
     /** Informational: your pending order-finalization proposal was auto-cancelled because
      *  a member left the group mid-approval — you can re-propose. */
-    ORDER_FINALIZATION_INVALIDATED
+    ORDER_FINALIZATION_INVALIDATED,
+    /** Informational: your pending profit-distribution proposal was auto-cancelled because
+     *  a member left the group mid-approval — you can re-propose. */
+    PROFIT_DISTRIBUTION_INVALIDATED
 }

@@ -15,4 +15,6 @@ public interface ApprovalRequestRepository extends MongoRepository<ApprovalReque
     List<ApprovalRequest> findByGroupIdAndStatus(String groupId, ApprovalStatus status);
 
     List<ApprovalRequest> findByGroupIdAndKind(String groupId, String kind);
+
+    List<ApprovalRequest> findByGroupId(String groupId);
 }
