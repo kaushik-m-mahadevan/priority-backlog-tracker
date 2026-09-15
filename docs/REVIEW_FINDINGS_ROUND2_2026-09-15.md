@@ -90,9 +90,17 @@ patterns already established elsewhere in the codebase (same DTO-threading shape
 - **Accessibility (screen-reader) — the round-1 sweep only covered Order Tracker's own
   screens.** `BusinessSettingsPage.tsx`, `ManageBusinessPage.tsx`'s non-rename controls, and
   the shared auth/settings screens weren't re-audited for label association this round either.
-- **Mobile — plain `<table>` lists (My Work, Customers) still only scroll horizontally**,
-  unlike `.data-table`'s existing collapse-to-card treatment elsewhere in the app. Real,
-  isolated fix; out of scope for tonight given everything else already landed.
+- **Mobile — plain `<table>` lists (My Work, Customers, and — per user report 2026-09-15,
+  screenshot from the deployed Render site — the Orders list too) still only scroll
+  horizontally**, unlike `.data-table`'s existing collapse-to-card treatment elsewhere in the
+  app. User's own words: "the order tracker mobile version is clunky. Make it more like the
+  priority tracker. More mobile friendly. I don't want too many horizontal scrolling in
+  phone." The screenshot shows the Orders table's `TYPE` column (and the `BULK` badge inside
+  it) clipped off the right edge of a 412px-wide phone viewport, forcing horizontal scroll to
+  see it — Priority Backlog Tracker's own list views don't have this problem. Real, isolated
+  fix; out of scope for tonight given everything else already landed. Broader than just the
+  three known tables — worth an actual pass over every list/table view in Order Tracker on a
+  real phone width, not just the ones already named in this doc.
 - **Maintainability — `Packaging.cost()`/`timeHours()` still duplicate `OrderCalculator`'s
   line-item summation** (LOW risk, both still agree today).
 - **First-time-user — "Business" vs "Group" terminology still isn't reconciled** between Order
