@@ -106,14 +106,14 @@ export default function ItemsPage() {
       {error && <div className="error">{error}</div>}
 
       <div className="toolbar">
-        <input placeholder="Search title…" value={q} onChange={(e) => setQ(e.target.value)} />
-        <select value={fCat} onChange={(e) => setFCat(e.target.value)}>
+        <input aria-label="Search title" placeholder="Search title…" value={q} onChange={(e) => setQ(e.target.value)} />
+        <select aria-label="Filter by category" value={fCat} onChange={(e) => setFCat(e.target.value)}>
           <option value="">All categories</option>
           {categories.map((c) => (
             <option key={c}>{c}</option>
           ))}
         </select>
-        <select value={fPrio} onChange={(e) => setFPrio(e.target.value)}>
+        <select aria-label="Filter by priority" value={fPrio} onChange={(e) => setFPrio(e.target.value)}>
           <option value="">All priorities</option>
           {config?.priorities.map((p) => (
             <option key={p}>{p}</option>

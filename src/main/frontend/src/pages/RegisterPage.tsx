@@ -53,12 +53,13 @@ export default function RegisterPage() {
           {error && <div className="error">{error}</div>}
           <form onSubmit={submit}>
             <div className="form-row">
-              <label>Name</label>
-              <input value={name} onChange={(e) => setName(e.target.value)} required autoFocus />
+              <label htmlFor="register-name">Name</label>
+              <input id="register-name" value={name} onChange={(e) => setName(e.target.value)} required autoFocus />
             </div>
             <div className="form-row">
-              <label>Handle</label>
+              <label htmlFor="register-handle">Handle</label>
               <input
+                id="register-handle"
                 value={handle}
                 onChange={(e) => setHandle(e.target.value)}
                 placeholder="lowercase, 1–30 chars, letters/digits/-/_"
@@ -67,8 +68,9 @@ export default function RegisterPage() {
               />
             </div>
             <div className="form-row">
-              <label>Email</label>
+              <label htmlFor="register-email">Email</label>
               <input
+                id="register-email"
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -77,8 +79,9 @@ export default function RegisterPage() {
               />
             </div>
             <div className="form-row">
-              <label>Password</label>
+              <label htmlFor="register-password">Password</label>
               <PasswordInput
+                id="register-password"
                 value={password}
                 onChange={setPassword}
                 autoComplete="new-password"
@@ -87,8 +90,9 @@ export default function RegisterPage() {
               <div className="hint">At least 8 characters.</div>
             </div>
             <div className="form-row">
-              <label>Confirm password</label>
+              <label htmlFor="register-confirm-password">Confirm password</label>
               <PasswordInput
+                id="register-confirm-password"
                 value={confirm}
                 onChange={setConfirm}
                 autoComplete="new-password"

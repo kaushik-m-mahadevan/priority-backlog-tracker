@@ -85,32 +85,37 @@ patterns already established elsewhere in the codebase (same DTO-threading shape
 
 ---
 
+## Fixed 2026-09-15 (user-approved implementation pass)
+
+- **Mobile — Orders/My Work/Customers tables collapsed to cards under 620px**, mirroring
+  Priority Backlog Tracker's own `.data-table` pattern (`.ot-table` in `index.css`). Verified
+  live at 375px (zero horizontal overflow, confirmed via computed styles) and at desktop width
+  (headers still align with columns — Item now comes before Order # in both, since the item
+  name is what's actually recognizable at a glance).
+- **Accessibility (screen-reader) — extended the label audit beyond Order Tracker.**
+  `BusinessSettingsPage.tsx` was already clean. Found and fixed real gaps in
+  `ManageBusinessPage.tsx` (rename input, invite input), and — more significantly — across the
+  shared screens round 1 never covered at all: `LoginPage.tsx` (both the sign-in and
+  forgot-password forms), `RegisterPage.tsx` (all 5 fields), `SettingsPage.tsx` (profile,
+  password, timezone, ranking-weights, and category/priority-add fields), `GroupsPage.tsx`
+  (group name, rename, invite), and Priority Backlog Tracker's own item form
+  (`ItemFormModal.tsx` — title/category/priority/effort/due-date/assignee/notes) including its
+  `MarkdownField.tsx` textarea and formatting-toolbar buttons (which had `title` but no
+  `aria-label`, and their inner text — "B", "I", "H", "•" — would otherwise have been their only
+  accessible name). Verified live via `document.querySelector('label[for=...]')` /
+  `getElementById` pairing checks on Login, Register, and Settings.
+- **Testing infrastructure** — added `@testing-library/react`, `jest-dom`, and `user-event` as
+  dev dependencies plus a jsdom test environment, and proved it out with real coverage of
+  `MandatoryItemsFields` (multi-entry grouping, isTool filtering, add/remove, edit-triggers-
+  onChange). `npm ci` (what `frontend-maven-plugin` actually runs) confirmed working with the
+  updated lockfile via a full `mvn package`.
+
 ## Flagged, not fixed — still open
 
-- **Accessibility (screen-reader) — the round-1 sweep only covered Order Tracker's own
-  screens.** `BusinessSettingsPage.tsx`, `ManageBusinessPage.tsx`'s non-rename controls, and
-  the shared auth/settings screens weren't re-audited for label association this round either.
-- **Mobile — plain `<table>` lists (My Work, Customers, and — per user report 2026-09-15,
-  screenshot from the deployed Render site — the Orders list too) still only scroll
-  horizontally**, unlike `.data-table`'s existing collapse-to-card treatment elsewhere in the
-  app. User's own words: "the order tracker mobile version is clunky. Make it more like the
-  priority tracker. More mobile friendly. I don't want too many horizontal scrolling in
-  phone." The screenshot shows the Orders table's `TYPE` column (and the `BULK` badge inside
-  it) clipped off the right edge of a 412px-wide phone viewport, forcing horizontal scroll to
-  see it — Priority Backlog Tracker's own list views don't have this problem. Real, isolated
-  fix; out of scope for tonight given everything else already landed. Broader than just the
-  three known tables — worth an actual pass over every list/table view in Order Tracker on a
-  real phone width, not just the ones already named in this doc.
 - **Maintainability — `Packaging.cost()`/`timeHours()` still duplicate `OrderCalculator`'s
   line-item summation** (LOW risk, both still agree today).
 - **First-time-user — "Business" vs "Group" terminology still isn't reconciled** between Order
   Tracker's own screens and `AddToGroupModal`'s cross-applet language. **User decision
   (2026-09-15): leave the code as-is** — noted here for the record, not slated for
   implementation.
-- **QA — frontend still has no rendering/component tests**, only pure-function tests
-  (`validateSplits` now included). Adding `@testing-library/react` would need a new dev
-  dependency install, which wasn't attempted this session — no verified network/registry access
-  path was established for this environment, and installing a new dependency unsupervised
-  without being able to confirm it resolves cleanly is the kind of judgment call better left
-  for you to greenlight explicitly.
 - **Performance/scale and i18n/l10n** — still not reviewed at all, per round 1's own scope note.

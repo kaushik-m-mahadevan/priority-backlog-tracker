@@ -103,6 +103,7 @@ export default function GroupsPage() {
         <h2>New group</h2>
         <form className="team-add" onSubmit={create}>
           <input
+            aria-label="Group name"
             placeholder="Group name"
             value={name}
             onChange={(e) => setName(e.target.value)}
@@ -140,6 +141,7 @@ export default function GroupsPage() {
                       }}
                     >
                       <input
+                        aria-label="Group name"
                         autoFocus
                         value={renameValue}
                         maxLength={60}
@@ -207,6 +209,7 @@ export default function GroupsPage() {
                 }}
               >
                 <input
+                  aria-label="Invite by email or handle"
                   placeholder="Invite by email or @handle"
                   value={invite[g.id] ?? ""}
                   onChange={(e) => setInvite((m) => ({ ...m, [g.id]: e.target.value }))}

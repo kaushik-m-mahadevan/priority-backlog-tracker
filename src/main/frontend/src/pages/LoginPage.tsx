@@ -71,8 +71,9 @@ export default function LoginPage() {
             ) : (
               <form onSubmit={sendForgot}>
                 <div className="form-row">
-                  <label>Email</label>
+                  <label htmlFor="forgot-email">Email</label>
                   <input
+                    id="forgot-email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     required
@@ -95,9 +96,10 @@ export default function LoginPage() {
           ) : (
           <form onSubmit={submit}>
             <div className="form-row">
-              <label>Email</label>
+              <label htmlFor="login-email">Email</label>
               {/* plain text, not type=email: legacy accounts may have a non-email login id */}
               <input
+                id="login-email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 autoComplete="username"
@@ -106,8 +108,9 @@ export default function LoginPage() {
               />
             </div>
             <div className="form-row">
-              <label>Password</label>
+              <label htmlFor="login-password">Password</label>
               <PasswordInput
+                id="login-password"
                 value={password}
                 onChange={setPassword}
                 autoComplete="current-password"

@@ -5,13 +5,14 @@ interface Props {
   value: string;
   onChange: (v: string) => void;
   placeholder?: string;
+  id?: string;
 }
 
 /**
  * Notes field: rendered preview by default. "Edit" reveals the textarea + a small
  * formatting toolbar; "Done" returns to preview. (Persisting is the modal's Save.)
  */
-export default function MarkdownField({ value, onChange, placeholder }: Props) {
+export default function MarkdownField({ value, onChange, placeholder, id }: Props) {
   const ref = useRef<HTMLTextAreaElement>(null);
   const [editing, setEditing] = useState(false);
 
@@ -66,16 +67,16 @@ export default function MarkdownField({ value, onChange, placeholder }: Props) {
   return (
     <div className="md-field">
       <div className="md-toolbar">
-        <button type="button" title="Bold" onClick={() => wrap("**")}>
+        <button type="button" title="Bold" aria-label="Bold" onClick={() => wrap("**")}>
           <b>B</b>
         </button>
-        <button type="button" title="Italic" onClick={() => wrap("_")}>
+        <button type="button" title="Italic" aria-label="Italic" onClick={() => wrap("_")}>
           <i>I</i>
         </button>
-        <button type="button" title="Heading" onClick={() => linePrefix("## ")}>
+        <button type="button" title="Heading" aria-label="Heading" onClick={() => linePrefix("## ")}>
           H
         </button>
-        <button type="button" title="Bullet list" onClick={() => linePrefix("- ")}>
+        <button type="button" title="Bullet list" aria-label="Bullet list" onClick={() => linePrefix("- ")}>
           •
         </button>
         <span style={{ flex: 1 }} />
@@ -84,6 +85,7 @@ export default function MarkdownField({ value, onChange, placeholder }: Props) {
         </button>
       </div>
       <textarea
+        id={id}
         ref={ref}
         rows={5}
         value={value}

@@ -86,7 +86,7 @@ export default function ManageBusinessPage() {
               }
             }}
           >
-            <input autoFocus value={renameValue} maxLength={60} onChange={(e) => setRenameValue(e.target.value)} />
+            <input aria-label="Business name" autoFocus value={renameValue} maxLength={60} onChange={(e) => setRenameValue(e.target.value)} />
             <button className="primary" disabled={busy || !renameValue.trim()} onClick={saveRename}>
               Save
             </button>
@@ -111,6 +111,7 @@ export default function ManageBusinessPage() {
 
         <form className="team-add" style={{ marginTop: 12 }} onSubmit={sendInvite}>
           <input
+            aria-label="Invite by email or handle"
             placeholder="Invite by email or @handle"
             value={invite}
             onChange={(e) => setInvite(e.target.value)}

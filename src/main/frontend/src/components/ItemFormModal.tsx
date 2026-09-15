@@ -216,14 +216,14 @@ export default function ItemFormModal({ existing, onClose, onSaved, onComplete }
 
         <form onSubmit={submit}>
           <div className="form-row">
-            <label>Title</label>
-            <input value={title} onChange={(e) => setTitle(e.target.value)} required autoFocus />
+            <label htmlFor="item-title">Title</label>
+            <input id="item-title" value={title} onChange={(e) => setTitle(e.target.value)} required autoFocus />
           </div>
 
           <div className="form-grid">
             <div className="form-row">
-              <label>Category</label>
-              <select value={category} onChange={(e) => setCategory(e.target.value)} required>
+              <label htmlFor="item-category">Category</label>
+              <select id="item-category" value={category} onChange={(e) => setCategory(e.target.value)} required>
                 <option value="" disabled>
                   Select…
                 </option>
@@ -235,8 +235,8 @@ export default function ItemFormModal({ existing, onClose, onSaved, onComplete }
               </select>
             </div>
             <div className="form-row">
-              <label>Priority</label>
-              <select value={priority} onChange={(e) => setPriority(e.target.value)} required>
+              <label htmlFor="item-priority">Priority</label>
+              <select id="item-priority" value={priority} onChange={(e) => setPriority(e.target.value)} required>
                 <option value="" disabled>
                   Select…
                 </option>
@@ -250,9 +250,10 @@ export default function ItemFormModal({ existing, onClose, onSaved, onComplete }
           </div>
 
           <div className="form-row">
-            <label>Effort</label>
+            <label htmlFor="item-effort-value">Effort</label>
             <div className="effort-input">
               <input
+                id="item-effort-value"
                 type="number"
                 inputMode="numeric"
                 value={value}
@@ -262,7 +263,11 @@ export default function ItemFormModal({ existing, onClose, onSaved, onComplete }
                 aria-invalid={effortInvalid}
                 onChange={(e) => setValue(e.target.value)}
               />
+              <label htmlFor="item-effort-unit" className="sr-only">
+                Effort unit
+              </label>
               <select
+                id="item-effort-unit"
                 value={unit}
                 onChange={(e) => {
                   const u = e.target.value as Unit;
@@ -282,12 +287,12 @@ export default function ItemFormModal({ existing, onClose, onSaved, onComplete }
 
           <div className="form-grid">
             <div className="form-row">
-              <label>Due date</label>
-              <input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
+              <label htmlFor="item-due-date">Due date</label>
+              <input id="item-due-date" type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
             </div>
             <div className="form-row">
-              <label>Assignee</label>
-              <select value={ownerId} onChange={(e) => setOwnerId(e.target.value)}>
+              <label htmlFor="item-assignee">Assignee</label>
+              <select id="item-assignee" value={ownerId} onChange={(e) => setOwnerId(e.target.value)}>
                 <option value="">Unassigned</option>
                 {users.map((u) => (
                   <option key={u.id} value={u.id}>
@@ -299,8 +304,9 @@ export default function ItemFormModal({ existing, onClose, onSaved, onComplete }
           </div>
 
           <div className="form-row">
-            <label>Notes</label>
+            <label htmlFor="item-notes">Notes</label>
             <MarkdownField
+              id="item-notes"
               value={notes}
               onChange={setNotes}
               placeholder="Context, links, next step… **bold**, _italic_, ## heading, - list"

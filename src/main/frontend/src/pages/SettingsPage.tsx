@@ -186,12 +186,12 @@ export default function SettingsPage() {
         <div className="card">
           <h2>Your profile</h2>
           <div className="form-row">
-            <label>Display name</label>
-            <input value={displayName} onChange={(e) => setDisplayName(e.target.value)} maxLength={80} />
+            <label htmlFor="settings-display-name">Display name</label>
+            <input id="settings-display-name" value={displayName} onChange={(e) => setDisplayName(e.target.value)} maxLength={80} />
           </div>
           <div className="form-row">
-            <label>Email</label>
-            <input value={user?.email ?? ""} disabled />
+            <label htmlFor="settings-email">Email</label>
+            <input id="settings-email" value={user?.email ?? ""} disabled />
           </div>
           <p className="hint" style={{ marginTop: 4 }}>
             Email is your login id and can't be changed here.
@@ -210,16 +210,16 @@ export default function SettingsPage() {
         <div className="card">
           <h2>Password</h2>
           <div className="form-row">
-            <label>Current password</label>
-            <PasswordInput value={curPw} onChange={setCurPw} autoComplete="current-password" />
+            <label htmlFor="settings-current-password">Current password</label>
+            <PasswordInput id="settings-current-password" value={curPw} onChange={setCurPw} autoComplete="current-password" />
           </div>
           <div className="form-row">
-            <label>New password</label>
-            <PasswordInput value={newPw} onChange={setNewPw} autoComplete="new-password" />
+            <label htmlFor="settings-new-password">New password</label>
+            <PasswordInput id="settings-new-password" value={newPw} onChange={setNewPw} autoComplete="new-password" />
           </div>
           <div className="form-row">
-            <label>Confirm new password</label>
-            <PasswordInput value={confPw} onChange={setConfPw} autoComplete="new-password" />
+            <label htmlFor="settings-confirm-password">Confirm new password</label>
+            <PasswordInput id="settings-confirm-password" value={confPw} onChange={setConfPw} autoComplete="new-password" />
             {confPw.length > 0 && confPw !== newPw && (
               <div className="hint bad">Passwords don't match.</div>
             )}
@@ -242,8 +242,9 @@ export default function SettingsPage() {
         <div className="card">
           <h2>Display timezone</h2>
           <div className="form-row">
-            <label>Show dates in</label>
+            <label htmlFor="settings-timezone">Show dates in</label>
             <select
+              id="settings-timezone"
               value={tz}
               onChange={(e) => {
                 setTz(e.target.value);
@@ -313,6 +314,7 @@ export default function SettingsPage() {
             </div>
             <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
               <input
+                aria-label="New category"
                 placeholder="New category"
                 value={newCat}
                 onChange={(e) => setNewCat(e.target.value)}
@@ -339,8 +341,9 @@ export default function SettingsPage() {
               <div className="form-grid">
                 {NUMERIC.map(([k, label]) => (
                   <div className="form-row" key={k}>
-                    <label>{label}</label>
+                    <label htmlFor={`ranking-${k}`}>{label}</label>
                     <input
+                      id={`ranking-${k}`}
                       type="number"
                       step={k.includes("Weight") ? "0.001" : "1"}
                       value={draft[k]}
@@ -379,12 +382,14 @@ export default function SettingsPage() {
               </div>
               <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
                 <input
+                  aria-label="New priority name"
                   placeholder="New priority"
                   value={newPrio}
                   onChange={(e) => setNewPrio(e.target.value)}
                   style={{ flex: 1 }}
                 />
                 <input
+                  aria-label="New priority value"
                   type="number"
                   min="1"
                   value={newPrioVal}
