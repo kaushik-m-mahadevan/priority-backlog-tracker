@@ -31,6 +31,8 @@ import OverviewPage from "./financetracker/pages/OverviewPage";
 import ExpensesPage from "./financetracker/pages/ExpensesPage";
 import IncomePage from "./financetracker/pages/IncomePage";
 import ProfitSplitPage from "./financetracker/pages/ProfitSplitPage";
+import MaterialInventoryRoot from "./materialinventory/MaterialInventoryRoot";
+import MyInventoryPage from "./materialinventory/pages/MyInventoryPage";
 
 export default function App() {
   const { user, loading } = useAuth();
@@ -100,6 +102,9 @@ export default function App() {
                   <Route path="expenses" element={<ExpensesPage />} />
                   <Route path="income" element={<IncomePage />} />
                   <Route path="profit-split" element={<ProfitSplitPage />} />
+                </Route>
+                <Route path="/materialinventory" element={<MaterialInventoryRoot />}>
+                  <Route index element={<MyInventoryPage />} />
                 </Route>
                 <Route path="*" element={<Navigate to="/" replace />} />
               </Routes>

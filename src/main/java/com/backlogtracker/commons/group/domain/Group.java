@@ -31,6 +31,7 @@ public class Group {
     public static final String APPLET_BACKLOG_TRACKER = "backlogtracker";
     public static final String APPLET_ORDER_TRACKER = "ordertracker";
     public static final String APPLET_FINANCE_TRACKER = "financetracker";
+    public static final String APPLET_MATERIAL_INVENTORY = "materialinventory";
 
     @Id
     private String id;

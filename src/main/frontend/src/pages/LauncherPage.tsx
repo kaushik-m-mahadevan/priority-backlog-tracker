@@ -45,6 +45,14 @@ export default function LauncherPage() {
             <p>Track expenses, income, splits, and who owes what.</p>
           </Link>
 
+          <Link to="/materialinventory" className="applet-card">
+            <span className="applet-icon" aria-hidden="true">
+              🧶
+            </span>
+            <h2>Material Inventory</h2>
+            <p>Track yarn on hand, and request or transfer it between team members.</p>
+          </Link>
+
           <Link to="/settings" className="applet-card">
             <span className="applet-icon" aria-hidden="true">
               ⚙
