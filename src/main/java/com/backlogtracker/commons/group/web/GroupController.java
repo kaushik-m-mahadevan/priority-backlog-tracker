@@ -63,7 +63,8 @@ public class GroupController {
         if (appletKey == null || appletKey.isBlank()) {
             return Group.APPLET_BACKLOG_TRACKER;
         }
-        if (!appletKey.equals(Group.APPLET_BACKLOG_TRACKER) && !appletKey.equals(Group.APPLET_ORDER_TRACKER)) {
+        if (!appletKey.equals(Group.APPLET_BACKLOG_TRACKER) && !appletKey.equals(Group.APPLET_ORDER_TRACKER)
+                && !appletKey.equals(Group.APPLET_FINANCE_TRACKER)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Unknown appletKey");
         }
         return appletKey;

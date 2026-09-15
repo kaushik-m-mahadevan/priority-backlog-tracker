@@ -14,6 +14,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 import com.backlogtracker.commons.group.domain.Group;
 import com.backlogtracker.commons.group.domain.PlatformConfig;
+import com.backlogtracker.commons.group.event.GroupDeletedEvent;
 import com.backlogtracker.commons.group.event.MemberLeftGroupEvent;
 import com.backlogtracker.commons.group.repository.GroupRepository;
 import com.backlogtracker.commons.group.repository.PlatformConfigRepository;
@@ -135,6 +136,7 @@ public class GroupService {
             long deletedItems = mongo.remove(new Query(Criteria.where("groupId").is(groupId)), "items")
                     .getDeletedCount();
             mongo.remove(new Query(Criteria.where("groupId").is(groupId)), "archivedItems");
+            events.publishEvent(new GroupDeletedEvent(groupId));
             log.info("Group {} deleted by its last member; {} live items removed", groupId, deletedItems);
         } else {
             groups.save(g);
