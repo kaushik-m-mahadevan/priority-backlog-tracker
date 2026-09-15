@@ -146,4 +146,63 @@ class LedgerEntryServiceTest {
                 .isInstanceOf(ResponseStatusException.class)
                 .hasMessageContaining("payerId");
     }
+
+    @Test
+    void balancesNetOutAPersonalSplitBetweenPayerAndOthers() {
+        // Payer fronts 900 for lunch, split evenly three ways including themselves - A and
+        // B should each owe the payer a third; the payer's own third is absorbed, not owed.
+        ledgerEntryService.create(financeGroup.getId(), payerId, new CreateLedgerEntryRequest(
+                LedgerEntryType.EXPENSE, "Lunch", new BigDecimal("900.00"), payerId,
+                List.of(
+                        new ShareInput(SplitPartyType.PERSON, payerId, new BigDecimal("0.3334")),
+                        new ShareInput(SplitPartyType.PERSON, personAId, new BigDecimal("0.3333")),
+                        new ShareInput(SplitPartyType.PERSON, personBId, new BigDecimal("0.3333")))));
+
+        var balances = ledgerEntryService.balances(financeGroup.getId(), payerId);
+
+        var payerBalance = balances.stream().filter(b -> b.personId().equals(payerId)).findFirst().orElseThrow();
+        var aBalance = balances.stream().filter(b -> b.personId().equals(personAId)).findFirst().orElseThrow();
+        var bBalance = balances.stream().filter(b -> b.personId().equals(personBId)).findFirst().orElseThrow();
+
+        assertThat(payerBalance.netFromOthers()).isEqualByComparingTo("599.94");
+        assertThat(aBalance.netFromOthers()).isEqualByComparingTo("-299.97");
+        assertThat(bBalance.netFromOthers()).isEqualByComparingTo("-299.97");
+        assertThat(payerBalance.owedByBusiness()).isEqualByComparingTo(BigDecimal.ZERO);
+    }
+
+    @Test
+    void aFullyBusinessAttributedExpenseOwesThePayerNotOtherMembers() {
+        ledgerEntryService.create(financeGroup.getId(), payerId, new CreateLedgerEntryRequest(
+                LedgerEntryType.EXPENSE, "Shipment", new BigDecimal("450.00"), payerId,
+                List.of(new ShareInput(SplitPartyType.BUSINESS, null, BigDecimal.ONE))));
+
+        var balances = ledgerEntryService.balances(financeGroup.getId(), payerId);
+        var payerBalance = balances.stream().filter(b -> b.personId().equals(payerId)).findFirst().orElseThrow();
+
+        assertThat(payerBalance.owedByBusiness()).isEqualByComparingTo("450.00");
+        assertThat(payerBalance.netFromOthers()).isEqualByComparingTo(BigDecimal.ZERO);
+    }
+
+    @Test
+    void incomeCreditedToAPersonIncreasesWhatTheBusinessOwesThem() {
+        ledgerEntryService.create(financeGroup.getId(), payerId, new CreateLedgerEntryRequest(
+                LedgerEntryType.INCOME, "Investment", new BigDecimal("5000.00"), personAId,
+                List.of(new ShareInput(SplitPartyType.PERSON, personAId, BigDecimal.ONE))));
+
+        var balances = ledgerEntryService.balances(financeGroup.getId(), payerId);
+        var aBalance = balances.stream().filter(b -> b.personId().equals(personAId)).findFirst().orElseThrow();
+
+        assertThat(aBalance.owedByBusiness()).isEqualByComparingTo("5000.00");
+    }
+
+    @Test
+    void incomeCreditedToBusinessCreatesNoPersonalBalance() {
+        ledgerEntryService.create(financeGroup.getId(), payerId, new CreateLedgerEntryRequest(
+                LedgerEntryType.INCOME, "Order payment", new BigDecimal("1500.00"), payerId,
+                List.of(new ShareInput(SplitPartyType.BUSINESS, null, BigDecimal.ONE))));
+
+        var balances = ledgerEntryService.balances(financeGroup.getId(), payerId);
+
+        assertThat(balances).isEmpty();
+    }
 }

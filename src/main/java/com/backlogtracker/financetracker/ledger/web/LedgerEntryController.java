@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.backlogtracker.commons.security.AuthUser;
 import com.backlogtracker.commons.security.RequiresUser;
+import com.backlogtracker.financetracker.ledger.dto.BalanceView;
 import com.backlogtracker.financetracker.ledger.dto.CreateLedgerEntryRequest;
 import com.backlogtracker.financetracker.ledger.dto.LedgerEntryView;
 import com.backlogtracker.financetracker.ledger.service.LedgerEntryService;
@@ -32,6 +33,11 @@ public class LedgerEntryController {
     @GetMapping
     public List<LedgerEntryView> list(@PathVariable String groupId, @AuthenticationPrincipal AuthUser actor) {
         return ledgerEntryService.list(groupId, actor.id());
+    }
+
+    @GetMapping("/balances")
+    public List<BalanceView> balances(@PathVariable String groupId, @AuthenticationPrincipal AuthUser actor) {
+        return ledgerEntryService.balances(groupId, actor.id());
     }
 
     @PostMapping

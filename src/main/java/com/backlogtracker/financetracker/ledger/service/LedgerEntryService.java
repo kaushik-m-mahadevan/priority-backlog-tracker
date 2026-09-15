@@ -1,7 +1,9 @@
 package com.backlogtracker.financetracker.ledger.service;
 
 import java.math.BigDecimal;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -10,7 +12,9 @@ import org.springframework.web.server.ResponseStatusException;
 import com.backlogtracker.commons.group.domain.Group;
 import com.backlogtracker.commons.group.service.GroupService;
 import com.backlogtracker.financetracker.ledger.domain.LedgerEntry;
+import com.backlogtracker.financetracker.ledger.domain.LedgerEntryType;
 import com.backlogtracker.financetracker.ledger.domain.SplitPartyType;
+import com.backlogtracker.financetracker.ledger.dto.BalanceView;
 import com.backlogtracker.financetracker.ledger.dto.CreateLedgerEntryRequest;
 import com.backlogtracker.financetracker.ledger.dto.CreateLedgerEntryRequest.ShareInput;
 import com.backlogtracker.financetracker.ledger.dto.LedgerEntryView;
@@ -62,6 +66,50 @@ public class LedgerEntryService {
     public List<LedgerEntryView> list(String groupId, String userId) {
         groupService.requireMember(groupId, userId);
         return entries.findByGroupIdOrderByCreatedAtDesc(groupId).stream().map(LedgerEntryView::of).toList();
+    }
+
+    /** See {@link BalanceView} for the two-number shape and why they're kept separate.
+     *  Every group member can compute every other member's balance, not just their own
+     *  (full transparency, per design decision) — this returns one row per member who
+     *  appears anywhere in the ledger, in the order first encountered. */
+    public List<BalanceView> balances(String groupId, String userId) {
+        groupService.requireMember(groupId, userId);
+        Map<String, BigDecimal> netFromOthers = new LinkedHashMap<>();
+        Map<String, BigDecimal> owedByBusiness = new LinkedHashMap<>();
+
+        for (LedgerEntry entry : entries.findByGroupIdOrderByCreatedAtDesc(groupId)) {
+            for (LedgerEntry.SplitShare share : entry.getShares()) {
+                BigDecimal shareAmount = entry.getAmount().multiply(share.getRatio());
+                if (entry.getType() == LedgerEntryType.EXPENSE) {
+                    if (share.getPartyType() == SplitPartyType.BUSINESS) {
+                        add(owedByBusiness, entry.getPayerId(), shareAmount);
+                    } else if (!share.getPersonId().equals(entry.getPayerId())) {
+                        // this person owes the payer their share; the payer is owed it.
+                        add(netFromOthers, share.getPersonId(), shareAmount.negate());
+                        add(netFromOthers, entry.getPayerId(), shareAmount);
+                    }
+                    // a PERSON share equal to the payer is their own absorbed cost — no effect.
+                } else if (entry.getType() == LedgerEntryType.INCOME && share.getPartyType() == SplitPartyType.PERSON) {
+                    // credited to a specific person (e.g. an investment) — same "the
+                    // business owes it back" relationship as a business-attributed expense.
+                    add(owedByBusiness, share.getPersonId(), shareAmount);
+                }
+                // INCOME credited to BUSINESS is the business's own money — no personal balance effect.
+            }
+        }
+
+        Map<String, BigDecimal> zero = new LinkedHashMap<>();
+        netFromOthers.keySet().forEach(id -> zero.putIfAbsent(id, BigDecimal.ZERO));
+        owedByBusiness.keySet().forEach(id -> zero.putIfAbsent(id, BigDecimal.ZERO));
+        return zero.keySet().stream()
+                .map(id -> new BalanceView(id,
+                        netFromOthers.getOrDefault(id, BigDecimal.ZERO),
+                        owedByBusiness.getOrDefault(id, BigDecimal.ZERO)))
+                .toList();
+    }
+
+    private static void add(Map<String, BigDecimal> map, String key, BigDecimal delta) {
+        map.merge(key, delta, BigDecimal::add);
     }
 
     private void validateShares(Group group, List<ShareInput> shares) {

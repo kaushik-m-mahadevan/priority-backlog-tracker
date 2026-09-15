@@ -31,3 +31,9 @@ export interface CreateLedgerEntryRequest {
   payerId: string;
   shares: ShareInput[];
 }
+
+export interface BalanceView {
+  personId: string;
+  netFromOthers: number;
+  owedByBusiness: number;
+}
