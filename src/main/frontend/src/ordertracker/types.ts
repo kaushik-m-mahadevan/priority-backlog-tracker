@@ -66,6 +66,19 @@ export interface CostConfigChangeRequest {
   resolvedAt: string | null;
 }
 
+export type OrderFinalizationStatus = "NONE" | "PENDING" | "FINALIZED";
+
+export interface OrderFinalizationView {
+  status: OrderFinalizationStatus;
+  finalCost: number;
+  finalRevenue: number;
+  finalProfit: number;
+  finalizedAt: string | null;
+  proposedByUserId: string | null;
+  approvedByUserIds: string[];
+  groupMemberIds: string[];
+}
+
 export interface BusinessConfig {
   groupId: string;
   overheadPercentage: number;

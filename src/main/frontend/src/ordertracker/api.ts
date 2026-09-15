@@ -1,5 +1,5 @@
 import { api } from "../api/client";
-import type { BusinessConfig, ChangeLog, CostConfigChangeRequest, Creator, Customer, MandatoryItemType, OrderView, PresetOption, WorkStageType } from "./types";
+import type { BusinessConfig, ChangeLog, CostConfigChangeRequest, Creator, Customer, MandatoryItemType, OrderFinalizationView, OrderView, PresetOption, WorkStageType } from "./types";
 
 const base = (groupId: string) => `/ordertracker/groups/${groupId}`;
 
@@ -90,4 +90,13 @@ export const orderTrackerApi = {
     api.put<OrderView>(`${base(groupId)}/orders/${orderId}/shipment-plan`, { stops }),
   markShipmentStop: (groupId: string, orderId: string, stopIndex: number, body: { shippedDate?: string; deliveredConfirmed?: boolean }) =>
     api.patch<OrderView>(`${base(groupId)}/orders/${orderId}/shipment-plan/${stopIndex}`, body),
+
+  orderFinalization: (groupId: string, orderId: string) =>
+    api.get<OrderFinalizationView>(`${base(groupId)}/orders/${orderId}/finalization`),
+  proposeOrderFinalization: (groupId: string, orderId: string, finalCost: number, finalRevenue: number) =>
+    api.post<OrderFinalizationView>(`${base(groupId)}/orders/${orderId}/finalization/propose`, { finalCost, finalRevenue }),
+  approveOrderFinalization: (groupId: string, orderId: string) =>
+    api.post<OrderFinalizationView>(`${base(groupId)}/orders/${orderId}/finalization/approve`),
+  rejectOrderFinalization: (groupId: string, orderId: string) =>
+    api.post<OrderFinalizationView>(`${base(groupId)}/orders/${orderId}/finalization/reject`),
 };

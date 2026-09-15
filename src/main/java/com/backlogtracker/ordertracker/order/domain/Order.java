@@ -125,6 +125,11 @@ public class Order {
     // ---- 8. bulk-only details ----
     private BulkDetails bulkDetails;
 
+    // ---- order-finalization consensus (design decision: every member must accept the
+    // order's final actual cost/revenue before it's treated as settled, same unanimous
+    // mechanics as the cost-config change request) ----
+    private Finalization finalization;
+
     // =====================================================================================
     // Nested embedded types
     // =====================================================================================
@@ -427,6 +432,28 @@ public class Order {
         private double totalTimeHours;
         @Builder.Default
         private List<SplitLine> splitAllocation = new ArrayList<>();
+    }
+
+    public enum FinalizationStatus { NONE, PENDING, FINALIZED }
+
+    /** Locks in the order's actual cost/revenue once every current group member has
+     *  unanimously approved them, via {@code commons.approval}. {@code approvalRequestId}
+     *  is only meaningful while {@code status == PENDING}; once {@code FINALIZED}, the
+     *  {@code final*} fields are the settled record and don't change unless someone
+     *  proposes and unanimously re-approves a new finalization. */
+    @Getter
+    @Setter
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class Finalization {
+        @Builder.Default
+        private FinalizationStatus status = FinalizationStatus.NONE;
+        private String approvalRequestId;
+        private double finalCost;
+        private double finalRevenue;
+        private double finalProfit;
+        private Instant finalizedAt;
     }
 
     /** Present only when {@code orderType == BULK} (spec §8). */

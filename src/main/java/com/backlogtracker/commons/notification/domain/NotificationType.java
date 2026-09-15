@@ -11,5 +11,8 @@ public enum NotificationType {
     PASSWORD_RESULT,
     /** Informational: your pending overhead/profit-margin proposal was auto-cancelled
      *  because a member left the group mid-approval — you can re-propose. */
-    COST_CONFIG_INVALIDATED
+    COST_CONFIG_INVALIDATED,
+    /** Informational: your pending order-finalization proposal was auto-cancelled because
+     *  a member left the group mid-approval — you can re-propose. */
+    ORDER_FINALIZATION_INVALIDATED
 }

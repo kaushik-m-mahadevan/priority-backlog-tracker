@@ -20,7 +20,9 @@ import com.backlogtracker.ordertracker.order.domain.OrderChangeLog;
 import com.backlogtracker.ordertracker.order.dto.AddPaymentRequest;
 import com.backlogtracker.ordertracker.order.dto.CreateOrderRequest;
 import com.backlogtracker.ordertracker.order.dto.MarkShipmentStopRequest;
+import com.backlogtracker.ordertracker.order.dto.OrderFinalizationView;
 import com.backlogtracker.ordertracker.order.dto.OrderView;
+import com.backlogtracker.ordertracker.order.dto.ProposeOrderFinalizationRequest;
 import com.backlogtracker.ordertracker.order.dto.ShipmentPlanRequest;
 import com.backlogtracker.ordertracker.order.dto.UpdateBulkDetailsRequest;
 import com.backlogtracker.ordertracker.order.dto.UpdateBulkSplitProgressRequest;
@@ -28,6 +30,7 @@ import com.backlogtracker.ordertracker.order.dto.UpdateBulkStageProgressRequest;
 import com.backlogtracker.ordertracker.order.dto.UpdateOrderRequest;
 import com.backlogtracker.ordertracker.order.dto.UpdateOrderStatusRequest;
 import com.backlogtracker.ordertracker.order.dto.UpdateStageAssignmentRequest;
+import com.backlogtracker.ordertracker.order.service.OrderFinalizationService;
 import com.backlogtracker.ordertracker.order.service.OrderService;
 
 import lombok.RequiredArgsConstructor;
@@ -39,6 +42,7 @@ import lombok.RequiredArgsConstructor;
 public class OrderController {
 
     private final OrderService orderService;
+    private final OrderFinalizationService orderFinalizationService;
 
     @GetMapping
     public List<OrderView> all(@PathVariable String groupId, @AuthenticationPrincipal AuthUser actor) {
@@ -129,5 +133,30 @@ public class OrderController {
                                       @PathVariable int stopIndex, @RequestBody MarkShipmentStopRequest request,
                                       @AuthenticationPrincipal AuthUser actor) {
         return orderService.markShipmentStop(groupId, actor.id(), orderId, stopIndex, request);
+    }
+
+    @GetMapping("/{orderId}/finalization")
+    public OrderFinalizationView getFinalization(@PathVariable String groupId, @PathVariable String orderId,
+                                                 @AuthenticationPrincipal AuthUser actor) {
+        return orderFinalizationService.get(groupId, actor.id(), orderId);
+    }
+
+    @PostMapping("/{orderId}/finalization/propose")
+    public OrderFinalizationView proposeFinalization(@PathVariable String groupId, @PathVariable String orderId,
+                                                      @RequestBody ProposeOrderFinalizationRequest request,
+                                                      @AuthenticationPrincipal AuthUser actor) {
+        return orderFinalizationService.propose(groupId, actor.id(), orderId, request);
+    }
+
+    @PostMapping("/{orderId}/finalization/approve")
+    public OrderFinalizationView approveFinalization(@PathVariable String groupId, @PathVariable String orderId,
+                                                      @AuthenticationPrincipal AuthUser actor) {
+        return orderFinalizationService.approve(groupId, actor.id(), orderId);
+    }
+
+    @PostMapping("/{orderId}/finalization/reject")
+    public OrderFinalizationView rejectFinalization(@PathVariable String groupId, @PathVariable String orderId,
+                                                     @AuthenticationPrincipal AuthUser actor) {
+        return orderFinalizationService.reject(groupId, actor.id(), orderId);
     }
 }
