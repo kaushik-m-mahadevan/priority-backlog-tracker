@@ -605,6 +605,25 @@ export default function OrderDetailPage() {
   const dueDate = order.orderType === "INDIVIDUAL" ? order.costEstimate?.computedDueDate : order.bulkDetails?.computedDueDate;
   const splitTrackedStages = config.workStages.filter((s) => s.splitTracked);
 
+  // Order-level "what you need" list — one combined list across all bulk variants (not
+  // per-variant), deduped by itemKey+value; quantities don't matter here, just presence.
+  const itemLabel = (itemKey: string) => config.mandatoryItemTypes.find((t) => t.itemKey === itemKey)?.label ?? itemKey;
+  const dedupeByKeyValue = <T extends { itemKey: string; value: string }>(items: T[]): T[] => {
+    const seen = new Set<string>();
+    return items.filter((i) => {
+      const k = `${i.itemKey} ${i.value}`;
+      if (seen.has(k)) return false;
+      seen.add(k);
+      return true;
+    });
+  };
+  const allMaterials = dedupeByKeyValue(
+    order.orderType === "INDIVIDUAL" ? order.mandatoryItems : (order.bulkDetails?.variants ?? []).flatMap((v) => v.mandatoryItems)
+  );
+  const allTools = dedupeByKeyValue(
+    order.orderType === "INDIVIDUAL" ? order.tools : (order.bulkDetails?.variants ?? []).flatMap((v) => v.tools)
+  );
+
   return (
     <div>
       <div className="toolbar" style={{ marginBottom: 4 }}>
@@ -719,6 +738,44 @@ export default function OrderDetailPage() {
             <p style={{ whiteSpace: "pre-wrap", margin: 0 }}>{order.assemblyPackagingInstructions}</p>
           ) : (
             <p className="empty">Not recorded.</p>
+          )}
+        </div>
+
+        <div className="card">
+          <h2>What you need</h2>
+          {allMaterials.length === 0 && allTools.length === 0 ? (
+            <p className="empty">Nothing recorded yet.</p>
+          ) : (
+            <>
+              <div className="muted" style={{ fontSize: 12, marginBottom: 4 }}>
+                Materials
+              </div>
+              {allMaterials.length === 0 ? (
+                <p className="empty">None.</p>
+              ) : (
+                <ul style={{ margin: "0 0 10px", paddingLeft: 18 }}>
+                  {allMaterials.map((m, i) => (
+                    <li key={i}>
+                      {itemLabel(m.itemKey)}: {m.value}
+                    </li>
+                  ))}
+                </ul>
+              )}
+              <div className="muted" style={{ fontSize: 12, marginBottom: 4 }}>
+                Tools
+              </div>
+              {allTools.length === 0 ? (
+                <p className="empty">None.</p>
+              ) : (
+                <ul style={{ margin: 0, paddingLeft: 18 }}>
+                  {allTools.map((t, i) => (
+                    <li key={i}>
+                      {itemLabel(t.itemKey)}: {t.value}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </>
           )}
         </div>
 
