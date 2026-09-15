@@ -67,7 +67,10 @@ export default function FinanceTrackerLayout() {
         navLinks={
           currentGroupId && (
             <div className="nav-links">
-              <NavLink to="/financetracker">Overview</NavLink>
+              <NavLink to="/financetracker" end>
+                Overview
+              </NavLink>
+              <NavLink to="/financetracker/expenses">Expenses</NavLink>
             </div>
           )
         }
@@ -98,6 +101,7 @@ export default function FinanceTrackerLayout() {
           <NavLink to="/financetracker" end>
             Overview
           </NavLink>
+          <NavLink to="/financetracker/expenses">Expenses</NavLink>
         </nav>
       )}
     </div>
