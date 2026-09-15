@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
+import { formatDate } from "../../lib/format";
 import { orderTrackerApi } from "../api";
 import { useBusiness } from "../BusinessContext";
 import AddToGroupModal from "../AddToGroupModal";
@@ -974,7 +975,7 @@ export default function OrderDetailPage() {
                     <span className="k">{creatorName(creatorId)}</span>
                     <span className="v">
                       {hours.toFixed(1)}h at {hoursPerDay}h/day
-                      {target && <> — target {target.toLocaleDateString()}</>}
+                      {target && <> — target {formatDate(target.toISOString())}</>}
                     </span>
                   </div>
                 );
@@ -1033,10 +1034,10 @@ export default function OrderDetailPage() {
             </>
           )}
           <div className="row"><span className="k">Estimated delivery</span>
-            <span className="v">{dueDate ? new Date(dueDate).toLocaleDateString() : "—"}</span></div>
+            <span className="v">{formatDate(dueDate ?? null)}</span></div>
           {order.quotedDeliveryDate && (
             <div className="row"><span className="k">Quoted to customer</span>
-              <span className="v">{new Date(order.quotedDeliveryDate).toLocaleDateString()}</span></div>
+              <span className="v">{formatDate(order.quotedDeliveryDate)}</span></div>
           )}
         </div>
       </Section>

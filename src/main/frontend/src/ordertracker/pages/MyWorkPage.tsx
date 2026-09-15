@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import { formatDate } from "../../lib/format";
 import { orderTrackerApi } from "../api";
 import { useBusiness } from "../BusinessContext";
 import type { Customer, OrderView } from "../types";
@@ -94,7 +95,7 @@ export default function MyWorkPage() {
                   <td className="cell-due">
                     {(() => {
                       const due = o.orderType === "INDIVIDUAL" ? o.costEstimate?.computedDueDate : o.bulkDetails?.computedDueDate;
-                      return due ? new Date(due).toLocaleDateString() : <span className="muted">—</span>;
+                      return formatDate(due ?? null);
                     })()}
                   </td>
                 </tr>
