@@ -146,7 +146,7 @@ export default function CustomersPage() {
         <p className="empty">No customers yet.</p>
       ) : (
         <div className="table-wrap">
-          <table>
+          <table className="ot-table">
             <thead>
               <tr>
                 <th>Name</th>
@@ -157,9 +157,9 @@ export default function CustomersPage() {
             <tbody>
               {customers.map((c) => (
                 <tr key={c.id}>
-                  <td>{c.name}</td>
-                  <td>{c.contactNumber || <span className="muted">—</span>}</td>
-                  <td>
+                  <td className="cell-title">{c.name}</td>
+                  <td className="cell-subtitle">{c.contactNumber || <span className="muted">No contact number</span>}</td>
+                  <td className="cell-type">
                     <span className="badge">{c.acquisitionChannel.replace(/_/g, " ")}</span>
                   </td>
                 </tr>

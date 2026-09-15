@@ -806,6 +806,54 @@ tr:last-child td {
     padding: 5px 10px;
   }
 
+  /* Order Tracker's list tables (Orders, My Work, Customers) collapse to a card per
+     row the same way .data-table does above — same breakpoint, same mechanism (each
+     <td> stays its own element, matching one <th>; these classes only change how it
+     displays on a phone), own cell names since the columns differ. */
+  .ot-table,
+  .ot-table tbody,
+  .ot-table tr,
+  .ot-table td {
+    display: block;
+  }
+  .ot-table thead {
+    display: none;
+  }
+  .ot-table tr {
+    border: 1px solid var(--border-soft);
+    border-radius: 12px;
+    padding: 12px;
+    margin-bottom: 10px;
+  }
+  .ot-table td {
+    border: none;
+    padding: 2px 0;
+  }
+  .ot-table td:empty {
+    display: none;
+  }
+  .ot-table .cell-title {
+    font-weight: 600;
+    font-size: 15px;
+    line-height: 1.3;
+  }
+  .ot-table .cell-subtitle {
+    color: var(--text-dim);
+    font-size: 13px;
+  }
+  .ot-table .cell-order,
+  .ot-table .cell-type,
+  .ot-table .cell-status,
+  .ot-table .cell-payment,
+  .ot-table .cell-completion,
+  .ot-table .cell-due {
+    display: inline-flex;
+    align-items: center;
+    vertical-align: middle;
+    margin: 4px 10px 0 0;
+    font-size: 13px;
+  }
+
   .toolbar {
     gap: 6px;
   }

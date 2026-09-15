@@ -64,11 +64,11 @@ export default function MyWorkPage() {
         </p>
       ) : (
         <div className="table-wrap">
-          <table>
+          <table className="ot-table">
             <thead>
               <tr>
-                <th>Order #</th>
                 <th>Item</th>
+                <th>Order #</th>
                 <th>Customer</th>
                 <th>Type</th>
                 <th>Status</th>
@@ -79,19 +79,19 @@ export default function MyWorkPage() {
             <tbody>
               {ordersList.map((o) => (
                 <tr key={o.id}>
-                  <td className="mono">
-                    <Link to={`/ordertracker/orders/${o.id}`}>{o.orderNumber}</Link>
+                  <td className="cell-title">
+                    <Link to={`/ordertracker/orders/${o.id}`}>{o.itemName || <span className="muted">Untitled order</span>}</Link>
                   </td>
-                  <td>{o.itemName || <span className="muted">—</span>}</td>
-                  <td>{customerName(o.customerId)}</td>
-                  <td>
+                  <td className="cell-order mono">{o.orderNumber}</td>
+                  <td className="cell-subtitle">{customerName(o.customerId)}</td>
+                  <td className="cell-type">
                     <span className="badge">{o.orderType}</span>
                   </td>
-                  <td>
+                  <td className="cell-status">
                     <span className="badge">{o.status}</span>
                   </td>
-                  <td>{o.completionPercentage.toFixed(0)}%</td>
-                  <td>
+                  <td className="cell-completion">{o.completionPercentage.toFixed(0)}%</td>
+                  <td className="cell-due">
                     {(() => {
                       const due = o.orderType === "INDIVIDUAL" ? o.costEstimate?.computedDueDate : o.bulkDetails?.computedDueDate;
                       return due ? new Date(due).toLocaleDateString() : <span className="muted">—</span>;
