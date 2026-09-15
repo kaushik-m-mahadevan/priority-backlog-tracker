@@ -109,13 +109,45 @@ patterns already established elsewhere in the codebase (same DTO-threading shape
   `MandatoryItemsFields` (multi-entry grouping, isTool filtering, add/remove, edit-triggers-
   onChange). `npm ci` (what `frontend-maven-plugin` actually runs) confirmed working with the
   updated lockfile via a full `mvn package`.
+- **Maintainability — `Packaging.cost()`/`timeHours()` deduplicated against
+  `OrderCalculator.lineItemsCost()`.** Both independently summed `unitCost * quantity` (and
+  `unitTimeHours * quantity`) over a line-item list. Extracted to
+  `LineItem.sumCost()`/`sumTimeHours()` static helpers; both call sites now delegate.
+- **Performance/scale — reviewed via a dedicated background audit** (N+1 patterns, missing
+  pagination, indexing, repeated fetches). One real, worth-fixing issue found and fixed:
+  `OrderService.view()` called `businessConfigService.get()` per order, so loading the Orders
+  list or My Work issued one extra Group + BusinessConfig fetch per bulk order instead of once
+  per request. Fixed by threading an already-fetched `BusinessConfig` through a new overload
+  used by `all()`/`myWork()`; single-order call sites unchanged. Everything else the audit found
+  is genuinely low-priority at this app's actual scale (dozens to low-hundreds of orders per
+  business): a small per-creator loop in bulk-variant building (bounded, not proportional to
+  total order volume), and a handful of unbounded `List<T>` collection endpoints
+  (`OrderRepository.findByGroupId`, `CustomerRepository.findByGroupId`, etc.) that have no
+  `Pageable` — fine today, worth adding once order/customer counts head into the thousands
+  (unlike Items, which already has archival + pagination). Indexing matches actual query
+  patterns; no unindexed hot-path query found.
+- **i18n/l10n — reviewed via a dedicated background audit.** One real, worth-fixing bug found
+  and fixed: three Order Tracker pages (`OrderDetailPage.tsx`, `OrdersPage.tsx`,
+  `MyWorkPage.tsx`) called raw `toLocaleDateString()` instead of the shared
+  `formatDate`/`formatDateTime` (`src/lib/format.ts`) that the rest of the app already uses to
+  honor the user's chosen display timezone (`src/lib/tz.ts`) — so changing that preference
+  silently had no effect on Order Tracker's own dates. Fixed at all 5 call sites; verified live
+  (dates now render as "16 Sept 2026" instead of the browser's raw locale format). Currency
+  formatting (`₹{amount.toFixed(2)}`, ~12 sites in `OrderDetailPage.tsx`) was reviewed and left
+  as-is: no thousands separator, but internally consistent everywhere it's used, and this is a
+  single-currency (INR), single-business app — a formatter migration would be cosmetic churn,
+  not a fix for an actual inconsistency. No multi-language need exists or is anticipated, so no
+  i18n framework was considered.
 
 ## Flagged, not fixed — still open
 
-- **Maintainability — `Packaging.cost()`/`timeHours()` still duplicate `OrderCalculator`'s
-  line-item summation** (LOW risk, both still agree today).
 - **First-time-user — "Business" vs "Group" terminology still isn't reconciled** between Order
   Tracker's own screens and `AddToGroupModal`'s cross-applet language. **User decision
   (2026-09-15): leave the code as-is** — noted here for the record, not slated for
   implementation.
-- **Performance/scale and i18n/l10n** — still not reviewed at all, per round 1's own scope note.
+- **Mobile — unbounded list pagination** (see performance note above) and a small per-creator
+  loop in bulk-variant building are low-priority today; revisit if order/customer volume grows
+  substantially.
+
+This closes out every item from the user's 2026-09-15 approved punch list except the
+Business/Group terminology question, which the user explicitly chose to defer.
