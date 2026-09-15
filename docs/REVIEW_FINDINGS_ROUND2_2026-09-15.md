@@ -104,8 +104,9 @@ patterns already established elsewhere in the codebase (same DTO-threading shape
 - **Maintainability — `Packaging.cost()`/`timeHours()` still duplicate `OrderCalculator`'s
   line-item summation** (LOW risk, both still agree today).
 - **First-time-user — "Business" vs "Group" terminology still isn't reconciled** between Order
-  Tracker's own screens and `AddToGroupModal`'s cross-applet language. This is a product/naming
-  decision, not something to guess at unsupervised.
+  Tracker's own screens and `AddToGroupModal`'s cross-applet language. **User decision
+  (2026-09-15): leave the code as-is** — noted here for the record, not slated for
+  implementation.
 - **QA — frontend still has no rendering/component tests**, only pure-function tests
   (`validateSplits` now included). Adding `@testing-library/react` would need a new dev
   dependency install, which wasn't attempted this session — no verified network/registry access
