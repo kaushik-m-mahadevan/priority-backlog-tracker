@@ -206,6 +206,18 @@ public class Order {
         private double unitCost;
         private Double unitTimeHours;
         private String note;
+
+        /** The one place {@code unitCost * quantity} gets summed across a list of line
+         *  items — {@link Packaging#cost()} and {@code OrderCalculator.lineItemsCost}
+         *  both delegate here instead of each reimplementing it. */
+        public static double sumCost(List<LineItem> items) {
+            return items.stream().mapToDouble(i -> i.unitCost * i.quantity).sum();
+        }
+
+        /** Same as {@link #sumCost}, for {@code unitTimeHours * quantity}. */
+        public static double sumTimeHours(List<LineItem> items) {
+            return items.stream().mapToDouble(i -> (i.unitTimeHours == null ? 0 : i.unitTimeHours) * i.quantity).sum();
+        }
     }
 
     /** {@code tentativePresetId} references a group's {@code PresetOption}; its cost/time are
@@ -225,15 +237,11 @@ public class Order {
         private List<LineItem> itemizedList = new ArrayList<>();
 
         public double cost() {
-            return itemizedList.isEmpty() ? presetCost
-                    : itemizedList.stream().mapToDouble(li -> li.getUnitCost() * li.getQuantity()).sum();
+            return itemizedList.isEmpty() ? presetCost : LineItem.sumCost(itemizedList);
         }
 
         public double timeHours() {
-            return itemizedList.isEmpty() ? presetTimeHours
-                    : itemizedList.stream()
-                            .mapToDouble(li -> (li.getUnitTimeHours() == null ? 0 : li.getUnitTimeHours()) * li.getQuantity())
-                            .sum();
+            return itemizedList.isEmpty() ? presetTimeHours : LineItem.sumTimeHours(itemizedList);
         }
     }
 

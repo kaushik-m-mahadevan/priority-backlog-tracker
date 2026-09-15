@@ -31,7 +31,7 @@ public class OrderCalculator {
     }
 
     public double lineItemsCost(List<LineItem> items) {
-        return items.stream().mapToDouble(i -> i.getUnitCost() * i.getQuantity()).sum();
+        return LineItem.sumCost(items);
     }
 
     /** grossCost = mandatoryItemsCost + addOnsCost + packagingCost (spec §5.10). */
