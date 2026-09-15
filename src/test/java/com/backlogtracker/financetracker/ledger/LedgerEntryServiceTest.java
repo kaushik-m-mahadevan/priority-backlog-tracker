@@ -24,8 +24,10 @@ import com.backlogtracker.financetracker.ledger.domain.LedgerEntryType;
 import com.backlogtracker.financetracker.ledger.domain.SplitPartyType;
 import com.backlogtracker.financetracker.ledger.dto.CreateLedgerEntryRequest;
 import com.backlogtracker.financetracker.ledger.dto.CreateLedgerEntryRequest.ShareInput;
+import com.backlogtracker.financetracker.ledger.dto.CreateSettlementRequest;
 import com.backlogtracker.financetracker.ledger.dto.LedgerEntryView;
 import com.backlogtracker.financetracker.ledger.repository.LedgerEntryRepository;
+import com.backlogtracker.financetracker.ledger.repository.SettlementRepository;
 import com.backlogtracker.financetracker.ledger.service.LedgerEntryService;
 
 @SpringBootTest
@@ -34,6 +36,7 @@ class LedgerEntryServiceTest {
     @Autowired GroupService groupService;
     @Autowired LedgerEntryService ledgerEntryService;
     @Autowired LedgerEntryRepository entries;
+    @Autowired SettlementRepository settlements;
     @Autowired GroupRepository groups;
     @Autowired UserRepository users;
 
@@ -59,6 +62,7 @@ class LedgerEntryServiceTest {
     @AfterEach
     void cleanUp() {
         entries.findByGroupIdOrderByCreatedAtDesc(financeGroup.getId()).forEach(e -> entries.deleteById(e.getId()));
+        settlements.findByGroupId(financeGroup.getId()).forEach(s -> settlements.deleteById(s.getId()));
         groups.deleteById(financeGroup.getId());
         users.deleteById(payerId);
         users.deleteById(personAId);
@@ -204,5 +208,76 @@ class LedgerEntryServiceTest {
         var balances = ledgerEntryService.balances(financeGroup.getId(), payerId);
 
         assertThat(balances).isEmpty();
+    }
+
+    @Test
+    void settlingUpReducesOnlyTheSpecificDebtNotAThirdPartysBalance() {
+        // Payer fronts 900, split three ways evenly (300 each). A settles their 300 with
+        // the payer - only A's and the payer's balances should move; B's stays untouched.
+        ledgerEntryService.create(financeGroup.getId(), payerId, new CreateLedgerEntryRequest(
+                LedgerEntryType.EXPENSE, "Lunch", new BigDecimal("900.00"), payerId,
+                List.of(
+                        new ShareInput(SplitPartyType.PERSON, payerId, new BigDecimal("0.3334")),
+                        new ShareInput(SplitPartyType.PERSON, personAId, new BigDecimal("0.3333")),
+                        new ShareInput(SplitPartyType.PERSON, personBId, new BigDecimal("0.3333")))));
+
+        ledgerEntryService.settleUp(financeGroup.getId(), payerId,
+                new CreateSettlementRequest(SplitPartyType.PERSON, personAId, new BigDecimal("299.97")));
+
+        var balances = ledgerEntryService.balances(financeGroup.getId(), payerId).stream()
+                .collect(java.util.stream.Collectors.toMap(b -> b.personId(), b -> b));
+
+        assertThat(balances.get(personAId).netFromOthers()).isEqualByComparingTo(BigDecimal.ZERO);
+        assertThat(balances.get(personBId).netFromOthers()).isEqualByComparingTo("-299.97");
+        assertThat(balances.get(payerId).netFromOthers()).isEqualByComparingTo("299.97");
+    }
+
+    @Test
+    void settlingUpFromTheBusinessReducesWhatTheBusinessOwes() {
+        ledgerEntryService.create(financeGroup.getId(), payerId, new CreateLedgerEntryRequest(
+                LedgerEntryType.EXPENSE, "Shipment", new BigDecimal("450.00"), payerId,
+                List.of(new ShareInput(SplitPartyType.BUSINESS, null, BigDecimal.ONE))));
+
+        ledgerEntryService.settleUp(financeGroup.getId(), payerId,
+                new CreateSettlementRequest(SplitPartyType.BUSINESS, null, new BigDecimal("450.00")));
+
+        // Settling doesn't make the person disappear from the list - they had real
+        // activity, now netted to zero, which is more useful to show than silently
+        // vanishing (a UI that shows "you're now settled up" beats one that shows nothing).
+        var balances = ledgerEntryService.balances(financeGroup.getId(), payerId);
+        var payerBalance = balances.stream().filter(b -> b.personId().equals(payerId)).findFirst().orElseThrow();
+        assertThat(payerBalance.owedByBusiness()).isEqualByComparingTo(BigDecimal.ZERO);
+    }
+
+    @Test
+    void onlyThePersonOwedCanSettleUp() {
+        // Only the caller (whoever is owed) can create a settlement recording that they
+        // received payment - request.toPersonId is always the caller, never a body field,
+        // but the amount-owed check on their own balance is what actually enforces this:
+        // a bystander with no balance can't record settling someone else's debt.
+        ledgerEntryService.create(financeGroup.getId(), payerId, new CreateLedgerEntryRequest(
+                LedgerEntryType.EXPENSE, "Lunch", new BigDecimal("300.00"), payerId,
+                List.of(
+                        new ShareInput(SplitPartyType.PERSON, payerId, new BigDecimal("0.5")),
+                        new ShareInput(SplitPartyType.PERSON, personAId, new BigDecimal("0.5")))));
+
+        assertThatThrownBy(() -> ledgerEntryService.settleUp(financeGroup.getId(), personBId,
+                new CreateSettlementRequest(SplitPartyType.PERSON, personAId, new BigDecimal("150.00"))))
+                .isInstanceOf(ResponseStatusException.class)
+                .hasMessageContaining("more than is currently owed");
+    }
+
+    @Test
+    void rejectsSettlingMoreThanIsCurrentlyOwed() {
+        ledgerEntryService.create(financeGroup.getId(), payerId, new CreateLedgerEntryRequest(
+                LedgerEntryType.EXPENSE, "Lunch", new BigDecimal("300.00"), payerId,
+                List.of(
+                        new ShareInput(SplitPartyType.PERSON, payerId, new BigDecimal("0.5")),
+                        new ShareInput(SplitPartyType.PERSON, personAId, new BigDecimal("0.5")))));
+
+        assertThatThrownBy(() -> ledgerEntryService.settleUp(financeGroup.getId(), payerId,
+                new CreateSettlementRequest(SplitPartyType.PERSON, personAId, new BigDecimal("999.00"))))
+                .isInstanceOf(ResponseStatusException.class)
+                .hasMessageContaining("more than is currently owed");
     }
 }

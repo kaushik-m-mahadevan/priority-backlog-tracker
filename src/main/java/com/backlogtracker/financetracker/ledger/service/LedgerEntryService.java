@@ -13,12 +13,16 @@ import com.backlogtracker.commons.group.domain.Group;
 import com.backlogtracker.commons.group.service.GroupService;
 import com.backlogtracker.financetracker.ledger.domain.LedgerEntry;
 import com.backlogtracker.financetracker.ledger.domain.LedgerEntryType;
+import com.backlogtracker.financetracker.ledger.domain.Settlement;
 import com.backlogtracker.financetracker.ledger.domain.SplitPartyType;
 import com.backlogtracker.financetracker.ledger.dto.BalanceView;
 import com.backlogtracker.financetracker.ledger.dto.CreateLedgerEntryRequest;
 import com.backlogtracker.financetracker.ledger.dto.CreateLedgerEntryRequest.ShareInput;
+import com.backlogtracker.financetracker.ledger.dto.CreateSettlementRequest;
 import com.backlogtracker.financetracker.ledger.dto.LedgerEntryView;
+import com.backlogtracker.financetracker.ledger.dto.SettlementView;
 import com.backlogtracker.financetracker.ledger.repository.LedgerEntryRepository;
+import com.backlogtracker.financetracker.ledger.repository.SettlementRepository;
 
 import lombok.RequiredArgsConstructor;
 
@@ -38,6 +42,7 @@ public class LedgerEntryService {
     private static final BigDecimal RATIO_TOLERANCE = new BigDecimal("0.01");
 
     private final LedgerEntryRepository entries;
+    private final SettlementRepository settlements;
     private final GroupService groupService;
 
     public LedgerEntryView create(String groupId, String userId, CreateLedgerEntryRequest request) {
@@ -68,12 +73,64 @@ public class LedgerEntryService {
         return entries.findByGroupIdOrderByCreatedAtDesc(groupId).stream().map(LedgerEntryView::of).toList();
     }
 
+    public List<SettlementView> listSettlements(String groupId, String userId) {
+        groupService.requireMember(groupId, userId);
+        return settlements.findByGroupId(groupId).stream().map(SettlementView::of).toList();
+    }
+
     /** See {@link BalanceView} for the two-number shape and why they're kept separate.
      *  Every group member can compute every other member's balance, not just their own
      *  (full transparency, per design decision) — this returns one row per member who
-     *  appears anywhere in the ledger, in the order first encountered. */
+     *  appears anywhere in the ledger or a settlement, in the order first encountered. */
     public List<BalanceView> balances(String groupId, String userId) {
         groupService.requireMember(groupId, userId);
+        return computeBalances(groupId);
+    }
+
+    /** Records that {@code request.fromPersonId()} (or the business) paid the caller
+     *  {@code request.amount()} — only the caller, i.e. the person actually owed, may do
+     *  this (design decision: only the person owed money can mark it settled). Rejected
+     *  if it would settle more than the caller's current aggregate balance with that
+     *  source, so a typo can't manufacture a debt that was never owed. */
+    public SettlementView settleUp(String groupId, String userId, CreateSettlementRequest request) {
+        Group group = groupService.requireMember(groupId, userId);
+        if (request.fromPartyType() == SplitPartyType.PERSON) {
+            if (request.fromPersonId() == null || request.fromPersonId().isBlank()) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "fromPersonId is required when fromPartyType is PERSON");
+            }
+            if (!group.hasMember(request.fromPersonId())) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "fromPersonId must be a member of this finance group");
+            }
+            if (request.fromPersonId().equals(userId)) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Cannot settle up with yourself");
+            }
+        } else if (request.fromPersonId() != null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "fromPersonId must not be set when fromPartyType is BUSINESS");
+        }
+
+        Map<String, BalanceView> current = computeBalances(groupId).stream()
+                .collect(java.util.stream.Collectors.toMap(BalanceView::personId, b -> b));
+        BalanceView mine = current.get(userId);
+        BigDecimal owedToMe = request.fromPartyType() == SplitPartyType.BUSINESS
+                ? (mine == null ? BigDecimal.ZERO : mine.owedByBusiness())
+                : (mine == null ? BigDecimal.ZERO : mine.netFromOthers().max(BigDecimal.ZERO));
+        if (request.amount().compareTo(owedToMe) > 0) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "That's more than is currently owed to you (" + owedToMe + ")");
+        }
+
+        Settlement settlement = Settlement.builder()
+                .groupId(groupId)
+                .fromPartyType(request.fromPartyType())
+                .fromPersonId(request.fromPartyType() == SplitPartyType.PERSON ? request.fromPersonId() : null)
+                .toPersonId(userId)
+                .amount(request.amount())
+                .createdByUserId(userId)
+                .build();
+        return SettlementView.of(settlements.save(settlement));
+    }
+
+    private List<BalanceView> computeBalances(String groupId) {
         Map<String, BigDecimal> netFromOthers = new LinkedHashMap<>();
         Map<String, BigDecimal> owedByBusiness = new LinkedHashMap<>();
 
@@ -95,6 +152,17 @@ public class LedgerEntryService {
                     add(owedByBusiness, share.getPersonId(), shareAmount);
                 }
                 // INCOME credited to BUSINESS is the business's own money — no personal balance effect.
+            }
+        }
+
+        // Settlements apply on top, symmetric to a share: money from A to B reduces A's
+        // debt and reduces what's owed to B by the same amount.
+        for (Settlement s : settlements.findByGroupId(groupId)) {
+            if (s.getFromPartyType() == SplitPartyType.BUSINESS) {
+                add(owedByBusiness, s.getToPersonId(), s.getAmount().negate());
+            } else {
+                add(netFromOthers, s.getFromPersonId(), s.getAmount());
+                add(netFromOthers, s.getToPersonId(), s.getAmount().negate());
             }
         }
 

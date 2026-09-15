@@ -37,3 +37,18 @@ export interface BalanceView {
   netFromOthers: number;
   owedByBusiness: number;
 }
+
+export interface CreateSettlementRequest {
+  fromPartyType: SplitPartyType;
+  fromPersonId: string | null;
+  amount: number;
+}
+
+export interface SettlementView {
+  id: string;
+  fromPartyType: SplitPartyType;
+  fromPersonId: string | null;
+  toPersonId: string;
+  amount: number;
+  createdAt: string;
+}

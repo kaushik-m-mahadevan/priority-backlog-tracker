@@ -16,7 +16,9 @@ import com.backlogtracker.commons.security.AuthUser;
 import com.backlogtracker.commons.security.RequiresUser;
 import com.backlogtracker.financetracker.ledger.dto.BalanceView;
 import com.backlogtracker.financetracker.ledger.dto.CreateLedgerEntryRequest;
+import com.backlogtracker.financetracker.ledger.dto.CreateSettlementRequest;
 import com.backlogtracker.financetracker.ledger.dto.LedgerEntryView;
+import com.backlogtracker.financetracker.ledger.dto.SettlementView;
 import com.backlogtracker.financetracker.ledger.service.LedgerEntryService;
 
 import jakarta.validation.Valid;
@@ -45,5 +47,19 @@ public class LedgerEntryController {
     public LedgerEntryView create(@PathVariable String groupId, @Valid @RequestBody CreateLedgerEntryRequest request,
                                   @AuthenticationPrincipal AuthUser actor) {
         return ledgerEntryService.create(groupId, actor.id(), request);
+    }
+
+    @GetMapping("/settlements")
+    public List<SettlementView> settlements(@PathVariable String groupId, @AuthenticationPrincipal AuthUser actor) {
+        return ledgerEntryService.listSettlements(groupId, actor.id());
+    }
+
+    /** Only the caller (the person actually owed the money) may create this — see
+     *  {@link com.backlogtracker.financetracker.ledger.domain.Settlement}. */
+    @PostMapping("/settlements")
+    @ResponseStatus(HttpStatus.CREATED)
+    public SettlementView settleUp(@PathVariable String groupId, @Valid @RequestBody CreateSettlementRequest request,
+                                   @AuthenticationPrincipal AuthUser actor) {
+        return ledgerEntryService.settleUp(groupId, actor.id(), request);
     }
 }
