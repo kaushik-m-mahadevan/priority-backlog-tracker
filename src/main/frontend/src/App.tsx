@@ -29,6 +29,7 @@ import ManageBusinessPage from "./ordertracker/pages/ManageBusinessPage";
 import FinanceTrackerRoot from "./financetracker/FinanceTrackerRoot";
 import OverviewPage from "./financetracker/pages/OverviewPage";
 import ExpensesPage from "./financetracker/pages/ExpensesPage";
+import IncomePage from "./financetracker/pages/IncomePage";
 
 export default function App() {
   const { user, loading } = useAuth();
@@ -96,6 +97,7 @@ export default function App() {
                 <Route path="/financetracker" element={<FinanceTrackerRoot />}>
                   <Route index element={<OverviewPage />} />
                   <Route path="expenses" element={<ExpensesPage />} />
+                  <Route path="income" element={<IncomePage />} />
                 </Route>
                 <Route path="*" element={<Navigate to="/" replace />} />
               </Routes>
