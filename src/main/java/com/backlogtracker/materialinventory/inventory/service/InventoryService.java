@@ -1,6 +1,7 @@
 package com.backlogtracker.materialinventory.inventory.service;
 
 import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 
@@ -28,6 +29,16 @@ public class InventoryService {
      *  compared with a small epsilon since the value arrives as a double. */
     private static final double QUARTER_STEP_EPSILON = 1e-9;
 
+    /** How long an entry can go untouched before it's flagged "stale" in the UI (design
+     *  decision: tie staleness to activity). This approximates activity using the entry's
+     *  own {@code updatedAt} rather than a real cross-applet signal (an order intake or
+     *  completion in Order Tracker, say) — that would need new commons plumbing between
+     *  applets that otherwise don't depend on each other, out of scope for a first version.
+     *  30 days is a judgment call: long enough that normal weekly crafting activity doesn't
+     *  spuriously flag everything, short enough to actually catch inventory nobody's
+     *  touched in a while. Revisit if a real cross-applet activity signal gets built later. */
+    private static final Duration STALE_AFTER = Duration.ofDays(30);
+
     private final InventoryEntryRepository repository;
     private final YarnTypeService yarnTypeService;
     private final GroupService groupService;
@@ -37,12 +48,18 @@ public class InventoryService {
      *  transparency, same precedent as Finance Tracker's balances), not just their own. */
     public List<InventoryEntryView> listAll(String groupId, String userId) {
         groupService.requireMember(groupId, userId);
-        return repository.findByGroupId(groupId).stream().map(InventoryEntryView::of).toList();
+        return repository.findByGroupId(groupId).stream().map(this::toView).toList();
     }
 
     public List<InventoryEntryView> mine(String groupId, String userId) {
         groupService.requireMember(groupId, userId);
-        return repository.findByGroupIdAndUserId(groupId, userId).stream().map(InventoryEntryView::of).toList();
+        return repository.findByGroupIdAndUserId(groupId, userId).stream().map(this::toView).toList();
+    }
+
+    private InventoryEntryView toView(InventoryEntry e) {
+        boolean stale = e.getUpdatedAt() != null
+                && Duration.between(e.getUpdatedAt(), Instant.now(clock)).compareTo(STALE_AFTER) > 0;
+        return InventoryEntryView.of(e, stale);
     }
 
     /** Setting quantity to exactly 0 removes the row entirely rather than keeping a

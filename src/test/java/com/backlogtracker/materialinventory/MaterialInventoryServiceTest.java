@@ -3,6 +3,8 @@ package com.backlogtracker.materialinventory;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 
 import org.junit.jupiter.api.AfterEach;
@@ -143,5 +145,28 @@ class MaterialInventoryServiceTest {
         yarnTypeService.delete(inventoryGroup.getId(), userAId, wool.id());
 
         assertThat(yarnTypeService.list(inventoryGroup.getId(), userAId)).isEmpty();
+    }
+
+    @Test
+    void aFreshlySetQuantityIsNotFlaggedStale() {
+        YarnTypeView wool = createWool();
+        inventoryService.setMyQuantity(inventoryGroup.getId(), userAId, wool.id(), 1.0);
+
+        InventoryEntryView view = inventoryService.mine(inventoryGroup.getId(), userAId).get(0);
+
+        assertThat(view.stale()).isFalse();
+    }
+
+    @Test
+    void anEntryUntouchedForOverThirtyDaysIsFlaggedStale() {
+        YarnTypeView wool = createWool();
+        inventoryService.setMyQuantity(inventoryGroup.getId(), userAId, wool.id(), 1.0);
+        var entry = entries.findByGroupIdAndUserIdAndYarnTypeId(inventoryGroup.getId(), userAId, wool.id()).orElseThrow();
+        entry.setUpdatedAt(Instant.now().minus(31, ChronoUnit.DAYS));
+        entries.save(entry);
+
+        InventoryEntryView view = inventoryService.mine(inventoryGroup.getId(), userAId).get(0);
+
+        assertThat(view.stale()).isTrue();
     }
 }

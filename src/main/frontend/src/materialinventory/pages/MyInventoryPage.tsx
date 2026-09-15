@@ -41,8 +41,10 @@ export default function MyInventoryPage() {
 
   useEffect(load, [currentGroupId]);
 
-  const quantityFor = (yarnTypeId: string, userId: string) =>
-    entries.find((e) => e.yarnTypeId === yarnTypeId && e.userId === userId)?.quantity ?? 0;
+  const entryFor = (yarnTypeId: string, userId: string) =>
+    entries.find((e) => e.yarnTypeId === yarnTypeId && e.userId === userId);
+  const quantityFor = (yarnTypeId: string, userId: string) => entryFor(yarnTypeId, userId)?.quantity ?? 0;
+  const isStale = (yarnTypeId: string, userId: string) => entryFor(yarnTypeId, userId)?.stale ?? false;
 
   const submitNewYarn = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -210,6 +212,15 @@ export default function MyInventoryPage() {
                             </button>
                           ) : (
                             quantityFor(y.id, m.id)
+                          )}
+                          {isStale(y.id, m.id) && quantityFor(y.id, m.id) > 0 && (
+                            <span
+                              className="muted"
+                              title="Hasn't been updated in a while — this count might be out of date"
+                              style={{ fontSize: 11, marginLeft: 4 }}
+                            >
+                              stale
+                            </span>
                           )}
                         </td>
                       );

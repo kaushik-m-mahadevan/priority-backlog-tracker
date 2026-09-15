@@ -19,6 +19,9 @@ export interface InventoryEntryView {
   yarnTypeId: string;
   quantity: number;
   updatedAt: string;
+  /** Approximates staleness from how long this entry has gone untouched (currently 30
+   *  days) — not a real activity signal, just a hint the count might be out of date. */
+  stale: boolean;
 }
 
 export interface SetInventoryQuantityRequest {
