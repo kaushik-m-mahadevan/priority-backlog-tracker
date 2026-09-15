@@ -1,7 +1,10 @@
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { api, ApiError } from "../../api/client";
 import { useBusiness } from "../BusinessContext";
 import { Creature } from "../../components/Creature";
+import type { GroupView } from "../../types";
+
+const FINANCE_APPLET_KEY = "financetracker";
 
 /** Order Tracker's equivalent of Backlog Tracker's "Groups" page — a business here is the
  *  same underlying Group as a Backlog Tracker group (just scoped to the ordertracker
@@ -15,7 +18,58 @@ export default function ManageBusinessPage() {
   const [err, setErr] = useState<string | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
 
+  const [linkedFinanceGroupId, setLinkedFinanceGroupId] = useState<string | null>(null);
+  const [financeGroups, setFinanceGroups] = useState<GroupView[]>([]);
+  const [selectedFinanceGroupId, setSelectedFinanceGroupId] = useState("");
+  const [linkLoading, setLinkLoading] = useState(true);
+
+  useEffect(() => {
+    if (!currentGroupId) return;
+    setLinkLoading(true);
+    Promise.all([
+      api.get<{ linkedGroupId: string | null }>(`/groups/${currentGroupId}/links/${FINANCE_APPLET_KEY}`),
+      api.get<GroupView[]>(`/groups?appletKey=${FINANCE_APPLET_KEY}`),
+    ])
+      .then(([link, groups]) => {
+        setLinkedFinanceGroupId(link.linkedGroupId);
+        setFinanceGroups(groups);
+      })
+      .finally(() => setLinkLoading(false));
+  }, [currentGroupId]);
+
+  const linkFinanceGroup = async () => {
+    if (!selectedFinanceGroupId) return;
+    setBusy(true);
+    setErr(null);
+    try {
+      await api.post(`/groups/${currentGroupId}/links`, { groupId: selectedFinanceGroupId });
+      setLinkedFinanceGroupId(selectedFinanceGroupId);
+      setMsg("Finance group linked.");
+    } catch (e) {
+      setErr(e instanceof ApiError ? e.message : "Could not link that finance group");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const unlinkFinanceGroup = async () => {
+    setBusy(true);
+    setErr(null);
+    try {
+      await api.delete(`/groups/${currentGroupId}/links/${FINANCE_APPLET_KEY}`);
+      setLinkedFinanceGroupId(null);
+      setSelectedFinanceGroupId("");
+      setMsg("Finance group unlinked.");
+    } catch (e) {
+      setErr(e instanceof ApiError ? e.message : "Could not unlink the finance group");
+    } finally {
+      setBusy(false);
+    }
+  };
+
   if (!currentBusiness || !currentGroupId) return <p className="muted">Loading…</p>;
+
+  const linkedFinanceGroup = financeGroups.find((g) => g.id === linkedFinanceGroupId);
 
   const startRename = () => {
     setRenaming(true);
@@ -120,6 +174,52 @@ export default function ManageBusinessPage() {
             Invite
           </button>
         </form>
+      </div>
+
+      <div className="card">
+        <h2>Finance group</h2>
+        <p className="muted" style={{ marginTop: -4, marginBottom: 10 }}>
+          Kept as its own separate workspace on purpose, so tracking payments doesn't have to share
+          access with everyday order-taking. At most one finance group can be linked at a time.
+        </p>
+        {linkLoading ? (
+          <p className="muted">Loading…</p>
+        ) : linkedFinanceGroupId ? (
+          <div className="team-add">
+            <span className="chip">{linkedFinanceGroup?.name ?? "Linked finance group"}</span>
+            <button className="ghost" disabled={busy} onClick={unlinkFinanceGroup}>
+              Unlink
+            </button>
+          </div>
+        ) : financeGroups.length === 0 ? (
+          <p className="empty">
+            No Finance Tracker groups yet — create one from the Finance Tracker applet first, then come
+            back here to link it.
+          </p>
+        ) : (
+          <div className="team-add">
+            <label htmlFor="link-finance-group" className="sr-only">
+              Finance group to link
+            </label>
+            <select
+              id="link-finance-group"
+              value={selectedFinanceGroupId}
+              onChange={(e) => setSelectedFinanceGroupId(e.target.value)}
+            >
+              <option value="" disabled>
+                Select a finance group…
+              </option>
+              {financeGroups.map((g) => (
+                <option key={g.id} value={g.id}>
+                  {g.name}
+                </option>
+              ))}
+            </select>
+            <button className="primary" disabled={busy || !selectedFinanceGroupId} onClick={linkFinanceGroup}>
+              Link
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

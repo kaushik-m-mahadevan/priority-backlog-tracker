@@ -26,6 +26,8 @@ import NewOrderPage from "./ordertracker/pages/NewOrderPage";
 import OrderDetailPage from "./ordertracker/pages/OrderDetailPage";
 import BusinessSettingsPage from "./ordertracker/pages/BusinessSettingsPage";
 import ManageBusinessPage from "./ordertracker/pages/ManageBusinessPage";
+import FinanceTrackerRoot from "./financetracker/FinanceTrackerRoot";
+import OverviewPage from "./financetracker/pages/OverviewPage";
 
 export default function App() {
   const { user, loading } = useAuth();
@@ -89,6 +91,9 @@ export default function App() {
                   <Route path="customers" element={<CustomersPage />} />
                   <Route path="manage-business" element={<ManageBusinessPage />} />
                   <Route path="business-settings" element={<BusinessSettingsPage />} />
+                </Route>
+                <Route path="/financetracker" element={<FinanceTrackerRoot />}>
+                  <Route index element={<OverviewPage />} />
                 </Route>
                 <Route path="*" element={<Navigate to="/" replace />} />
               </Routes>

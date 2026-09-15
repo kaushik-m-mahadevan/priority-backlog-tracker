@@ -37,6 +37,14 @@ export default function LauncherPage() {
             <p>Track customers, orders, and payments for a crochet business.</p>
           </Link>
 
+          <Link to="/financetracker" className="applet-card">
+            <span className="applet-icon" aria-hidden="true">
+              💰
+            </span>
+            <h2>Finance Tracker</h2>
+            <p>Track expenses, income, splits, and who owes what.</p>
+          </Link>
+
           <Link to="/settings" className="applet-card">
             <span className="applet-icon" aria-hidden="true">
               ⚙
