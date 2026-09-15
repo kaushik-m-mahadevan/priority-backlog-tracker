@@ -67,7 +67,8 @@ public class OrderService {
 
     public List<OrderView> all(String groupId, String userId) {
         groupService.requireMember(groupId, userId);
-        return repository.findByGroupId(groupId).stream().map(o -> view(o, userId)).toList();
+        BusinessConfig cfg = businessConfigService.get(groupId, userId);
+        return repository.findByGroupId(groupId).stream().map(o -> view(o, userId, cfg)).toList();
     }
 
     /** Orders where the caller's own Creator profile has assigned work — individual orders
@@ -91,7 +92,7 @@ public class OrderService {
                     case "all" -> true;
                     default -> !isCompleteForMe(o, me.getId(), cfg);
                 })
-                .map(o -> view(o, userId))
+                .map(o -> view(o, userId, cfg))
                 .toList();
     }
 
@@ -692,10 +693,17 @@ public class OrderService {
     }
 
     private OrderView view(Order order, String userId) {
+        return view(order, userId, businessConfigService.get(order.getGroupId(), userId));
+    }
+
+    /** Same as {@link #view(Order, String)}, but for a caller that's already fetched
+     *  {@code cfg} once for a whole list of orders (e.g. {@link #all} / {@link #myWork})
+     *  instead of once per order — {@code BusinessConfig} is identical for every order in
+     *  the same group, so re-fetching it per order in a loop is a pure N+1 query cost. */
+    private OrderView view(Order order, String userId, BusinessConfig cfg) {
         double completion = order.getOrderType() == OrderType.INDIVIDUAL
                 ? calculator.individualCompletionFraction(order.getStageAssignments()) * 100
-                : calculator.bulkCompletionFraction(order.getBulkDetails(),
-                        businessConfigService.get(order.getGroupId(), userId).getWorkStages()) * 100;
+                : calculator.bulkCompletionFraction(order.getBulkDetails(), cfg.getWorkStages()) * 100;
         double finalCost = order.getOrderType() == OrderType.INDIVIDUAL
                 ? (order.getCostEstimate() == null ? 0 : order.getCostEstimate().getFinalCost())
                 : (order.getBulkDetails() == null ? 0 : order.getBulkDetails().getTotalFinalCost());
