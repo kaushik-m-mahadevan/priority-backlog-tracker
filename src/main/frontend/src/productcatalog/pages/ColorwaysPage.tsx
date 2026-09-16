@@ -29,6 +29,11 @@ export default function ColorwaysPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showNew, setShowNew] = useState(false);
+  /** Which section triggered "+ New colorway" — determines whether the freshly-created
+   *  colorway is immediately promoted out of the idea box (design decision: reuse the
+   *  existing create+promote endpoints rather than adding a backend "create directly in
+   *  catalog" flag, since promote() is already a simple no-side-effect flip). */
+  const [newTarget, setNewTarget] = useState<"idea" | "catalog">("idea");
   const [draft, setDraft] = useState<NewColorwayDraft>(blankDraft());
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editDraft, setEditDraft] = useState<NewColorwayDraft>(blankDraft());
@@ -52,19 +57,28 @@ export default function ColorwaysPage() {
     }
     setError(null);
     try {
-      await productCatalogApi.createColorway(currentGroupId, {
+      const created = await productCatalogApi.createColorway(currentGroupId, {
         name: draft.name.trim(),
         colour: draft.colour.trim(),
         estimatedCost: draft.estimatedCost.trim() ? Number(draft.estimatedCost) : null,
         notes: draft.notes.trim() || null,
         recipeSteps: toRecipeSteps(draft.recipeSteps),
       });
+      if (newTarget === "catalog") {
+        await productCatalogApi.promoteColorway(currentGroupId, created.id);
+      }
       setDraft(blankDraft());
       setShowNew(false);
       load();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to add colorway");
     }
+  };
+
+  const openNewForm = (target: "idea" | "catalog") => {
+    setNewTarget(target);
+    setDraft(blankDraft());
+    setShowNew(true);
   };
 
   const startEditing = (c: ColorwayView) => {
@@ -208,6 +222,53 @@ export default function ColorwaysPage() {
     );
   };
 
+  const newForm = (
+    <form onSubmit={submitNew} style={{ marginTop: 12 }}>
+      <div className="form-grid">
+        <div className="form-row">
+          <label htmlFor="new-name">Name</label>
+          <input id="new-name" value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} required />
+        </div>
+        <div className="form-row">
+          <label htmlFor="new-colour">Colour</label>
+          <input id="new-colour" value={draft.colour} onChange={(e) => setDraft({ ...draft, colour: e.target.value })} required />
+        </div>
+        <div className="form-row">
+          <label htmlFor="new-cost">Estimated cost (optional)</label>
+          <input
+            id="new-cost"
+            type="number"
+            min={0}
+            step={0.01}
+            value={draft.estimatedCost}
+            onChange={(e) => setDraft({ ...draft, estimatedCost: e.target.value })}
+          />
+        </div>
+      </div>
+      <div className="form-row">
+        <label htmlFor="new-notes">Notes (optional)</label>
+        <input id="new-notes" value={draft.notes} onChange={(e) => setDraft({ ...draft, notes: e.target.value })} />
+      </div>
+      <div className="form-row">
+        <label htmlFor="new-recipe">Recipe steps (optional, one per line)</label>
+        <textarea
+          id="new-recipe"
+          rows={4}
+          value={draft.recipeSteps}
+          onChange={(e) => setDraft({ ...draft, recipeSteps: e.target.value })}
+        />
+      </div>
+      <div className="toolbar">
+        <button className="primary" type="submit">
+          Add
+        </button>
+        <button type="button" onClick={() => { setShowNew(false); setDraft(blankDraft()); }}>
+          Cancel
+        </button>
+      </div>
+    </form>
+  );
+
   return (
     <div>
       <h1 className="page-title">Colorways</h1>
@@ -219,58 +280,13 @@ export default function ColorwaysPage() {
           <h2 style={{ margin: 0 }}>Idea box</h2>
           <span className="spacer" />
           {!showNew && (
-            <button type="button" onClick={() => setShowNew(true)}>
+            <button type="button" onClick={() => openNewForm("idea")}>
               + New colorway
             </button>
           )}
         </div>
 
-        {showNew && (
-          <form onSubmit={submitNew} style={{ marginTop: 12 }}>
-            <div className="form-grid">
-              <div className="form-row">
-                <label htmlFor="new-name">Name</label>
-                <input id="new-name" value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} required />
-              </div>
-              <div className="form-row">
-                <label htmlFor="new-colour">Colour</label>
-                <input id="new-colour" value={draft.colour} onChange={(e) => setDraft({ ...draft, colour: e.target.value })} required />
-              </div>
-              <div className="form-row">
-                <label htmlFor="new-cost">Estimated cost (optional)</label>
-                <input
-                  id="new-cost"
-                  type="number"
-                  min={0}
-                  step={0.01}
-                  value={draft.estimatedCost}
-                  onChange={(e) => setDraft({ ...draft, estimatedCost: e.target.value })}
-                />
-              </div>
-            </div>
-            <div className="form-row">
-              <label htmlFor="new-notes">Notes (optional)</label>
-              <input id="new-notes" value={draft.notes} onChange={(e) => setDraft({ ...draft, notes: e.target.value })} />
-            </div>
-            <div className="form-row">
-              <label htmlFor="new-recipe">Recipe steps (optional, one per line)</label>
-              <textarea
-                id="new-recipe"
-                rows={4}
-                value={draft.recipeSteps}
-                onChange={(e) => setDraft({ ...draft, recipeSteps: e.target.value })}
-              />
-            </div>
-            <div className="toolbar">
-              <button className="primary" type="submit">
-                Add
-              </button>
-              <button type="button" onClick={() => { setShowNew(false); setDraft(blankDraft()); }}>
-                Cancel
-              </button>
-            </div>
-          </form>
-        )}
+        {showNew && newTarget === "idea" && newForm}
 
         {loading ? (
           <p className="muted">Loading…</p>
@@ -284,7 +300,18 @@ export default function ColorwaysPage() {
       </div>
 
       <div className="card" style={{ marginTop: 16 }}>
-        <h2>Catalog</h2>
+        <div className="toolbar">
+          <h2 style={{ margin: 0 }}>Catalog</h2>
+          <span className="spacer" />
+          {!showNew && (
+            <button type="button" onClick={() => openNewForm("catalog")}>
+              + New colorway
+            </button>
+          )}
+        </div>
+
+        {showNew && newTarget === "catalog" && newForm}
+
         {loading ? (
           <p className="muted">Loading…</p>
         ) : catalog.length === 0 ? (
