@@ -32,6 +32,8 @@ import ExpensesPage from "./financetracker/pages/ExpensesPage";
 import IncomePage from "./financetracker/pages/IncomePage";
 import ProfitSplitPage from "./financetracker/pages/ProfitSplitPage";
 import ManageFinanceGroupPage from "./financetracker/pages/ManageFinanceGroupPage";
+import ProductCatalogRoot from "./productcatalog/ProductCatalogRoot";
+import ColorwaysPage from "./productcatalog/pages/ColorwaysPage";
 import MaterialInventoryRoot from "./materialinventory/MaterialInventoryRoot";
 import MyInventoryPage from "./materialinventory/pages/MyInventoryPage";
 import RequestsPage from "./materialinventory/pages/RequestsPage";
@@ -109,6 +111,9 @@ export default function App() {
                 <Route path="/materialinventory" element={<MaterialInventoryRoot />}>
                   <Route index element={<MyInventoryPage />} />
                   <Route path="requests" element={<RequestsPage />} />
+                </Route>
+                <Route path="/productcatalog" element={<ProductCatalogRoot />}>
+                  <Route index element={<ColorwaysPage />} />
                 </Route>
                 <Route path="*" element={<Navigate to="/" replace />} />
               </Routes>

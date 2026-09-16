@@ -64,7 +64,8 @@ public class GroupController {
             return Group.APPLET_BACKLOG_TRACKER;
         }
         if (!appletKey.equals(Group.APPLET_BACKLOG_TRACKER) && !appletKey.equals(Group.APPLET_ORDER_TRACKER)
-                && !appletKey.equals(Group.APPLET_FINANCE_TRACKER) && !appletKey.equals(Group.APPLET_MATERIAL_INVENTORY)) {
+                && !appletKey.equals(Group.APPLET_FINANCE_TRACKER) && !appletKey.equals(Group.APPLET_MATERIAL_INVENTORY)
+                && !appletKey.equals(Group.APPLET_PRODUCT_CATALOG)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Unknown appletKey");
         }
         return appletKey;

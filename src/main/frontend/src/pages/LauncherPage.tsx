@@ -53,6 +53,14 @@ export default function LauncherPage() {
             <p>Track yarn on hand, and request or transfer it between team members.</p>
           </Link>
 
+          <Link to="/productcatalog" className="applet-card">
+            <span className="applet-icon" aria-hidden="true">
+              🎨
+            </span>
+            <h2>Product Catalog</h2>
+            <p>Keep a lineup of colorways, from idea to ready-to-sell.</p>
+          </Link>
+
           <Link to="/settings" className="applet-card">
             <span className="applet-icon" aria-hidden="true">
               ⚙
