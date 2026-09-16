@@ -7,6 +7,18 @@ export interface MandatoryItemDraft {
   quantity: number;
   unitCost: number;
   notes: string;
+  linkedYarnTypeId: string | null;
+}
+
+/** Minimal shape needed to populate the optional "link to inventory yarn" dropdown —
+ *  matches materialinventory's own YarnTypeView, kept as a separate local type so
+ *  OrderFormFields doesn't need to import across applet frontend boundaries just for a
+ *  display label. */
+export interface LinkableYarnType {
+  id: string;
+  brand: string;
+  thickness: string;
+  colour: string;
 }
 
 export interface ToolDraft {
@@ -42,7 +54,7 @@ const materialTypes = (types: MandatoryItemType[]) => types.filter((t) => !t.isT
 const toolTypes = (types: MandatoryItemType[]) => types.filter((t) => t.isTool);
 
 export function blankMandatoryItemEntry(itemKey: string): MandatoryItemDraft {
-  return { itemKey, value: "", quantity: 1, unitCost: 0, notes: "" };
+  return { itemKey, value: "", quantity: 1, unitCost: 0, notes: "", linkedYarnTypeId: null };
 }
 
 export function blankToolEntry(itemKey: string): ToolDraft {
@@ -93,10 +105,14 @@ export function MandatoryItemsFields({
   items,
   types: allTypes,
   onChange,
+  yarnTypes,
 }: {
   items: MandatoryItemDraft[];
   types: MandatoryItemType[];
   onChange: (items: MandatoryItemDraft[]) => void;
+  /** Only offered when the business has a linked Material Inventory group — omit or pass
+   *  an empty array to hide the dropdown entirely (design decision: opt-in, not required). */
+  yarnTypes?: LinkableYarnType[];
 }) {
   const types = materialTypes(allTypes);
   if (types.length === 0) {
@@ -178,6 +194,33 @@ export function MandatoryItemsFields({
                       onChange={(e) => onChange(items.map((x, j) => (j === globalIndex ? { ...x, notes: e.target.value } : x)))}
                       placeholder="Why is this mandatory?"
                     />
+                    {yarnTypes && yarnTypes.length > 0 && (
+                      <>
+                        <label
+                          htmlFor={`${valueId}-yarn`}
+                          className="muted"
+                          style={{ fontSize: 11, marginTop: 8, display: "block" }}
+                        >
+                          Link to inventory yarn (optional)
+                        </label>
+                        <select
+                          id={`${valueId}-yarn`}
+                          value={it.linkedYarnTypeId ?? ""}
+                          onChange={(e) =>
+                            onChange(
+                              items.map((x, j) => (j === globalIndex ? { ...x, linkedYarnTypeId: e.target.value || null } : x))
+                            )
+                          }
+                        >
+                          <option value="">Not linked</option>
+                          {yarnTypes.map((y) => (
+                            <option key={y.id} value={y.id}>
+                              {y.brand} — {y.thickness}, {y.colour}
+                            </option>
+                          ))}
+                        </select>
+                      </>
+                    )}
                     {entries.length > 1 && (
                       <button
                         type="button"

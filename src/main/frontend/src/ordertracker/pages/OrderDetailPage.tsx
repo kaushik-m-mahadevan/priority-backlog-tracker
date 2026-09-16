@@ -6,6 +6,8 @@ import { useAuth } from "../../auth/AuthContext";
 import { useBusiness } from "../BusinessContext";
 import AddToGroupModal from "../AddToGroupModal";
 import ImageGallery from "../../components/ImageGallery";
+import { useLinkedYarnTypes } from "../useLinkedYarnTypes";
+import { useMyYarnInventory } from "../useMyYarnInventory";
 import {
   AddOnsFields,
   MandatoryItemsFields,
@@ -71,6 +73,7 @@ function EditOrderForm({
   onSaved: (o: OrderView) => void;
   onCancel: () => void;
 }) {
+  const linkedYarnTypes = useLinkedYarnTypes(groupId);
   const [customerId, setCustomerId] = useState(order.customerId);
   const [itemName, setItemName] = useState(order.itemName ?? "");
   const [orderReceivedDate, setOrderReceivedDate] = useState(order.orderReceivedDate?.slice(0, 10) ?? "");
@@ -83,7 +86,7 @@ function EditOrderForm({
   const [notes, setNotes] = useState(order.notes ?? "");
   const [mandatoryItems, setMandatoryItems] = useState<MandatoryItemDraft[]>(
     order.mandatoryItems.length > 0
-      ? order.mandatoryItems.map((m) => ({ itemKey: m.itemKey, value: m.value, quantity: m.quantity, unitCost: m.unitCost, notes: m.notes ?? "" }))
+      ? order.mandatoryItems.map((m) => ({ itemKey: m.itemKey, value: m.value, quantity: m.quantity, unitCost: m.unitCost, notes: m.notes ?? "", linkedYarnTypeId: m.linkedYarnTypeId }))
       : blankMandatoryItems(config)
   );
   const [tools, setTools] = useState<ToolDraft[]>(
@@ -206,7 +209,7 @@ function EditOrderForm({
       <div className="muted" style={{ fontSize: 12, marginBottom: 6 }}>
         Mandatory items
       </div>
-      <MandatoryItemsFields items={mandatoryItems} types={config.mandatoryItemTypes} onChange={setMandatoryItems} />
+      <MandatoryItemsFields items={mandatoryItems} types={config.mandatoryItemTypes} onChange={setMandatoryItems} yarnTypes={linkedYarnTypes} />
 
       <div className="muted" style={{ fontSize: 12, margin: "12px 0 6px" }}>
         Add-ons
@@ -276,6 +279,7 @@ function EditBulkDetailsForm({
   onSaved: (o: OrderView) => void;
   onCancel: () => void;
 }) {
+  const linkedYarnTypes = useLinkedYarnTypes(groupId);
   const [customerId, setCustomerId] = useState(order.customerId);
   const [itemName, setItemName] = useState(order.itemName ?? "");
   const [orderReceivedDate, setOrderReceivedDate] = useState(order.orderReceivedDate?.slice(0, 10) ?? "");
@@ -292,7 +296,7 @@ function EditBulkDetailsForm({
       variantId: v.variantId,
       label: v.label,
       quantity: v.quantity,
-      mandatoryItems: v.mandatoryItems.map((m) => ({ itemKey: m.itemKey, value: m.value, quantity: m.quantity, unitCost: m.unitCost, notes: m.notes ?? "" })),
+      mandatoryItems: v.mandatoryItems.map((m) => ({ itemKey: m.itemKey, value: m.value, quantity: m.quantity, unitCost: m.unitCost, notes: m.notes ?? "", linkedYarnTypeId: m.linkedYarnTypeId })),
       tools: v.tools.map((t) => ({ itemKey: t.itemKey, value: t.value, notes: t.notes ?? "" })),
       addOns: v.addOns.map((a) => ({ name: a.name, quantity: a.quantity, unitCost: a.unitCost })),
       craftingTimeHours: v.craftingTimeHours,
@@ -467,6 +471,7 @@ function EditBulkDetailsForm({
               items={v.mandatoryItems}
               types={config.mandatoryItemTypes}
               onChange={(items) => setVariants((prev) => prev.map((x, j) => (j === i ? { ...x, mandatoryItems: items } : x)))}
+              yarnTypes={linkedYarnTypes}
             />
 
             <div className="muted" style={{ fontSize: 12, marginTop: 12 }}>
@@ -569,6 +574,8 @@ export default function OrderDetailPage() {
   const { orderId } = useParams<{ orderId: string }>();
   const { currentGroupId } = useBusiness();
   const groupId = currentGroupId!;
+  const linkedYarnTypes = useLinkedYarnTypes(groupId);
+  const myYarnInventory = useMyYarnInventory(groupId);
   const [order, setOrder] = useState<OrderView | null>(null);
   const [config, setConfig] = useState<BusinessConfig | null>(null);
   const [customers, setCustomers] = useState<Customer[]>([]);
@@ -625,6 +632,24 @@ export default function OrderDetailPage() {
   const allTools = dedupeByKeyValue(
     order.orderType === "INDIVIDUAL" ? order.tools : (order.bulkDetails?.variants ?? []).flatMap((v) => v.tools)
   );
+
+  // Shortfall check (design decision: tackled now, opt-in via linkedYarnTypeId) — sums
+  // needed quantity across every material entry sharing a yarn type, not deduped like
+  // allMaterials above, since two variants each needing some can genuinely need more
+  // combined than either alone. Only ever compares against the viewer's own on-hand
+  // count (design decision), never a cross-member total.
+  const allMaterialEntriesRaw =
+    order.orderType === "INDIVIDUAL" ? order.mandatoryItems : (order.bulkDetails?.variants ?? []).flatMap((v) => v.mandatoryItems);
+  const neededByYarnType = new Map<string, number>();
+  allMaterialEntriesRaw.forEach((m) => {
+    if (m.linkedYarnTypeId) {
+      neededByYarnType.set(m.linkedYarnTypeId, (neededByYarnType.get(m.linkedYarnTypeId) ?? 0) + m.quantity);
+    }
+  });
+  const yarnTypeLabel = (id: string) => {
+    const y = linkedYarnTypes.find((yt) => yt.id === id);
+    return y ? `${y.brand} — ${y.thickness}, ${y.colour}` : "linked yarn";
+  };
 
   return (
     <div>
@@ -776,6 +801,27 @@ export default function OrderDetailPage() {
                     </li>
                   ))}
                 </ul>
+              )}
+              {neededByYarnType.size > 0 && (
+                <>
+                  <div className="muted" style={{ fontSize: 12, marginTop: 10, marginBottom: 4 }}>
+                    Your inventory
+                  </div>
+                  <ul style={{ margin: 0, paddingLeft: 18 }}>
+                    {Array.from(neededByYarnType.entries()).map(([yarnTypeId, needed]) => {
+                      const have = myYarnInventory.get(yarnTypeId) ?? 0;
+                      const short = have < needed;
+                      return (
+                        <li key={yarnTypeId}>
+                          {yarnTypeLabel(yarnTypeId)}: you have {have}, need {needed}
+                          {short && (
+                            <strong style={{ color: "var(--urgent)" }}> — short by {(needed - have).toFixed(2)}</strong>
+                          )}
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </>
               )}
             </>
           )}

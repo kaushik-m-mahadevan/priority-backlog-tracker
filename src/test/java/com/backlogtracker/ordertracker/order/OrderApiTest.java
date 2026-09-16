@@ -144,6 +144,28 @@ class OrderApiTest {
     }
 
     @Test
+    void linkedYarnTypeIdOnAMandatoryItemRoundTripsThroughCreateAndUpdate() throws Exception {
+        String body = mvc.perform(auth(post("/api/ordertracker/groups/" + groupId + "/orders"), token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"customerId":"%s","orderType":"INDIVIDUAL","createdByCreatorId":"%s",
+                                 "itemName":"Yarn-linked test item",
+                                 "orderReceivedDate":"2026-01-01T00:00:00Z",
+                                 "mandatoryItems":[{"itemKey":"wool","value":"Red","quantity":1,"unitCost":100,
+                                                     "linkedYarnTypeId":"yarn-type-abc"}],
+                                 "craftingTimeHours":2}""".formatted(customerId, creatorAId)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.mandatoryItems[0].linkedYarnTypeId").value("yarn-type-abc"))
+                .andReturn().getResponse().getContentAsString();
+
+        // Order Tracker's backend never validates this id against Material Inventory (no
+        // cross-applet import) — it's stored and returned opaquely; the frontend does the
+        // actual lookup and shortfall comparison.
+        assertThat(mapper.readTree(body).get("mandatoryItems").get(0).get("linkedYarnTypeId").asText())
+                .isEqualTo("yarn-type-abc");
+    }
+
+    @Test
     void toolsAreKeptSeparateFromMandatoryItemsAndCarryNoCost() throws Exception {
         mvc.perform(auth(post("/api/ordertracker/groups/" + groupId + "/orders"), token)
                         .contentType(MediaType.APPLICATION_JSON)

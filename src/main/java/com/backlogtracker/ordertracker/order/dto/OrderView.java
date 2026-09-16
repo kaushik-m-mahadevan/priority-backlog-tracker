@@ -35,9 +35,11 @@ public record OrderView(String id, String orderNumber, OrderType orderType, Stri
         }
     }
 
-    public record MandatoryItemView(String itemKey, String value, double quantity, double unitCost, String notes) {
+    public record MandatoryItemView(String itemKey, String value, double quantity, double unitCost, String notes,
+                                    String linkedYarnTypeId) {
         static MandatoryItemView of(Order.MandatoryItem m) {
-            return new MandatoryItemView(m.getItemKey(), m.getValue(), m.getQuantity(), m.getUnitCost(), m.getNotes());
+            return new MandatoryItemView(m.getItemKey(), m.getValue(), m.getQuantity(), m.getUnitCost(), m.getNotes(),
+                    m.getLinkedYarnTypeId());
         }
     }
 

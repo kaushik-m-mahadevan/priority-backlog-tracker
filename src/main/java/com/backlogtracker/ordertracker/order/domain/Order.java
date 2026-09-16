@@ -178,6 +178,13 @@ public class Order {
         private double quantity;
         private double unitCost;
         private String notes;
+        /** Optional — only meaningful when this business has a linked Material Inventory
+         *  group. Points at a {@code YarnType} id in that (separate-applet) group; Order
+         *  Tracker's backend never validates or interprets it, just stores and returns it
+         *  opaquely (no cross-applet import), consistent with the whole platform's
+         *  Group/GroupLink model. The frontend does the actual lookup and the resulting
+         *  on-hand-vs-needed shortfall comparison. */
+        private String linkedYarnTypeId;
     }
 
     /** A tool used on this order (e.g. "4mm hook") — separate from {@link MandatoryItem}

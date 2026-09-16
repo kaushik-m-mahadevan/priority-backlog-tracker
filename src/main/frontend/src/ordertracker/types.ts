@@ -117,6 +117,11 @@ export interface MandatoryItem {
   quantity: number;
   unitCost: number;
   notes: string | null;
+  /** Optional — set only when this material is linked to a specific Material Inventory
+   *  YarnType (only offered when the business has a linked inventory group). Opaque to
+   *  Order Tracker's own backend; the frontend uses it to look up the current user's
+   *  on-hand quantity for a shortfall check. */
+  linkedYarnTypeId: string | null;
 }
 
 export interface Tool {

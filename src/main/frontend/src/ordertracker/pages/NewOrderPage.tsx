@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { orderTrackerApi } from "../api";
 import { useBusiness } from "../BusinessContext";
+import { useLinkedYarnTypes } from "../useLinkedYarnTypes";
 import {
   AddOnsFields,
   MandatoryItemsFields,
@@ -24,6 +25,7 @@ export default function NewOrderPage() {
   const { currentGroupId } = useBusiness();
   const groupId = currentGroupId!;
   const navigate = useNavigate();
+  const linkedYarnTypes = useLinkedYarnTypes(groupId);
 
   const [config, setConfig] = useState<BusinessConfig | null>(null);
   const [customers, setCustomers] = useState<Customer[]>([]);
@@ -384,7 +386,7 @@ export default function NewOrderPage() {
             <label className="muted" style={{ fontSize: 12, display: "block", marginBottom: 6 }}>
               Mandatory items
             </label>
-            <MandatoryItemsFields items={mandatoryItems} types={config.mandatoryItemTypes} onChange={setMandatoryItems} />
+            <MandatoryItemsFields items={mandatoryItems} types={config.mandatoryItemTypes} onChange={setMandatoryItems} yarnTypes={linkedYarnTypes} />
 
             <label className="muted" style={{ fontSize: 12, display: "block", margin: "12px 0 6px" }}>
               Add-ons
@@ -452,6 +454,7 @@ export default function NewOrderPage() {
                     items={v.mandatoryItems}
                     types={config.mandatoryItemTypes}
                     onChange={(items) => setVariants((prev) => prev.map((x, j) => (j === i ? { ...x, mandatoryItems: items } : x)))}
+                    yarnTypes={linkedYarnTypes}
                   />
 
                   <div className="muted" style={{ fontSize: 12, marginTop: 12 }}>
