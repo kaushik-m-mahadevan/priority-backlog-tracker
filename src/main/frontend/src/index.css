@@ -1,4 +1,4 @@
-/* ---------- themes: Dusk (default) + Tide ---------- */
+/* ---------- themes: Dusk (default) + Tide + Brown ---------- */
 :root {
   --bg: #221a2e;
   --bg-elev: #2b2238;
@@ -45,6 +45,23 @@
   --p-high: #7fc7b8;
   --p-medium: #9db6d8;
   --p-low: #8fc9a0;
+}
+:root[data-theme="brown"] {
+  --bg: #2b2018;
+  --bg-elev: #362920;
+  --bg-elev-2: #43331f;
+  --border: #4d3c28;
+  --border-soft: #40311f;
+  --text: #f0e6d8;
+  --text-dim: #c2ab8f;
+  --accent: #d29a5c;
+  --accent-hover: #c08748;
+  --growth: #a8ba7c;
+  --urgent: #d97e6b;
+  --p-critical: #d97e6b;
+  --p-high: #d29a5c;
+  --p-medium: #cbb695;
+  --p-low: #a8ba7c;
 }
 
 * {

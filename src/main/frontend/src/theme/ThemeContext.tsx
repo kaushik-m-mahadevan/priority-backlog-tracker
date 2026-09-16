@@ -1,11 +1,12 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from "react";
 
-export type Theme = "dusk" | "tide";
+export type Theme = "dusk" | "tide" | "brown";
 const KEY = "pbt.theme";
 
 function read(): Theme {
   try {
-    return localStorage.getItem(KEY) === "tide" ? "tide" : "dusk";
+    const stored = localStorage.getItem(KEY);
+    return stored === "tide" || stored === "brown" ? stored : "dusk";
   } catch {
     return "dusk";
   }

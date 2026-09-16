@@ -180,6 +180,9 @@ export default function SettingsPage() {
             <button className={theme === "tide" ? "primary" : ""} onClick={() => setTheme("tide")}>
               Tide
             </button>
+            <button className={theme === "brown" ? "primary" : ""} onClick={() => setTheme("brown")}>
+              Brown
+            </button>
           </div>
         </div>
 
