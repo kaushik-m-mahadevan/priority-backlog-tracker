@@ -30,6 +30,7 @@ import com.backlogtracker.ordertracker.order.domain.OrderChangeLog;
 import com.backlogtracker.ordertracker.order.domain.OrderStatus;
 import com.backlogtracker.ordertracker.order.domain.OrderType;
 import com.backlogtracker.ordertracker.order.dto.AddPaymentRequest;
+import com.backlogtracker.ordertracker.order.dto.AddTimeLogEntryRequest;
 import com.backlogtracker.ordertracker.order.dto.CreateOrderRequest;
 import com.backlogtracker.ordertracker.order.dto.MarkShipmentStopRequest;
 import com.backlogtracker.ordertracker.order.dto.OrderView;
@@ -462,6 +463,82 @@ public class OrderService {
     }
 
     private record PaymentStatusHolder(com.backlogtracker.ordertracker.order.domain.PaymentStatus value) {
+    }
+
+    // ---- Time tracking ----
+
+    private static final double TIME_QUARTER_STEP_EPSILON = 1e-9;
+
+    /** RESEARCH is always whole-order; CRAFTING/ASSEMBLY go on the order itself for an
+     *  INDIVIDUAL order, or on the named variant for a BULK order — matching exactly how
+     *  those estimates are already split (design decision, see {@link Order#timeLogEntries}). */
+    public OrderView addTimeLogEntry(String groupId, String userId, String orderId, AddTimeLogEntryRequest request) {
+        groupService.requireMember(groupId, userId);
+        Order order = requireById(groupId, orderId);
+        String loggedByCreatorId = creatorService.require(groupId, userId).getId();
+        double hours = requireQuarterStepHours(request.hours());
+
+        Order.TimeLogEntry entry = Order.TimeLogEntry.builder()
+                .entryId(java.util.UUID.randomUUID().toString())
+                .stage(request.stage())
+                .hours(hours)
+                .date(request.date() == null ? clock.instant() : request.date())
+                .loggedByCreatorId(loggedByCreatorId)
+                .note(request.note() == null || request.note().isBlank() ? null : request.note().trim())
+                .build();
+
+        if (request.stage() == Order.TimeStage.RESEARCH) {
+            if (request.variantId() != null) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Research time is whole-order — variantId must not be set");
+            }
+            order.getTimeLogEntries().add(entry);
+        } else if (order.getOrderType() == OrderType.INDIVIDUAL) {
+            if (request.variantId() != null) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "This order has no variants");
+            }
+            order.getTimeLogEntries().add(entry);
+        } else {
+            requireBulk(order);
+            if (request.variantId() == null) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "variantId is required for crafting/assembly time on a bulk order");
+            }
+            Order.Variant variant = order.getBulkDetails().getVariants().stream()
+                    .filter(v -> v.getVariantId().equals(request.variantId())).findFirst()
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Variant not found"));
+            variant.getTimeLogEntries().add(entry);
+        }
+        order.setUpdatedAt(clock.instant());
+        return view(repository.save(order), userId);
+    }
+
+    public OrderView removeTimeLogEntry(String groupId, String userId, String orderId, String entryId) {
+        groupService.requireMember(groupId, userId);
+        Order order = requireById(groupId, orderId);
+        boolean removed = order.getTimeLogEntries().removeIf(e -> e.getEntryId().equals(entryId));
+        if (!removed && order.getBulkDetails() != null) {
+            for (Order.Variant v : order.getBulkDetails().getVariants()) {
+                if (v.getTimeLogEntries().removeIf(e -> e.getEntryId().equals(entryId))) {
+                    removed = true;
+                    break;
+                }
+            }
+        }
+        if (!removed) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Time log entry not found");
+        }
+        order.setUpdatedAt(clock.instant());
+        return view(repository.save(order), userId);
+    }
+
+    private static double requireQuarterStepHours(double hours) {
+        if (hours <= 0) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "hours must be greater than zero");
+        }
+        double quarters = hours * 4;
+        if (Math.abs(quarters - Math.round(quarters)) > TIME_QUARTER_STEP_EPSILON) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "hours must be in quarter-hour steps (e.g. 0.25, 1.5)");
+        }
+        return Math.round(quarters) / 4.0;
     }
 
     // ---- Shipment plan ----

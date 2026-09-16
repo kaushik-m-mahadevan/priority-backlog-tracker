@@ -104,6 +104,14 @@ public class Order {
     private double craftingTimeHours;
     private double assemblyTimeHours;
 
+    /** Actual hours logged against {@link #researchTimeHours}, plus — for an
+     *  {@code INDIVIDUAL} order only — {@link #craftingTimeHours}/{@link #assemblyTimeHours}
+     *  too (bulk orders log crafting/assembly per variant instead, matching how those
+     *  estimates are already split — see {@link Variant#timeLogEntries}). Compared against
+     *  the matching estimate field to show over/under, never fed back into cost math. */
+    @Builder.Default
+    private List<TimeLogEntry> timeLogEntries = new ArrayList<>();
+
     // ---- 5.10 cost & time estimation snapshot (individual only) ----
     private CostEstimate costEstimate;
 
@@ -306,6 +314,32 @@ public class Order {
         }
     }
 
+    /** The three time categories an order already estimates against — {@link #researchTimeHours},
+     *  {@link #craftingTimeHours}, {@link #assemblyTimeHours} — kept as an enum here rather
+     *  than reusing {@code BusinessConfig.WorkStageType.stageKey} since those are two
+     *  different concepts (a business's configurable work-stage pipeline vs. the fixed
+     *  three-way time-estimate split every order has always had). */
+    public enum TimeStage { RESEARCH, CRAFTING, ASSEMBLY }
+
+    /** One logged real-world work session against a {@link TimeStage} — purely informational
+     *  (compared against the matching estimate field to show over/under), never fed back
+     *  into cost calculations. {@code date} is when the work happened, which the logger may
+     *  backdate (e.g. logging a whole week's crocheting on Friday) — distinct from when the
+     *  entry was actually recorded. */
+    @Getter
+    @Setter
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class TimeLogEntry {
+        private String entryId;
+        private TimeStage stage;
+        private double hours;
+        private Instant date;
+        private String loggedByCreatorId;
+        private String note;
+    }
+
     public enum ShipmentStopType { INTERNAL_TRANSFER, FINAL_DELIVERY }
 
     /** {@code trackingNumber} is encrypted per spec §4.5/§7; {@code carrier} is not. */
@@ -411,6 +445,10 @@ public class Order {
         private double totalTimeHours;
         @Builder.Default
         private List<SplitLine> splitAllocation = new ArrayList<>();
+        /** Actual crafting/assembly hours logged against this variant's own estimates —
+         *  research isn't here since it's a whole-order concept, see {@link Order#timeLogEntries}. */
+        @Builder.Default
+        private List<TimeLogEntry> timeLogEntries = new ArrayList<>();
     }
 
     public enum FinalizationStatus { NONE, PENDING, FINALIZED }

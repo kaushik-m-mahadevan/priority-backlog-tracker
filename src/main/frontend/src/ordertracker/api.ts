@@ -1,5 +1,5 @@
 import { api } from "../api/client";
-import type { BusinessConfig, ChangeLog, CostConfigChangeRequest, Creator, Customer, OrderFinalizationView, OrderView, PresetOption, WorkStageType } from "./types";
+import type { BusinessConfig, ChangeLog, CostConfigChangeRequest, Creator, Customer, OrderFinalizationView, OrderView, PresetOption, TimeStage, WorkStageType } from "./types";
 
 const base = (groupId: string) => `/ordertracker/groups/${groupId}`;
 
@@ -88,6 +88,13 @@ export const orderTrackerApi = {
     }),
   addPayment: (groupId: string, orderId: string, body: unknown) =>
     api.post<OrderView>(`${base(groupId)}/orders/${orderId}/payments`, body),
+  addTimeLogEntry: (
+    groupId: string,
+    orderId: string,
+    body: { stage: TimeStage; hours: number; date?: string | null; note?: string | null; variantId?: string | null }
+  ) => api.post<OrderView>(`${base(groupId)}/orders/${orderId}/time-log`, body),
+  removeTimeLogEntry: (groupId: string, orderId: string, entryId: string) =>
+    api.delete<OrderView>(`${base(groupId)}/orders/${orderId}/time-log/${entryId}`),
   setShipmentPlan: (groupId: string, orderId: string, stops: unknown[]) =>
     api.put<OrderView>(`${base(groupId)}/orders/${orderId}/shipment-plan`, { stops }),
   markShipmentStop: (groupId: string, orderId: string, stopIndex: number, body: { shippedDate?: string; deliveredConfirmed?: boolean }) =>

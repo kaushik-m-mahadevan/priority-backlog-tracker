@@ -6,6 +6,7 @@ import { useAuth } from "../../auth/AuthContext";
 import { useBusiness } from "../BusinessContext";
 import AddToGroupModal from "../AddToGroupModal";
 import ImageGallery from "../../components/ImageGallery";
+import { TimeStageControl } from "../TimeTracking";
 import { useLinkedNeedleTypes } from "../useLinkedNeedleTypes";
 import { useLinkedYarnTypes } from "../useLinkedYarnTypes";
 import { useMyNeedleInventory } from "../useMyNeedleInventory";
@@ -20,7 +21,7 @@ import {
   type MandatoryItemDraft,
   type VariantDraft,
 } from "../OrderFormFields";
-import type { BusinessConfig, Creator, Customer, OrderFinalizationView, OrderStatus, OrderView, PaymentType, PresetOption } from "../types";
+import type { BusinessConfig, Creator, Customer, OrderFinalizationView, OrderStatus, OrderView, PaymentType, PresetOption, TimeStage } from "../types";
 
 const STATUSES: OrderStatus[] = ["INQUIRY", "CONFIRMED", "IN_PROGRESS", "READY_TO_SHIP", "SHIPPED", "DELIVERED", "CANCELLED"];
 
@@ -612,6 +613,15 @@ export default function OrderDetailPage() {
   const dueDate = order.orderType === "INDIVIDUAL" ? order.costEstimate?.computedDueDate : order.bulkDetails?.computedDueDate;
   const splitTrackedStages = config.workStages.filter((s) => s.splitTracked);
 
+  const logTime = async (stage: TimeStage, hours: number, date: string | null, note: string | null, variantId?: string) => {
+    const updated = await orderTrackerApi.addTimeLogEntry(groupId, order.id, { stage, hours, date, note, variantId: variantId ?? null });
+    setOrder(updated);
+  };
+  const removeTime = async (entryId: string) => {
+    const updated = await orderTrackerApi.removeTimeLogEntry(groupId, order.id, entryId);
+    setOrder(updated);
+  };
+
   // Order-level "what you need" list — one combined list across all bulk variants (not
   // per-variant), deduped by kind+value; quantities don't matter here, just presence.
   const itemLabel = (kind: "YARN" | "NEEDLE") => (kind === "YARN" ? "Yarn" : "Needle");
@@ -1109,6 +1119,70 @@ export default function OrderDetailPage() {
           {order.quotedDeliveryDate && (
             <div className="row"><span className="k">Quoted to customer</span>
               <span className="v">{formatDate(order.quotedDeliveryDate)}</span></div>
+          )}
+        </div>
+      </Section>
+
+      <Section title="Time tracking" icon="⏱">
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          <TimeStageControl
+            icon="🔍"
+            label="Research"
+            estimatedHours={order.researchTimeHours}
+            entries={order.timeLogEntries.filter((e) => e.stage === "RESEARCH")}
+            creatorName={creatorName}
+            onLog={(hours, date, note) => logTime("RESEARCH", hours, date, note)}
+            onRemove={removeTime}
+          />
+          {order.orderType === "INDIVIDUAL" ? (
+            <>
+              <TimeStageControl
+                icon="🧶"
+                label="Crochet"
+                estimatedHours={order.craftingTimeHours}
+                entries={order.timeLogEntries.filter((e) => e.stage === "CRAFTING")}
+                creatorName={creatorName}
+                onLog={(hours, date, note) => logTime("CRAFTING", hours, date, note)}
+                onRemove={removeTime}
+              />
+              <TimeStageControl
+                icon="🪡"
+                label="Assembly"
+                estimatedHours={order.assemblyTimeHours}
+                entries={order.timeLogEntries.filter((e) => e.stage === "ASSEMBLY")}
+                creatorName={creatorName}
+                onLog={(hours, date, note) => logTime("ASSEMBLY", hours, date, note)}
+                onRemove={removeTime}
+              />
+            </>
+          ) : (
+            order.bulkDetails?.variants.map((v) => (
+              <div key={v.variantId}>
+                <div className="muted" style={{ fontSize: 12, fontWeight: 600, marginBottom: 6 }}>
+                  {v.label}
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  <TimeStageControl
+                    icon="🧶"
+                    label={`Crochet — ${v.label}`}
+                    estimatedHours={v.craftingTimeHours}
+                    entries={v.timeLogEntries.filter((e) => e.stage === "CRAFTING")}
+                    creatorName={creatorName}
+                    onLog={(hours, date, note) => logTime("CRAFTING", hours, date, note, v.variantId)}
+                    onRemove={removeTime}
+                  />
+                  <TimeStageControl
+                    icon="🪡"
+                    label={`Assembly — ${v.label}`}
+                    estimatedHours={v.assemblyTimeHours}
+                    entries={v.timeLogEntries.filter((e) => e.stage === "ASSEMBLY")}
+                    creatorName={creatorName}
+                    onLog={(hours, date, note) => logTime("ASSEMBLY", hours, date, note, v.variantId)}
+                    onRemove={removeTime}
+                  />
+                </div>
+              </div>
+            ))
           )}
         </div>
       </Section>

@@ -21,6 +21,7 @@ public record OrderView(String id, String orderNumber, OrderType orderType, Stri
                         List<StageAssignmentView> stageAssignments, double completionPercentage,
                         List<PaymentView> payments, PaymentStatus paymentStatus, double netPaid,
                         double balanceAmount, List<ShipmentStopView> shipmentPlan,
+                        List<TimeLogEntryView> timeLogEntries,
                         BulkDetailsView bulkDetails, Instant createdAt, Instant updatedAt) {
 
     /** {@code recipeSteps} lives here now, not as a separate top-level order field — see
@@ -103,6 +104,14 @@ public record OrderView(String id, String orderNumber, OrderType orderType, Stri
         }
     }
 
+    public record TimeLogEntryView(String entryId, Order.TimeStage stage, double hours, Instant date,
+                                   String loggedByCreatorId, String note) {
+        static TimeLogEntryView of(Order.TimeLogEntry e) {
+            return new TimeLogEntryView(e.getEntryId(), e.getStage(), e.getHours(), e.getDate(),
+                    e.getLoggedByCreatorId(), e.getNote());
+        }
+    }
+
     public record ShipmentStopView(int stopOrder, Order.ShipmentStopType type, String originLocationCode,
                                    String destinationLocationCode, String laneId, double estimatedCost,
                                    double estimatedTimeHours, String carrier, String trackingNumber,
@@ -132,14 +141,15 @@ public record OrderView(String id, String orderNumber, OrderType orderType, Stri
                               List<LineItemView> addOns, PackagingView packaging, double craftingTimeHours,
                               double assemblyTimeHours,
                               double perUnitCost, double totalCost, double perUnitTimeHours, double totalTimeHours,
-                              List<SplitLineView> splitAllocation) {
+                              List<SplitLineView> splitAllocation, List<TimeLogEntryView> timeLogEntries) {
         static VariantView of(Order.Variant v) {
             return new VariantView(v.getVariantId(), v.getLabel(), v.getQuantity(),
                     v.getMandatoryItems().stream().map(MandatoryItemView::of).toList(),
                     v.getAddOns().stream().map(LineItemView::of).toList(),
                     PackagingView.of(v.getPackaging()), v.getCraftingTimeHours(), v.getAssemblyTimeHours(),
                     v.getPerUnitCost(), v.getTotalCost(), v.getPerUnitTimeHours(), v.getTotalTimeHours(),
-                    v.getSplitAllocation().stream().map(SplitLineView::of).toList());
+                    v.getSplitAllocation().stream().map(SplitLineView::of).toList(),
+                    v.getTimeLogEntries().stream().map(TimeLogEntryView::of).toList());
         }
     }
 
@@ -179,6 +189,7 @@ public record OrderView(String id, String orderNumber, OrderType orderType, Stri
                 o.getPayments().stream().map(PaymentView::of).toList(), o.getPaymentStatus(), netPaid, balanceAmount,
                 o.getShipmentPlan() == null ? List.of()
                         : o.getShipmentPlan().getStops().stream().map(ShipmentStopView::of).toList(),
+                o.getTimeLogEntries().stream().map(TimeLogEntryView::of).toList(),
                 BulkDetailsView.of(o.getBulkDetails()), o.getCreatedAt(), o.getUpdatedAt());
     }
 }

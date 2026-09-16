@@ -174,6 +174,17 @@ export interface PaymentView {
   note: string | null;
 }
 
+export type TimeStage = "RESEARCH" | "CRAFTING" | "ASSEMBLY";
+
+export interface TimeLogEntryView {
+  entryId: string;
+  stage: TimeStage;
+  hours: number;
+  date: string;
+  loggedByCreatorId: string;
+  note: string | null;
+}
+
 export interface ShipmentStopView {
   stopOrder: number;
   type: ShipmentStopType;
@@ -214,6 +225,7 @@ export interface Variant {
   perUnitTimeHours: number;
   totalTimeHours: number;
   splitAllocation: SplitLine[];
+  timeLogEntries: TimeLogEntryView[];
 }
 
 export interface BulkStageProgress {
@@ -263,6 +275,7 @@ export interface OrderView {
   netPaid: number;
   balanceAmount: number;
   shipmentPlan: ShipmentStopView[];
+  timeLogEntries: TimeLogEntryView[];
   bulkDetails: BulkDetails | null;
   createdAt: string;
   updatedAt: string;

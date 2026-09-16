@@ -529,6 +529,38 @@ label {
   background: linear-gradient(90deg, var(--growth), var(--accent));
   transition: width 0.25s ease;
 }
+
+/* time tracker press-and-hold buttons */
+.time-track-button {
+  position: relative;
+  width: 56px;
+  height: 56px;
+  min-width: 56px;
+  border-radius: 50%;
+  overflow: hidden;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  touch-action: none;
+  user-select: none;
+}
+.time-track-fill {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 100%;
+  background: var(--accent);
+  opacity: 0.28;
+  transition: height 0.15s linear;
+  pointer-events: none;
+}
+.time-track-icon {
+  position: relative;
+  font-size: 26px;
+  pointer-events: none;
+}
+
 .card h2 {
   margin: 0 0 12px;
   font-size: 15px;

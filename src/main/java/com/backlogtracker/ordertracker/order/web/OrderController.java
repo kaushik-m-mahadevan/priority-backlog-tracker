@@ -4,6 +4,7 @@ import java.time.Instant;
 import java.util.List;
 
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -18,6 +19,7 @@ import com.backlogtracker.commons.security.AuthUser;
 import com.backlogtracker.commons.security.RequiresUser;
 import com.backlogtracker.ordertracker.order.domain.OrderChangeLog;
 import com.backlogtracker.ordertracker.order.dto.AddPaymentRequest;
+import com.backlogtracker.ordertracker.order.dto.AddTimeLogEntryRequest;
 import com.backlogtracker.ordertracker.order.dto.CreateOrderRequest;
 import com.backlogtracker.ordertracker.order.dto.MarkShipmentStopRequest;
 import com.backlogtracker.ordertracker.order.dto.OrderFinalizationView;
@@ -120,6 +122,18 @@ public class OrderController {
     public OrderView addPayment(@PathVariable String groupId, @PathVariable String orderId,
                                 @RequestBody AddPaymentRequest request, @AuthenticationPrincipal AuthUser actor) {
         return orderService.addPayment(groupId, actor.id(), orderId, request);
+    }
+
+    @PostMapping("/{orderId}/time-log")
+    public OrderView addTimeLogEntry(@PathVariable String groupId, @PathVariable String orderId,
+                                     @RequestBody AddTimeLogEntryRequest request, @AuthenticationPrincipal AuthUser actor) {
+        return orderService.addTimeLogEntry(groupId, actor.id(), orderId, request);
+    }
+
+    @DeleteMapping("/{orderId}/time-log/{entryId}")
+    public OrderView removeTimeLogEntry(@PathVariable String groupId, @PathVariable String orderId,
+                                        @PathVariable String entryId, @AuthenticationPrincipal AuthUser actor) {
+        return orderService.removeTimeLogEntry(groupId, actor.id(), orderId, entryId);
     }
 
     @PutMapping("/{orderId}/shipment-plan")
