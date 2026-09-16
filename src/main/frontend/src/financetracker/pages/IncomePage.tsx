@@ -1,9 +1,16 @@
 import { useEffect, useState } from "react";
+import BillSideBySide from "../../components/BillSideBySide";
+import FilePreview from "../../components/FilePreview";
+import ImageGallery from "../../components/ImageGallery";
+import { imagesApi } from "../../components/imagesApi";
 import { financeTrackerApi } from "../api";
 import { useFinanceGroup } from "../FinanceGroupContext";
 import type { LedgerEntryView } from "../types";
 
 type CreditedTo = "business" | "person";
+
+const BILL_ACCEPT = "image/jpeg,image/png,image/webp,application/pdf";
+const LEDGER_ENTRY_OWNER_TYPE = "ledgerEntry";
 
 /** Income (an order payment, an investment from a specific person) reuses the same
  *  LedgerEntry ledger as expenses (type: INCOME) - no new backend, just this form. Unlike
@@ -23,6 +30,8 @@ export default function IncomePage() {
   const [creditedTo, setCreditedTo] = useState<CreditedTo>("business");
   const [creditedPersonId, setCreditedPersonId] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [billFile, setBillFile] = useState<File | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
 
   const members = currentFinanceGroup?.members ?? [];
   const memberName = (id: string) => members.find((m) => m.id === id)?.name ?? "Unknown";
@@ -38,6 +47,33 @@ export default function IncomePage() {
 
   useEffect(load, [currentGroupId]);
 
+  const resetForm = () => {
+    setDescription("");
+    setAmount("");
+    setReceivedById("");
+    setCreditedTo("business");
+    setCreditedPersonId("");
+    setBillFile(null);
+    setEditingId(null);
+  };
+
+  const startEditing = (entry: LedgerEntryView) => {
+    setError(null);
+    setEditingId(entry.id);
+    setBillFile(null);
+    setDescription(entry.description);
+    setAmount(String(entry.amount));
+    setReceivedById(entry.payerId);
+    const s = entry.shares[0];
+    if (!s || s.partyType === "BUSINESS") {
+      setCreditedTo("business");
+      setCreditedPersonId("");
+    } else {
+      setCreditedTo("person");
+      setCreditedPersonId(s.personId ?? "");
+    }
+  };
+
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -50,18 +86,29 @@ export default function IncomePage() {
 
     setSubmitting(true);
     try {
-      await financeTrackerApi.logLedgerEntry(currentGroupId, {
-        type: "INCOME",
+      const body = {
+        type: "INCOME" as const,
         description: description.trim(),
         amount: amt,
         payerId: receivedById,
         shares:
           creditedTo === "business"
-            ? [{ partyType: "BUSINESS", personId: null, ratio: 1 }]
-            : [{ partyType: "PERSON", personId: creditedPersonId, ratio: 1 }],
-      });
-      setDescription("");
-      setAmount("");
+            ? [{ partyType: "BUSINESS" as const, personId: null, ratio: 1 }]
+            : [{ partyType: "PERSON" as const, personId: creditedPersonId, ratio: 1 }],
+      };
+      if (editingId) {
+        await financeTrackerApi.updateLedgerEntry(currentGroupId, editingId, body);
+      } else {
+        const created = await financeTrackerApi.logLedgerEntry(currentGroupId, body);
+        if (billFile) {
+          try {
+            await imagesApi.upload(currentGroupId, LEDGER_ENTRY_OWNER_TYPE, created.id, billFile);
+          } catch (err) {
+            setError(err instanceof Error ? `Income logged, but the bill didn't upload: ${err.message}` : "Income logged, but the bill didn't upload");
+          }
+        }
+      }
+      resetForm();
       load();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to log income");
@@ -83,61 +130,43 @@ export default function IncomePage() {
 
       <form className="card" onSubmit={submit} style={{ marginBottom: 16 }}>
         {error && <div className="error">{error}</div>}
-        <div className="form-row">
-          <label htmlFor="inc-description">Description</label>
-          <input
-            id="inc-description"
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            placeholder="e.g. Payment for order #123, or an investment"
-            required
-          />
-        </div>
-        <div className="form-grid">
+        <BillSideBySide
+          preview={
+            editingId ? (
+              <ImageGallery groupId={currentGroupId!} ownerType={LEDGER_ENTRY_OWNER_TYPE} ownerId={editingId} accept={BILL_ACCEPT} />
+            ) : billFile ? (
+              <FilePreview file={billFile} />
+            ) : (
+              <p className="muted" style={{ fontSize: 12 }}>No bill attached yet.</p>
+            )
+          }
+        >
           <div className="form-row">
-            <label htmlFor="inc-amount">Amount</label>
+            <label htmlFor="inc-description">Description</label>
             <input
-              id="inc-amount"
-              type="number"
-              min={0.01}
-              step={0.01}
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
+              id="inc-description"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="e.g. Payment for order #123, or an investment"
               required
             />
           </div>
-          <div className="form-row">
-            <label htmlFor="inc-received-by">Received by</label>
-            <select id="inc-received-by" value={receivedById} onChange={(e) => setReceivedById(e.target.value)} required>
-              <option value="" disabled>
-                Select…
-              </option>
-              {members.map((m) => (
-                <option key={m.id} value={m.id}>
-                  {m.name}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
-
-        <div className="form-grid">
-          <div className="form-row">
-            <label htmlFor="inc-credited-to">Credited to</label>
-            <select id="inc-credited-to" value={creditedTo} onChange={(e) => setCreditedTo(e.target.value as CreditedTo)}>
-              <option value="business">Business (e.g. an order payment)</option>
-              <option value="person">A specific person (e.g. an investment)</option>
-            </select>
-          </div>
-          {creditedTo === "person" && (
+          <div className="form-grid">
             <div className="form-row">
-              <label htmlFor="inc-credited-person">Person</label>
-              <select
-                id="inc-credited-person"
-                value={creditedPersonId}
-                onChange={(e) => setCreditedPersonId(e.target.value)}
+              <label htmlFor="inc-amount">Amount</label>
+              <input
+                id="inc-amount"
+                type="number"
+                min={0.01}
+                step={0.01}
+                value={amount}
+                onChange={(e) => setAmount(e.target.value)}
                 required
-              >
+              />
+            </div>
+            <div className="form-row">
+              <label htmlFor="inc-received-by">Received by</label>
+              <select id="inc-received-by" value={receivedById} onChange={(e) => setReceivedById(e.target.value)} required>
                 <option value="" disabled>
                   Select…
                 </option>
@@ -148,12 +177,61 @@ export default function IncomePage() {
                 ))}
               </select>
             </div>
-          )}
-        </div>
+          </div>
 
-        <button className="primary" type="submit" disabled={submitting}>
-          {submitting ? "Logging…" : "Log income"}
-        </button>
+          <div className="form-grid">
+            <div className="form-row">
+              <label htmlFor="inc-credited-to">Credited to</label>
+              <select id="inc-credited-to" value={creditedTo} onChange={(e) => setCreditedTo(e.target.value as CreditedTo)}>
+                <option value="business">Business (e.g. an order payment)</option>
+                <option value="person">A specific person (e.g. an investment)</option>
+              </select>
+            </div>
+            {creditedTo === "person" && (
+              <div className="form-row">
+                <label htmlFor="inc-credited-person">Person</label>
+                <select
+                  id="inc-credited-person"
+                  value={creditedPersonId}
+                  onChange={(e) => setCreditedPersonId(e.target.value)}
+                  required
+                >
+                  <option value="" disabled>
+                    Select…
+                  </option>
+                  {members.map((m) => (
+                    <option key={m.id} value={m.id}>
+                      {m.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+          </div>
+
+          {!editingId && (
+            <div className="form-row">
+              <label htmlFor="inc-bill">Attach a bill (optional)</label>
+              <input
+                id="inc-bill"
+                type="file"
+                accept={BILL_ACCEPT}
+                onChange={(e) => setBillFile(e.target.files?.[0] ?? null)}
+              />
+            </div>
+          )}
+
+          <div className="toolbar">
+            <button className="primary" type="submit" disabled={submitting}>
+              {submitting ? "Saving…" : editingId ? "Save changes" : "Log income"}
+            </button>
+            {editingId && (
+              <button type="button" onClick={resetForm} disabled={submitting}>
+                Cancel
+              </button>
+            )}
+          </div>
+        </BillSideBySide>
       </form>
 
       {loading ? (
@@ -169,6 +247,7 @@ export default function IncomePage() {
                 <th>Amount</th>
                 <th>Received by</th>
                 <th>Credited to</th>
+                <th></th>
               </tr>
             </thead>
             <tbody>
@@ -178,6 +257,11 @@ export default function IncomePage() {
                   <td className="cell-order mono">₹{e.amount.toFixed(2)}</td>
                   <td className="cell-subtitle">{memberName(e.payerId)}</td>
                   <td className="cell-type">{creditSummary(e)}</td>
+                  <td>
+                    <button type="button" onClick={() => startEditing(e)}>
+                      Edit
+                    </button>
+                  </td>
                 </tr>
               ))}
             </tbody>

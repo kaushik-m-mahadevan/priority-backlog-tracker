@@ -34,7 +34,7 @@ public class ImageService {
     private static final long MAX_UPLOAD_BYTES = 5L * 1024 * 1024;
     /** Per (groupId, ownerType, ownerId) gallery (design decision). */
     private static final int MAX_IMAGES_PER_OWNER = 6;
-    private static final Set<String> ACCEPTED_CONTENT_TYPES = Set.of("image/jpeg", "image/png", "image/webp");
+    private static final Set<String> ACCEPTED_CONTENT_TYPES = Set.of("image/jpeg", "image/png", "image/webp", "application/pdf");
 
     private final ImageAssetRepository repository;
     private final ImageCompressionService compressionService;
@@ -53,16 +53,16 @@ public class ImageService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "No file uploaded");
         }
         if (file.getSize() > MAX_UPLOAD_BYTES) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Image must be 5MB or smaller");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "File must be 5MB or smaller");
         }
         String contentType = file.getContentType();
         if (contentType == null || !ACCEPTED_CONTENT_TYPES.contains(contentType.toLowerCase())) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Only JPEG, PNG, or WEBP images are accepted");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Only JPEG, PNG, WEBP, or PDF files are accepted");
         }
         long existing = repository.countByGroupIdAndOwnerTypeAndOwnerId(groupId, ownerType, ownerId);
         if (existing >= MAX_IMAGES_PER_OWNER) {
             throw new ResponseStatusException(HttpStatus.CONFLICT,
-                    "This gallery already has the maximum of " + MAX_IMAGES_PER_OWNER + " images — remove one first");
+                    "This gallery already has the maximum of " + MAX_IMAGES_PER_OWNER + " files — remove one first");
         }
 
         byte[] raw;
@@ -71,14 +71,18 @@ public class ImageService {
         } catch (IOException e) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Could not read the uploaded file");
         }
-        byte[] compressed = compressionService.compressToJpeg(raw);
+        // A PDF (e.g. an emailed supplier invoice) is stored as-is — the JPEG re-encode
+        // pipeline only applies to actual images, which is everything else accepted here.
+        boolean isPdf = "application/pdf".equalsIgnoreCase(contentType);
+        byte[] data = isPdf ? raw : compressionService.compressToJpeg(raw);
+        String storedContentType = isPdf ? "application/pdf" : "image/jpeg";
 
         ImageAsset saved = repository.save(ImageAsset.builder()
                 .groupId(groupId)
                 .ownerType(ownerType)
                 .ownerId(ownerId)
-                .contentType("image/jpeg")
-                .data(compressed)
+                .contentType(storedContentType)
+                .data(data)
                 .sequenceOrder((int) existing)
                 .uploadedByUserId(userId)
                 .uploadedAt(Instant.now(clock))

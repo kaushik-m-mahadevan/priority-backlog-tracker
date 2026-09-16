@@ -102,6 +102,54 @@ class LedgerEntryServiceTest {
     }
 
     @Test
+    void updatingAnEntryChangesItsAmountAndSplit() {
+        LedgerEntryView created = ledgerEntryService.create(financeGroup.getId(), payerId, new CreateLedgerEntryRequest(
+                LedgerEntryType.EXPENSE, "Typo'd yarn order", new BigDecimal("100.00"), payerId,
+                List.of(new ShareInput(SplitPartyType.BUSINESS, null, BigDecimal.ONE))));
+
+        LedgerEntryView updated = ledgerEntryService.update(financeGroup.getId(), payerId, created.id(),
+                new CreateLedgerEntryRequest(LedgerEntryType.EXPENSE, "Yarn order (corrected)",
+                        new BigDecimal("1000.00"), payerId,
+                        List.of(new ShareInput(SplitPartyType.BUSINESS, null, BigDecimal.ONE))));
+
+        assertThat(updated.id()).isEqualTo(created.id());
+        assertThat(updated.description()).isEqualTo("Yarn order (corrected)");
+        assertThat(updated.amount()).isEqualByComparingTo("1000.00");
+        assertThat(ledgerEntryService.list(financeGroup.getId(), payerId)).hasSize(1);
+    }
+
+    @Test
+    void updatingRejectsInvalidSharesJustLikeCreating() {
+        LedgerEntryView created = ledgerEntryService.create(financeGroup.getId(), payerId, new CreateLedgerEntryRequest(
+                LedgerEntryType.EXPENSE, "Original", new BigDecimal("100.00"), payerId,
+                List.of(new ShareInput(SplitPartyType.BUSINESS, null, BigDecimal.ONE))));
+
+        assertThatThrownBy(() -> ledgerEntryService.update(financeGroup.getId(), payerId, created.id(),
+                new CreateLedgerEntryRequest(LedgerEntryType.EXPENSE, "Bad split", new BigDecimal("100.00"), payerId,
+                        List.of(new ShareInput(SplitPartyType.PERSON, payerId, new BigDecimal("0.5"))))))
+                .isInstanceOf(ResponseStatusException.class)
+                .hasMessageContaining("add up to 1");
+    }
+
+    @Test
+    void updatingAnEntryFromAnotherGroupIsRejected() {
+        LedgerEntryView created = ledgerEntryService.create(financeGroup.getId(), payerId, new CreateLedgerEntryRequest(
+                LedgerEntryType.EXPENSE, "Original", new BigDecimal("100.00"), payerId,
+                List.of(new ShareInput(SplitPartyType.BUSINESS, null, BigDecimal.ONE))));
+        Group otherGroup = groupService.create("Other Finance Group", payerId, Group.APPLET_FINANCE_TRACKER);
+
+        try {
+            assertThatThrownBy(() -> ledgerEntryService.update(otherGroup.getId(), payerId, created.id(),
+                    new CreateLedgerEntryRequest(LedgerEntryType.EXPENSE, "Hijack", new BigDecimal("1.00"), payerId,
+                            List.of(new ShareInput(SplitPartyType.BUSINESS, null, BigDecimal.ONE)))))
+                    .isInstanceOf(ResponseStatusException.class)
+                    .hasMessageContaining("not found");
+        } finally {
+            groups.deleteById(otherGroup.getId());
+        }
+    }
+
+    @Test
     void rejectsSharesThatDontSumToOne() {
         var request = new CreateLedgerEntryRequest(
                 LedgerEntryType.EXPENSE, "Bad split", new BigDecimal("100.00"), payerId,

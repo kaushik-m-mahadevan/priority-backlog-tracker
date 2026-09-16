@@ -68,6 +68,40 @@ public class LedgerEntryService {
         return LedgerEntryView.of(entries.save(entry));
     }
 
+    /** Corrects a typo'd amount, description, or split — same validation as {@link #create}.
+     *  Deliberately unrestricted by any settlement already made against this entry (design
+     *  decision: this stays a simple manual ledger, not audited accounting software); a
+     *  correction after a settlement is the user's own call to reconcile, same as it would
+     *  be with a paper ledger. */
+    public LedgerEntryView update(String groupId, String userId, String entryId, CreateLedgerEntryRequest request) {
+        Group group = groupService.requireMember(groupId, userId);
+        LedgerEntry entry = requireById(groupId, entryId);
+        if (!group.hasMember(request.payerId())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "payerId must be a member of this finance group");
+        }
+        validateShares(group, request.shares());
+
+        entry.setType(request.type());
+        entry.setDescription(request.description().trim());
+        entry.setAmount(request.amount());
+        entry.setPayerId(request.payerId());
+        entry.setShares(request.shares().stream().map(s -> LedgerEntry.SplitShare.builder()
+                .partyType(s.partyType())
+                .personId(s.partyType() == SplitPartyType.PERSON ? s.personId() : null)
+                .ratio(s.ratio())
+                .build()).toList());
+        return LedgerEntryView.of(entries.save(entry));
+    }
+
+    private LedgerEntry requireById(String groupId, String entryId) {
+        LedgerEntry entry = entries.findById(entryId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Ledger entry not found"));
+        if (!groupId.equals(entry.getGroupId())) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Ledger entry not found");
+        }
+        return entry;
+    }
+
     public List<LedgerEntryView> list(String groupId, String userId) {
         groupService.requireMember(groupId, userId);
         return entries.findByGroupIdOrderByCreatedAtDesc(groupId).stream().map(LedgerEntryView::of).toList();

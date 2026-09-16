@@ -5,14 +5,28 @@ interface LoadedImage extends ImageMetaView {
   url: string;
 }
 
+const DEFAULT_ACCEPT = "image/jpeg,image/png,image/webp";
+
 /** A finished-product photo gallery, generic enough for any owner in any applet — pass
  *  the groupId/ownerType/ownerId this gallery belongs to (design decision: one shared
  *  gallery per order, not per bulk variant) and it handles everything else: listing,
- *  uploading (up to 6 images, 5MB each — design decision), a simple lightbox, and
- *  deleting. Object URLs are created per image (an <img src> can't carry the
+ *  uploading (up to 6 files, 5MB each — design decision), a simple lightbox, and
+ *  deleting. Object URLs are created per file (an <img src> can't carry the
  *  Authorization header a raw fetch needs) and revoked on unmount to avoid leaking
- *  memory. */
-export default function ImageGallery({ groupId, ownerType, ownerId }: { groupId: string; ownerType: string; ownerId: string }) {
+ *  memory. A PDF entry (e.g. a bill attachment) renders as an embedded viewer instead of
+ *  an <img> wherever one appears — pass `accept="...,application/pdf"` to allow uploading
+ *  one; existing callers that don't pass `accept` stay images-only, unaffected. */
+export default function ImageGallery({
+  groupId,
+  ownerType,
+  ownerId,
+  accept = DEFAULT_ACCEPT,
+}: {
+  groupId: string;
+  ownerType: string;
+  ownerId: string;
+  accept?: string;
+}) {
   const [images, setImages] = useState<LoadedImage[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
@@ -89,9 +103,15 @@ export default function ImageGallery({ groupId, ownerType, ownerId }: { groupId:
               key={img.id}
               className="image-gallery-thumb"
               onClick={() => setLightboxIndex(i)}
-              aria-label={`View photo ${i + 1}`}
+              aria-label={`View ${img.contentType === "application/pdf" ? "PDF" : "photo"} ${i + 1}`}
             >
-              <img src={img.url} alt="" />
+              {img.contentType === "application/pdf" ? (
+                <span className="image-gallery-pdf-tile" aria-hidden="true">
+                  📄 PDF
+                </span>
+              ) : (
+                <img src={img.url} alt="" />
+              )}
             </button>
           ))}
         </div>
@@ -101,12 +121,12 @@ export default function ImageGallery({ groupId, ownerType, ownerId }: { groupId:
         <input
           ref={fileInputRef}
           type="file"
-          accept="image/jpeg,image/png,image/webp"
+          accept={accept}
           onChange={onFileChosen}
           disabled={uploading || images.length >= 6}
-          aria-label="Upload a photo"
+          aria-label="Upload a file"
         />
-        {images.length >= 6 && <span className="muted" style={{ fontSize: 12 }}>Maximum of 6 photos reached</span>}
+        {images.length >= 6 && <span className="muted" style={{ fontSize: 12 }}>Maximum of 6 files reached</span>}
         {uploading && <span className="muted" style={{ fontSize: 12 }}>Uploading…</span>}
       </div>
 
@@ -120,12 +140,21 @@ export default function ImageGallery({ groupId, ownerType, ownerId }: { groupId:
           }}
           onClick={() => setLightboxIndex(null)}
         >
-          <img
-            src={images[lightboxIndex].url}
-            alt=""
-            style={{ maxWidth: "90vw", maxHeight: "75vh", objectFit: "contain", borderRadius: 8 }}
-            onClick={(e) => e.stopPropagation()}
-          />
+          {images[lightboxIndex].contentType === "application/pdf" ? (
+            <embed
+              src={images[lightboxIndex].url}
+              type="application/pdf"
+              style={{ width: "90vw", height: "75vh", borderRadius: 8, background: "#fff" }}
+              onClick={(e) => e.stopPropagation()}
+            />
+          ) : (
+            <img
+              src={images[lightboxIndex].url}
+              alt=""
+              style={{ maxWidth: "90vw", maxHeight: "75vh", objectFit: "contain", borderRadius: 8 }}
+              onClick={(e) => e.stopPropagation()}
+            />
+          )}
           <div className="toolbar" onClick={(e) => e.stopPropagation()}>
             {images.length > 1 && (
               <>

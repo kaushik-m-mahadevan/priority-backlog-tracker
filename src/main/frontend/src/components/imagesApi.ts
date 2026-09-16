@@ -5,6 +5,10 @@ export interface ImageMetaView {
   sequenceOrder: number;
   uploadedByUserId: string;
   uploadedAt: string;
+  /** "image/jpeg" for an actual photo, or "application/pdf" for an uploaded PDF (e.g. a
+   *  supplier invoice) — used to decide whether a gallery entry renders as an <img> or an
+   *  embedded PDF viewer. */
+  contentType: string;
 }
 
 const base = (groupId: string, ownerType: string, ownerId: string) =>

@@ -42,8 +42,9 @@ public class ImageAsset {
     private String ownerType;
     private String ownerId;
 
-    /** Always "image/jpeg" after server-side compression — see {@code ImageCompressionService}
-     *  for why every stored image is normalized to one format. */
+    /** "image/jpeg" after server-side compression — see {@code ImageCompressionService} for
+     *  why every actual image is normalized to one format — or "application/pdf" for a PDF
+     *  upload (e.g. an emailed supplier invoice), which is stored as-is, uncompressed. */
     private String contentType;
     private byte[] data;
 

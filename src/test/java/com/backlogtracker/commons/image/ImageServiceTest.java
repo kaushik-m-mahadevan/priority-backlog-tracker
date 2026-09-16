@@ -104,7 +104,20 @@ class ImageServiceTest {
 
         assertThatThrownBy(() -> imageService.upload(group.getId(), userId, OWNER_TYPE, OWNER_ID, textFile))
                 .isInstanceOf(ResponseStatusException.class)
-                .hasMessageContaining("JPEG, PNG, or WEBP");
+                .hasMessageContaining("JPEG, PNG, WEBP, or PDF");
+    }
+
+    @Test
+    void uploadsAPdfAsIsWithoutCompression() {
+        byte[] pdfBytes = "%PDF-1.4 fake pdf bytes for a test".getBytes();
+        MockMultipartFile pdfFile = new MockMultipartFile("file", "invoice.pdf", "application/pdf", pdfBytes);
+
+        ImageMetaView uploaded = imageService.upload(group.getId(), userId, OWNER_TYPE, OWNER_ID, pdfFile);
+
+        assertThat(uploaded.contentType()).isEqualTo("application/pdf");
+        ImageAsset raw = imageService.getRaw(group.getId(), userId, uploaded.id());
+        assertThat(raw.getContentType()).isEqualTo("application/pdf");
+        assertThat(raw.getData()).isEqualTo(pdfBytes);
     }
 
     @Test

@@ -1,10 +1,17 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "../../auth/AuthContext";
+import BillSideBySide from "../../components/BillSideBySide";
+import FilePreview from "../../components/FilePreview";
+import ImageGallery from "../../components/ImageGallery";
+import { imagesApi } from "../../components/imagesApi";
 import { financeTrackerApi } from "../api";
 import { useFinanceGroup } from "../FinanceGroupContext";
 import type { LedgerEntryView, ShareInput } from "../types";
 
 type SplitMode = "business" | "split";
+
+const BILL_ACCEPT = "image/jpeg,image/png,image/webp,application/pdf";
+const LEDGER_ENTRY_OWNER_TYPE = "ledgerEntry";
 
 /** Logging a personal expenditure or a business-attributed one (which is how a
  *  reimbursement is modeled here — see LedgerEntry's own doc comment) is the same form:
@@ -24,6 +31,8 @@ export default function ExpensesPage() {
   const [splitMode, setSplitMode] = useState<SplitMode>("business");
   const [splitWith, setSplitWith] = useState<Set<string>>(new Set());
   const [submitting, setSubmitting] = useState(false);
+  const [billFile, setBillFile] = useState<File | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
 
   const members = currentFinanceGroup?.members ?? [];
   const memberName = (id: string) => members.find((m) => m.id === id)?.name ?? "Unknown";
@@ -52,6 +61,32 @@ export default function ExpensesPage() {
     });
   };
 
+  const resetForm = () => {
+    setDescription("");
+    setAmount("");
+    setPayerId(user?.id ?? "");
+    setSplitMode("business");
+    setSplitWith(new Set());
+    setBillFile(null);
+    setEditingId(null);
+  };
+
+  const startEditing = (entry: LedgerEntryView) => {
+    setError(null);
+    setEditingId(entry.id);
+    setBillFile(null);
+    setDescription(entry.description);
+    setAmount(String(entry.amount));
+    setPayerId(entry.payerId);
+    if (entry.shares.length === 1 && entry.shares[0].partyType === "BUSINESS") {
+      setSplitMode("business");
+      setSplitWith(new Set());
+    } else {
+      setSplitMode("split");
+      setSplitWith(new Set(entry.shares.map((s) => s.personId).filter((id): id is string => !!id)));
+    }
+  };
+
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -73,15 +108,20 @@ export default function ExpensesPage() {
 
     setSubmitting(true);
     try {
-      await financeTrackerApi.logLedgerEntry(currentGroupId, {
-        type: "EXPENSE",
-        description: description.trim(),
-        amount: amt,
-        payerId,
-        shares,
-      });
-      setDescription("");
-      setAmount("");
+      const body = { type: "EXPENSE" as const, description: description.trim(), amount: amt, payerId, shares };
+      if (editingId) {
+        await financeTrackerApi.updateLedgerEntry(currentGroupId, editingId, body);
+      } else {
+        const created = await financeTrackerApi.logLedgerEntry(currentGroupId, body);
+        if (billFile) {
+          try {
+            await imagesApi.upload(currentGroupId, LEDGER_ENTRY_OWNER_TYPE, created.id, billFile);
+          } catch (err) {
+            setError(err instanceof Error ? `Expense logged, but the bill didn't upload: ${err.message}` : "Expense logged, but the bill didn't upload");
+          }
+        }
+      }
+      resetForm();
       load();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to log expense");
@@ -106,65 +146,96 @@ export default function ExpensesPage() {
 
       <form className="card" onSubmit={submit} style={{ marginBottom: 16 }}>
         {error && <div className="error">{error}</div>}
-        <div className="form-row">
-          <label htmlFor="exp-description">Description</label>
-          <input id="exp-description" value={description} onChange={(e) => setDescription(e.target.value)} required />
-        </div>
-        <div className="form-grid">
+        <BillSideBySide
+          preview={
+            editingId ? (
+              <ImageGallery groupId={currentGroupId!} ownerType={LEDGER_ENTRY_OWNER_TYPE} ownerId={editingId} accept={BILL_ACCEPT} />
+            ) : billFile ? (
+              <FilePreview file={billFile} />
+            ) : (
+              <p className="muted" style={{ fontSize: 12 }}>No bill attached yet.</p>
+            )
+          }
+        >
           <div className="form-row">
-            <label htmlFor="exp-amount">Amount</label>
-            <input
-              id="exp-amount"
-              type="number"
-              min={0.01}
-              step={0.01}
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-              required
-            />
+            <label htmlFor="exp-description">Description</label>
+            <input id="exp-description" value={description} onChange={(e) => setDescription(e.target.value)} required />
           </div>
-          <div className="form-row">
-            <label htmlFor="exp-payer">Paid by</label>
-            <select id="exp-payer" value={payerId} onChange={(e) => setPayerId(e.target.value)} required>
-              <option value="" disabled>
-                Select…
-              </option>
-              {members.map((m) => (
-                <option key={m.id} value={m.id}>
-                  {m.name}
+          <div className="form-grid">
+            <div className="form-row">
+              <label htmlFor="exp-amount">Amount</label>
+              <input
+                id="exp-amount"
+                type="number"
+                min={0.01}
+                step={0.01}
+                value={amount}
+                onChange={(e) => setAmount(e.target.value)}
+                required
+              />
+            </div>
+            <div className="form-row">
+              <label htmlFor="exp-payer">Paid by</label>
+              <select id="exp-payer" value={payerId} onChange={(e) => setPayerId(e.target.value)} required>
+                <option value="" disabled>
+                  Select…
                 </option>
-              ))}
+                {members.map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <div className="form-row">
+            <label htmlFor="exp-split-mode">Who bears this cost</label>
+            <select id="exp-split-mode" value={splitMode} onChange={(e) => setSplitMode(e.target.value as SplitMode)}>
+              <option value="business">Business (fully attributed — e.g. a reimbursement)</option>
+              <option value="split">Split with members</option>
             </select>
           </div>
-        </div>
 
-        <div className="form-row">
-          <label htmlFor="exp-split-mode">Who bears this cost</label>
-          <select id="exp-split-mode" value={splitMode} onChange={(e) => setSplitMode(e.target.value as SplitMode)}>
-            <option value="business">Business (fully attributed — e.g. a reimbursement)</option>
-            <option value="split">Split with members</option>
-          </select>
-        </div>
+          {splitMode === "split" && (
+            <div className="form-row">
+              <div className="muted" style={{ fontSize: 12, marginBottom: 6 }}>
+                Split equally among everyone checked
+              </div>
+              <div className="kv">
+                {members.map((m) => (
+                  <label key={m.id} style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                    <input type="checkbox" checked={splitWith.has(m.id)} onChange={() => toggleSplitMember(m.id)} />
+                    {m.name}
+                  </label>
+                ))}
+              </div>
+            </div>
+          )}
 
-        {splitMode === "split" && (
-          <div className="form-row">
-            <div className="muted" style={{ fontSize: 12, marginBottom: 6 }}>
-              Split equally among everyone checked
+          {!editingId && (
+            <div className="form-row">
+              <label htmlFor="exp-bill">Attach a bill (optional)</label>
+              <input
+                id="exp-bill"
+                type="file"
+                accept={BILL_ACCEPT}
+                onChange={(e) => setBillFile(e.target.files?.[0] ?? null)}
+              />
             </div>
-            <div className="kv">
-              {members.map((m) => (
-                <label key={m.id} style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                  <input type="checkbox" checked={splitWith.has(m.id)} onChange={() => toggleSplitMember(m.id)} />
-                  {m.name}
-                </label>
-              ))}
-            </div>
+          )}
+
+          <div className="toolbar">
+            <button className="primary" type="submit" disabled={submitting}>
+              {submitting ? "Saving…" : editingId ? "Save changes" : "Log expense"}
+            </button>
+            {editingId && (
+              <button type="button" onClick={resetForm} disabled={submitting}>
+                Cancel
+              </button>
+            )}
           </div>
-        )}
-
-        <button className="primary" type="submit" disabled={submitting}>
-          {submitting ? "Logging…" : "Log expense"}
-        </button>
+        </BillSideBySide>
       </form>
 
       {loading ? (
@@ -180,6 +251,7 @@ export default function ExpensesPage() {
                 <th>Amount</th>
                 <th>Paid by</th>
                 <th>Split</th>
+                <th></th>
               </tr>
             </thead>
             <tbody>
@@ -189,6 +261,11 @@ export default function ExpensesPage() {
                   <td className="cell-order mono">₹{e.amount.toFixed(2)}</td>
                   <td className="cell-subtitle">{memberName(e.payerId)}</td>
                   <td className="cell-type">{shareSummary(e)}</td>
+                  <td>
+                    <button type="button" onClick={() => startEditing(e)}>
+                      Edit
+                    </button>
+                  </td>
                 </tr>
               ))}
             </tbody>

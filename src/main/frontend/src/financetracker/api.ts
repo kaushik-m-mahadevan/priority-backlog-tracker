@@ -15,6 +15,8 @@ export const financeTrackerApi = {
   ledgerEntries: (groupId: string) => api.get<LedgerEntryView[]>(`${base(groupId)}/ledger`),
   logLedgerEntry: (groupId: string, body: CreateLedgerEntryRequest) =>
     api.post<LedgerEntryView>(`${base(groupId)}/ledger`, body),
+  updateLedgerEntry: (groupId: string, entryId: string, body: CreateLedgerEntryRequest) =>
+    api.put<LedgerEntryView>(`${base(groupId)}/ledger/${entryId}`, body),
   balances: (groupId: string) => api.get<BalanceView[]>(`${base(groupId)}/ledger/balances`),
   settlements: (groupId: string) => api.get<SettlementView[]>(`${base(groupId)}/ledger/settlements`),
   settleUp: (groupId: string, body: CreateSettlementRequest) =>
