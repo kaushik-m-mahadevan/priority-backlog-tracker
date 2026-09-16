@@ -31,6 +31,7 @@ import OverviewPage from "./financetracker/pages/OverviewPage";
 import ExpensesPage from "./financetracker/pages/ExpensesPage";
 import IncomePage from "./financetracker/pages/IncomePage";
 import ProfitSplitPage from "./financetracker/pages/ProfitSplitPage";
+import ManageFinanceGroupPage from "./financetracker/pages/ManageFinanceGroupPage";
 import MaterialInventoryRoot from "./materialinventory/MaterialInventoryRoot";
 import MyInventoryPage from "./materialinventory/pages/MyInventoryPage";
 import RequestsPage from "./materialinventory/pages/RequestsPage";
@@ -103,6 +104,7 @@ export default function App() {
                   <Route path="expenses" element={<ExpensesPage />} />
                   <Route path="income" element={<IncomePage />} />
                   <Route path="profit-split" element={<ProfitSplitPage />} />
+                  <Route path="manage" element={<ManageFinanceGroupPage />} />
                 </Route>
                 <Route path="/materialinventory" element={<MaterialInventoryRoot />}>
                   <Route index element={<MyInventoryPage />} />

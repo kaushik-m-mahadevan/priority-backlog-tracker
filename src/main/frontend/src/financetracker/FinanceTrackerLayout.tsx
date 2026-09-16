@@ -73,6 +73,7 @@ export default function FinanceTrackerLayout() {
               <NavLink to="/financetracker/expenses">Expenses</NavLink>
               <NavLink to="/financetracker/income">Income</NavLink>
               <NavLink to="/financetracker/profit-split">Profit split</NavLink>
+              <NavLink to="/financetracker/manage">Manage</NavLink>
             </div>
           )
         }
@@ -106,6 +107,7 @@ export default function FinanceTrackerLayout() {
           <NavLink to="/financetracker/expenses">Expenses</NavLink>
           <NavLink to="/financetracker/income">Income</NavLink>
           <NavLink to="/financetracker/profit-split">Split</NavLink>
+          <NavLink to="/financetracker/manage">Manage</NavLink>
         </nav>
       )}
     </div>
