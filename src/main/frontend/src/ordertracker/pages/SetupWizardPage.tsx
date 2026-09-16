@@ -3,7 +3,7 @@ import { api, ApiError } from "../../api/client";
 import { orderTrackerApi } from "../api";
 import { useBusiness } from "../BusinessContext";
 import ProfileGatePage from "../ProfileGatePage";
-import type { BusinessConfig, MandatoryItemType } from "../types";
+import type { BusinessConfig } from "../types";
 
 const STEP_LABELS = ["Business settings", "Your profile", "Invite your team", "Finance & Inventory"];
 
@@ -22,10 +22,6 @@ export default function SetupWizardPage({ onDone }: { onDone: () => void }) {
   const [currency, setCurrency] = useState("INR");
   const [overheadPct, setOverheadPct] = useState(15);
   const [marginPct, setMarginPct] = useState(20);
-  const [mandatoryItemTypes, setMandatoryItemTypes] = useState<MandatoryItemType[]>([]);
-  const [newItemKey, setNewItemKey] = useState("");
-  const [newItemLabel, setNewItemLabel] = useState("");
-  const [newItemIsTool, setNewItemIsTool] = useState(false);
   const [savingStep1, setSavingStep1] = useState(false);
   const [inviteValue, setInviteValue] = useState("");
   const [invitesSent, setInvitesSent] = useState<string[]>([]);
@@ -41,30 +37,14 @@ export default function SetupWizardPage({ onDone }: { onDone: () => void }) {
       setCurrency(cfg.currency);
       setOverheadPct(cfg.overheadPercentage * 100);
       setMarginPct(cfg.profitMarginPercentage * 100);
-      setMandatoryItemTypes(cfg.mandatoryItemTypes);
     });
   }, [groupId]);
-
-  const addMandatoryItemType = () => {
-    if (!newItemKey.trim() || !newItemLabel.trim()) return;
-    setMandatoryItemTypes([
-      ...mandatoryItemTypes,
-      { itemKey: newItemKey.trim(), label: newItemLabel.trim(), allowedValues: null, isTool: newItemIsTool },
-    ]);
-    setNewItemKey("");
-    setNewItemLabel("");
-    setNewItemIsTool(false);
-  };
-
-  const removeMandatoryItemType = (itemKey: string) => {
-    setMandatoryItemTypes(mandatoryItemTypes.filter((t) => t.itemKey !== itemKey));
-  };
 
   const saveStep1AndContinue = async () => {
     if (!config) return;
     setSavingStep1(true);
     try {
-      await orderTrackerApi.updateBusinessConfig(groupId, { currency, mandatoryItemTypes, workStages: config.workStages });
+      await orderTrackerApi.updateBusinessConfig(groupId, { currency, workStages: config.workStages });
       // A brand-new business has exactly one member (its creator) at this point, so this
       // unanimous-approval proposal auto-resolves immediately — see ApprovalService's own
       // solo-proposer rule. Skipped entirely if unchanged from the seeded defaults.
@@ -151,35 +131,6 @@ export default function SetupWizardPage({ onDone }: { onDone: () => void }) {
               <label htmlFor="wiz-margin">Profit margin %</label>
               <input id="wiz-margin" type="number" min={0} step={1} value={marginPct} onChange={(e) => setMarginPct(Number(e.target.value))} />
             </div>
-          </div>
-
-          <h3>Mandatory item types</h3>
-          <p className="muted" style={{ marginTop: 0, fontSize: 13 }}>
-            Mark an item as a tool (e.g. a crochet hook) to skip cost/quantity tracking for it.
-          </p>
-          {mandatoryItemTypes.length === 0 ? (
-            <p className="empty">No mandatory item types yet.</p>
-          ) : (
-            <div className="kv" style={{ marginBottom: 12 }}>
-              {mandatoryItemTypes.map((t) => (
-                <span className="chip" key={t.itemKey}>
-                  {t.label} ({t.itemKey}){t.isTool ? " · tool" : ""}
-                  <button type="button" className="linkbtn" style={{ marginLeft: 8 }} onClick={() => removeMandatoryItemType(t.itemKey)}>
-                    Remove
-                  </button>
-                </span>
-              ))}
-            </div>
-          )}
-          <div className="toolbar">
-            <input aria-label="New item type key" placeholder="Key (e.g. wool)" value={newItemKey} onChange={(e) => setNewItemKey(e.target.value)} />
-            <input aria-label="New item type label" placeholder="Label (e.g. Wool)" value={newItemLabel} onChange={(e) => setNewItemLabel(e.target.value)} />
-            <label style={{ fontSize: 13 }}>
-              <input type="checkbox" checked={newItemIsTool} onChange={(e) => setNewItemIsTool(e.target.checked)} /> Tool
-            </label>
-            <button type="button" onClick={addMandatoryItemType}>
-              Add
-            </button>
           </div>
 
           <div className="toolbar" style={{ marginTop: 16 }}>

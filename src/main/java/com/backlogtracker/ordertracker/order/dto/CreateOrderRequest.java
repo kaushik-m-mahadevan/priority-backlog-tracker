@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.Map;
 
 import com.backlogtracker.commons.pattern.domain.PatternType;
+import com.backlogtracker.ordertracker.order.domain.Order.MaterialKind;
 import com.backlogtracker.ordertracker.order.domain.Order.ResearchItemType;
 
 public record CreateOrderRequest(String customerId, String orderType, String createdByCreatorId,
@@ -12,7 +13,7 @@ public record CreateOrderRequest(String customerId, String orderType, String cre
                                  PatternInput pattern, List<ResearchItemInput> researchItems,
                                  double researchTimeHours, String assemblyPackagingInstructions, String notes,
                                  // individual-only
-                                 List<MandatoryItemInput> mandatoryItems, List<ToolInput> tools,
+                                 List<MandatoryItemInput> mandatoryItems,
                                  List<LineItemInput> addOns,
                                  String packagingPresetId, List<LineItemInput> itemizedPackaging,
                                  double craftingTimeHours, double assemblyTimeHours,
@@ -29,11 +30,8 @@ public record CreateOrderRequest(String customerId, String orderType, String cre
     public record ResearchItemInput(ResearchItemType type, String url, String description) {
     }
 
-    public record MandatoryItemInput(String itemKey, String value, double quantity, double unitCost, String notes,
-                                     String linkedYarnTypeId) {
-    }
-
-    public record ToolInput(String itemKey, String value, String notes) {
+    public record MandatoryItemInput(MaterialKind kind, String value, double quantity, double unitCost, String notes,
+                                     String linkedYarnTypeId, String linkedNeedleTypeId) {
     }
 
     public record LineItemInput(String name, String category, Map<String, String> attributes,
@@ -44,7 +42,7 @@ public record CreateOrderRequest(String customerId, String orderType, String cre
     }
 
     public record VariantInput(String variantId, String label, int quantity,
-                               List<MandatoryItemInput> mandatoryItems, List<ToolInput> tools,
+                               List<MandatoryItemInput> mandatoryItems,
                                List<LineItemInput> addOns,
                                String packagingPresetId, List<LineItemInput> itemizedPackaging,
                                double craftingTimeHours, double assemblyTimeHours,

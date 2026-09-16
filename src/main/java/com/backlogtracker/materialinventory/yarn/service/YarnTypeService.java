@@ -1,6 +1,9 @@
 package com.backlogtracker.materialinventory.yarn.service;
 
+import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -45,7 +48,7 @@ public class YarnTypeService {
                             "This brand/thickness/colour combination already exists — use the existing yarn type instead");
                 });
 
-        YarnType saved = repository.save(YarnType.builder()
+        YarnType yarnType = YarnType.builder()
                 .groupId(groupId)
                 .brand(brand)
                 .thickness(thickness)
@@ -55,8 +58,9 @@ public class YarnTypeService {
                 .skeinLengthMeters(request.skeinLengthMeters())
                 .recommendedHookSize(trimOrNull(request.recommendedHookSize()))
                 .notes(trimOrNull(request.notes()))
-                .build());
-        return YarnTypeView.of(saved);
+                .build();
+        applyCost(yarnType, request.costPerSkein());
+        return YarnTypeView.of(repository.save(yarnType));
     }
 
     public YarnTypeView update(String groupId, String userId, String yarnTypeId, CreateYarnTypeRequest request) {
@@ -81,7 +85,27 @@ public class YarnTypeService {
         yarnType.setSkeinLengthMeters(request.skeinLengthMeters());
         yarnType.setRecommendedHookSize(trimOrNull(request.recommendedHookSize()));
         yarnType.setNotes(trimOrNull(request.notes()));
+        applyCost(yarnType, request.costPerSkein());
         return YarnTypeView.of(repository.save(yarnType));
+    }
+
+    /** Records a {@link YarnType.CostChange} whenever the cost actually differs from what's
+     *  there now (including the first time it's set) — a same-value re-save from an
+     *  unrelated field edit shouldn't add a spurious history entry. */
+    private static void applyCost(YarnType yarnType, Double newCost) {
+        Double previous = yarnType.getCostPerSkein();
+        if (Objects.equals(previous, newCost)) {
+            return;
+        }
+        if (yarnType.getCostHistory() == null) {
+            yarnType.setCostHistory(new ArrayList<>());
+        }
+        yarnType.getCostHistory().add(YarnType.CostChange.builder()
+                .previousCost(previous)
+                .newCost(newCost)
+                .changedAt(Instant.now())
+                .build());
+        yarnType.setCostPerSkein(newCost);
     }
 
     public void delete(String groupId, String userId, String yarnTypeId) {

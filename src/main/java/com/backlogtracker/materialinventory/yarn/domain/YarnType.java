@@ -1,5 +1,9 @@
 package com.backlogtracker.materialinventory.yarn.domain;
 
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
+
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.index.CompoundIndex;
 import org.springframework.data.mongodb.core.mapping.Document;
@@ -49,4 +53,25 @@ public class YarnType {
 
     /** Free-text extra detail (dye lot, texture) that doesn't affect identity. */
     private String notes;
+
+    /** What was last paid per skein. Null when never recorded. */
+    private Double costPerSkein;
+
+    /** Every change to {@link #costPerSkein} (including the first time it's set), oldest
+     *  first — so a price trend is visible directly on the yarn type itself rather than
+     *  needing a separate ledger lookup. */
+    @Builder.Default
+    private List<CostChange> costHistory = new ArrayList<>();
+
+    @Getter
+    @Setter
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class CostChange {
+        /** Null for the very first recorded cost. */
+        private Double previousCost;
+        private Double newCost;
+        private Instant changedAt;
+    }
 }

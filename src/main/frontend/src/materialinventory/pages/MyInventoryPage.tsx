@@ -13,6 +13,7 @@ type NewYarnDraft = {
   skeinLengthMeters: string;
   recommendedHookSize: string;
   notes: string;
+  costPerSkein: string;
 };
 
 const blankYarnDraft = (): NewYarnDraft => ({
@@ -24,6 +25,7 @@ const blankYarnDraft = (): NewYarnDraft => ({
   skeinLengthMeters: "",
   recommendedHookSize: "",
   notes: "",
+  costPerSkein: "",
 });
 
 type NewNeedleDraft = { kind: NeedleKind; size: string; notes: string };
@@ -52,6 +54,9 @@ export default function MyInventoryPage() {
   const [newYarn, setNewYarn] = useState<NewYarnDraft>(blankYarnDraft());
   const [editingQuantity, setEditingQuantity] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState<string | null>(null);
+  const [editingCost, setEditingCost] = useState<Record<string, string>>({});
+  const [savingCost, setSavingCost] = useState<string | null>(null);
+  const [showCostHistory, setShowCostHistory] = useState<string | null>(null);
   const [showNewNeedle, setShowNewNeedle] = useState(false);
   const [newNeedle, setNewNeedle] = useState<NewNeedleDraft>(blankNeedleDraft());
   const [editingNeedleQuantity, setEditingNeedleQuantity] = useState<Record<string, string>>({});
@@ -106,6 +111,7 @@ export default function MyInventoryPage() {
         skeinLengthMeters: newYarn.skeinLengthMeters.trim() ? Number(newYarn.skeinLengthMeters) : null,
         recommendedHookSize: newYarn.recommendedHookSize.trim() || null,
         notes: newYarn.notes.trim() || null,
+        costPerSkein: newYarn.costPerSkein.trim() ? Number(newYarn.costPerSkein) : null,
       });
       setNewYarn(blankYarnDraft());
       setShowNewYarn(false);
@@ -138,6 +144,39 @@ export default function MyInventoryPage() {
       setError(err instanceof Error ? err.message : "Failed to update quantity");
     } finally {
       setSaving(null);
+    }
+  };
+
+  const saveCost = async (y: YarnTypeView) => {
+    if (!currentGroupId) return;
+    const raw = editingCost[y.id];
+    const value = raw.trim() ? Number(raw) : null;
+    if (raw.trim() && (Number.isNaN(value) || (value ?? 0) < 0)) {
+      setError("Enter a cost of zero or more");
+      return;
+    }
+    setError(null);
+    setSavingCost(y.id);
+    try {
+      await materialInventoryApi.updateYarnType(currentGroupId, y.id, {
+        brand: y.brand,
+        thickness: y.thickness,
+        colour: y.colour,
+        material: y.material,
+        skeinWeightGrams: y.skeinWeightGrams,
+        skeinLengthMeters: y.skeinLengthMeters,
+        recommendedHookSize: y.recommendedHookSize,
+        notes: y.notes,
+        costPerSkein: value,
+      });
+      const rest = { ...editingCost };
+      delete rest[y.id];
+      setEditingCost(rest);
+      load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to update cost");
+    } finally {
+      setSavingCost(null);
     }
   };
 
@@ -289,6 +328,18 @@ export default function MyInventoryPage() {
                   onChange={(e) => setNewYarn({ ...newYarn, recommendedHookSize: e.target.value })}
                 />
               </div>
+              <div className="form-row">
+                <label htmlFor="yarn-cost">Cost per skein (optional)</label>
+                <input
+                  id="yarn-cost"
+                  type="number"
+                  min={0}
+                  step={0.01}
+                  placeholder="what you paid"
+                  value={newYarn.costPerSkein}
+                  onChange={(e) => setNewYarn({ ...newYarn, costPerSkein: e.target.value })}
+                />
+              </div>
             </div>
             <div className="form-row">
               <label htmlFor="yarn-notes">Notes (optional)</label>
@@ -336,6 +387,45 @@ export default function MyInventoryPage() {
                           .filter(Boolean).join(" · ")}
                       </div>
                       {y.notes && <div className="muted" style={{ fontSize: 12 }}>{y.notes}</div>}
+                      <div className="muted" style={{ fontSize: 12, marginTop: 2 }}>
+                        {editingCost[y.id] !== undefined ? (
+                          <span style={{ display: "inline-flex", gap: 4, alignItems: "center" }}>
+                            <input
+                              aria-label={`Cost per skein for ${y.brand} ${y.colour}`}
+                              type="number"
+                              min={0}
+                              step={0.01}
+                              style={{ width: 72 }}
+                              value={editingCost[y.id]}
+                              onChange={(e) => setEditingCost({ ...editingCost, [y.id]: e.target.value })}
+                            />
+                            <button type="button" disabled={savingCost === y.id} onClick={() => saveCost(y)}>
+                              Save
+                            </button>
+                          </span>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => setEditingCost({ ...editingCost, [y.id]: y.costPerSkein != null ? String(y.costPerSkein) : "" })}
+                          >
+                            {y.costPerSkein != null ? `₹${y.costPerSkein.toFixed(2)}/skein` : "Set cost per skein"}
+                          </button>
+                        )}
+                        {y.costHistory.length > 0 && (
+                          <button type="button" style={{ marginLeft: 6 }} onClick={() => setShowCostHistory(showCostHistory === y.id ? null : y.id)}>
+                            {showCostHistory === y.id ? "hide history" : "price history"}
+                          </button>
+                        )}
+                      </div>
+                      {showCostHistory === y.id && (
+                        <ul style={{ margin: "4px 0 0", paddingLeft: 16, fontSize: 12 }} className="muted">
+                          {y.costHistory.map((c, i) => (
+                            <li key={i}>
+                              {new Date(c.changedAt).toLocaleDateString()}: {c.previousCost != null ? `₹${c.previousCost.toFixed(2)}` : "unset"} → {c.newCost != null ? `₹${c.newCost.toFixed(2)}` : "unset"}
+                            </li>
+                          ))}
+                        </ul>
+                      )}
                     </td>
                     {members.map((m) => {
                       const isMe = m.id === user?.id;

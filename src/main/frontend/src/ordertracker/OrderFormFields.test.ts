@@ -6,7 +6,6 @@ function variant(overrides: Partial<VariantDraft>): VariantDraft {
     label: "Blue flower",
     quantity: 3,
     mandatoryItems: [],
-    tools: [],
     addOns: [],
     craftingTimeHours: 0,
     assemblyTimeHours: 0,

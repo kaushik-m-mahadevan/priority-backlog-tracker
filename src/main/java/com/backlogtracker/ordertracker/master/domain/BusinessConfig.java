@@ -16,8 +16,10 @@ import lombok.Setter;
  * One group's own Order Tracker business configuration (design §2) — keyed by groupId
  * itself (one document per group, not a fixed singleton id like Backlog Tracker's
  * AppConfig), since every group is its own separate business (platform integration
- * decision): mandatory item types and work stages are exactly the kind of thing a
- * different business reconfigures without a schema change.
+ * decision): work stages are exactly the kind of thing a different business reconfigures
+ * without a schema change. Mandatory item types used to be similarly configurable but
+ * were descoped to exactly two fixed kinds — see
+ * {@link com.backlogtracker.ordertracker.order.domain.Order.MaterialKind}.
  */
 @Document("orderTrackerBusinessConfig")
 @Getter
@@ -42,7 +44,7 @@ public class BusinessConfig {
      *  called by the frontend immediately after creating a new business, right before it
      *  routes into the wizard. Boxed so a document persisted before this field existed
      *  (every pre-existing business) hydrates as null and is treated as complete, not
-     *  incomplete — see {@code MandatoryItemType.isTool}'s compact constructor for the
+     *  incomplete — see {@link WorkStageType#splitTracked}'s compact constructor for the
      *  same Mongo-missing-field pattern. */
     private Boolean setupComplete;
 
@@ -59,26 +61,7 @@ public class BusinessConfig {
     /** 2-digit, auto-assigned, guaranteed different from {@link #individualOrderTypeCode}. */
     private String bulkOrderTypeCode;
 
-    private List<MandatoryItemType> mandatoryItemTypes;
     private List<WorkStageType> workStages;
-
-    /** {@code isTool} distinguishes a reusable tool (e.g. a crochet hook — not purchased
-     *  per order, can appear multiple times on one order with no cost implication) from a
-     *  material (e.g. wool — cost/quantity matter, and a project may still use several
-     *  entries of it, e.g. two colours). Order-level entries always allow multiple values
-     *  per type regardless of this flag; the flag only decides whether quantity/unit cost
-     *  are meaningful to collect for that type. */
-    public record MandatoryItemType(String itemKey, String label, List<String> allowedValues, Boolean isTool) {
-        /** Boxed (not primitive) so Spring Data can hydrate documents persisted before this
-         *  field existed — a primitive component can't bind a missing/null Mongo value and
-         *  fails the whole read with "Parameter isTool must not be null". Old data has no
-         *  key at all, which the driver hands in as null here; treated as "not a tool". */
-        public MandatoryItemType {
-            if (isTool == null) {
-                isTool = false;
-            }
-        }
-    }
 
     /**
      * sequenceOrder is display/workflow order only. {@code splitTracked} distinguishes how
@@ -90,11 +73,11 @@ public class BusinessConfig {
      * default) regardless of this flag.
      */
     public record WorkStageType(String stageKey, String label, int sequenceOrder, Boolean splitTracked) {
-        /** Boxed for the same reason as {@link MandatoryItemType#isTool} — a primitive
-         *  component can't bind a missing/null Mongo value, and every config document
-         *  persisted before this field existed has no splitTracked key at all. Unlike
-         *  isTool, a blanket false default here would be wrong (not just conservative) —
-         *  it would silently flip Crocheting/Assembly to batch-tracked and corrupt every
+        /** Boxed so Spring Data can hydrate documents persisted before this field existed —
+         *  a primitive component can't bind a missing/null Mongo value, and every config
+         *  document persisted before this field existed has no splitTracked key at all. A
+         *  blanket false default here would be wrong (not just conservative) — it would
+         *  silently flip Crocheting/Assembly to batch-tracked and corrupt every
          *  existing bulk order's completion %. Work stages have no edit UI (frontend only
          *  ever displays workStages, never edits them), so every document's set is exactly
          *  {@link #defaultsFor}'s four — safe to restore the intended value by stageKey. */
@@ -114,9 +97,6 @@ public class BusinessConfig {
                 .profitMarginPercentage(0.20)
                 .currency("INR")
                 .setupComplete(true)
-                .mandatoryItemTypes(new ArrayList<>(List.of(
-                        new MandatoryItemType("wool", "Wool", null, false),
-                        new MandatoryItemType("needle", "Needle", null, true))))
                 .workStages(new ArrayList<>(List.of(
                         new WorkStageType("crocheting", "Crocheting", 1, true),
                         new WorkStageType("assembly", "Assembly", 2, true),

@@ -120,7 +120,7 @@ class OrderApiTest {
                                  "orderReceivedDate":"2026-01-01T00:00:00Z",
                                  "pattern":{"patternType":"CUSTOM","customPatternNotes":"Kept for recreation","recipeSteps":["Crochet body","Attach clasp"]},
                                  "researchItems":[{"type":"VIDEO","url":"https://example.com/v","description":"reference"}],
-                                 "mandatoryItems":[{"itemKey":"wool","value":"Yellow + green, 50g","quantity":1,"unitCost":120}],
+                                 "mandatoryItems":[{"kind":"YARN","value":"Yellow + green, 50g","quantity":1,"unitCost":120}],
                                  "addOns":[{"name":"Safety eyes","quantity":1,"unitCost":40,"unitTimeHours":0.2}],
                                  "craftingTimeHours":4}""".formatted(customerId, creatorAId)))
                 .andExpect(status().isOk())
@@ -150,7 +150,7 @@ class OrderApiTest {
                                 {"customerId":"%s","orderType":"INDIVIDUAL","createdByCreatorId":"%s",
                                  "itemName":"Yarn-linked test item",
                                  "orderReceivedDate":"2026-01-01T00:00:00Z",
-                                 "mandatoryItems":[{"itemKey":"wool","value":"Red","quantity":1,"unitCost":100,
+                                 "mandatoryItems":[{"kind":"YARN","value":"Red","quantity":1,"unitCost":100,
                                                      "linkedYarnTypeId":"yarn-type-abc"}],
                                  "craftingTimeHours":2}""".formatted(customerId, creatorAId)))
                 .andExpect(status().isOk())
@@ -165,24 +165,25 @@ class OrderApiTest {
     }
 
     @Test
-    void toolsAreKeptSeparateFromMandatoryItemsAndCarryNoCost() throws Exception {
+    void yarnAndNeedleAreBothMandatoryItemsAndBothCanCarryCost() throws Exception {
         mvc.perform(auth(post("/api/ordertracker/groups/" + groupId + "/orders"), token)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"customerId":"%s","orderType":"INDIVIDUAL","createdByCreatorId":"%s",
                                  "itemName":"Amigurumi bear","orderReceivedDate":"2026-01-01T00:00:00Z",
-                                 "mandatoryItems":[{"itemKey":"wool","value":"Cream","quantity":1,"unitCost":100}],
-                                 "tools":[{"itemKey":"needle","value":"4mm hook","notes":"for edging"}],
+                                 "mandatoryItems":[
+                                   {"kind":"YARN","value":"Cream","quantity":1,"unitCost":100},
+                                   {"kind":"NEEDLE","value":"4mm hook","quantity":1,"unitCost":20,"notes":"for edging"}
+                                 ],
                                  "craftingTimeHours":1}""".formatted(customerId, creatorAId)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.mandatoryItems.length()").value(1))
-                .andExpect(jsonPath("$.mandatoryItems[0].itemKey").value("wool"))
-                .andExpect(jsonPath("$.tools.length()").value(1))
-                .andExpect(jsonPath("$.tools[0].itemKey").value("needle"))
-                .andExpect(jsonPath("$.tools[0].value").value("4mm hook"))
-                .andExpect(jsonPath("$.tools[0].notes").value("for edging"))
-                // a tool entry must never contribute cost — only the wool material does
-                .andExpect(jsonPath("$.costEstimate.mandatoryItemsCost").value(100.0));
+                .andExpect(jsonPath("$.mandatoryItems.length()").value(2))
+                .andExpect(jsonPath("$.mandatoryItems[0].kind").value("YARN"))
+                .andExpect(jsonPath("$.mandatoryItems[1].kind").value("NEEDLE"))
+                .andExpect(jsonPath("$.mandatoryItems[1].value").value("4mm hook"))
+                .andExpect(jsonPath("$.mandatoryItems[1].notes").value("for edging"))
+                // both kinds contribute cost now — no more cost-free "tool" concept
+                .andExpect(jsonPath("$.costEstimate.mandatoryItemsCost").value(120.0));
     }
 
     @Test
@@ -192,7 +193,7 @@ class OrderApiTest {
                         .content("""
                                 {"customerId":"%s","orderType":"INDIVIDUAL","createdByCreatorId":"%s",
                                  "itemName":"Amigurumi bear","orderReceivedDate":"2026-01-01T00:00:00Z",
-                                 "mandatoryItems":[{"itemKey":"wool","value":"Cream","quantity":1,"unitCost":100}],
+                                 "mandatoryItems":[{"kind":"YARN","value":"Cream","quantity":1,"unitCost":100}],
                                  "addOns":[{"name":"Safety eyes","quantity":1,"unitCost":40,"unitTimeHours":5}],
                                  "craftingTimeHours":4,"assemblyTimeHours":2,"researchTimeHours":2}"""
                                 .formatted(customerId, creatorAId)))
@@ -219,7 +220,7 @@ class OrderApiTest {
                         .content("""
                                 {"itemName":"Updated bear","orderReceivedDate":"2026-01-01T00:00:00Z",
                                  "pattern":{"patternType":"TEMPLATE","templateName":"Basic bear"},
-                                 "mandatoryItems":[{"itemKey":"wool","value":"Cream","quantity":2,"unitCost":50}],
+                                 "mandatoryItems":[{"kind":"YARN","value":"Cream","quantity":2,"unitCost":50}],
                                  "addOns":[],"craftingTimeHours":2}"""))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.itemName").value("Updated bear"))
@@ -241,7 +242,7 @@ class OrderApiTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"customerId":"%s","itemName":"Amigurumi bear","orderReceivedDate":"2026-01-01T00:00:00Z",
-                                 "mandatoryItems":[{"itemKey":"wool","value":"Cream","quantity":1,"unitCost":100}],
+                                 "mandatoryItems":[{"kind":"YARN","value":"Cream","quantity":1,"unitCost":100}],
                                  "addOns":[],"craftingTimeHours":1}""".formatted(otherCustomerId)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.customerId").value(otherCustomerId));
@@ -258,7 +259,7 @@ class OrderApiTest {
                                 {"customerId":"%s","itemName":"Updated pots name","orderReceivedDate":"2026-01-01T00:00:00Z",
                                  "researchTimeHours":4,
                                  "variants":[{"variantId":"%s","label":"Blue flower","quantity":20,
-                                  "mandatoryItems":[{"itemKey":"wool","value":"Blue","quantity":1,"unitCost":100}],
+                                  "mandatoryItems":[{"kind":"YARN","value":"Blue","quantity":1,"unitCost":100}],
                                   "craftingTimeHours":1,
                                   "splitAllocation":[{"creatorId":"%s","quantityAssigned":20}]}],
                                  "coordinatingCreatorId":"%s","logisticsBufferDays":0}"""
@@ -357,11 +358,11 @@ class OrderApiTest {
                                  "coordinatingCreatorId":"%s",
                                  "variants":[
                                    {"label":"Blue flower","quantity":20,
-                                    "mandatoryItems":[{"itemKey":"wool","value":"Blue","quantity":1,"unitCost":100}],
+                                    "mandatoryItems":[{"kind":"YARN","value":"Blue","quantity":1,"unitCost":100}],
                                     "craftingTimeHours":1,
                                     "splitAllocation":[{"creatorId":"%s","quantityAssigned":20}]},
                                    {"label":"Red flower","quantity":5,
-                                    "mandatoryItems":[{"itemKey":"wool","value":"Red","quantity":1,"unitCost":100}],
+                                    "mandatoryItems":[{"kind":"YARN","value":"Red","quantity":1,"unitCost":100}],
                                     "craftingTimeHours":1,
                                     "splitAllocation":[{"creatorId":"%s","quantityAssigned":5}]}
                                  ]}""".formatted(customerId, creatorAId, creatorAId, creatorAId, creatorBId)))
@@ -395,7 +396,7 @@ class OrderApiTest {
                                  "itemName":"Mini succulent crochet pots","orderReceivedDate":"2026-01-01T00:00:00Z",
                                  "researchTimeHours":8,
                                  "variants":[{"label":"Blue flower","quantity":20,
-                                   "mandatoryItems":[{"itemKey":"wool","value":"Blue","quantity":1,"unitCost":100}],
+                                   "mandatoryItems":[{"kind":"YARN","value":"Blue","quantity":1,"unitCost":100}],
                                    "craftingTimeHours":1,"assemblyTimeHours":1,
                                    "splitAllocation":[{"creatorId":"%s","quantityAssigned":20}]}]}"""
                                 .formatted(customerId, creatorAId, creatorAId)))
@@ -442,7 +443,7 @@ class OrderApiTest {
                                 {"customerId":"%s","itemName":"Mini succulent crochet pots",
                                  "orderReceivedDate":"2026-01-01T00:00:00Z",
                                  "variants":[{"variantId":"%s","label":"Blue flower","quantity":30,
-                                  "mandatoryItems":[{"itemKey":"wool","value":"Blue","quantity":1,"unitCost":100}],
+                                  "mandatoryItems":[{"kind":"YARN","value":"Blue","quantity":1,"unitCost":100}],
                                   "craftingTimeHours":1,
                                   "splitAllocation":[{"creatorId":"%s","quantityAssigned":30}]}],
                                  "coordinatingCreatorId":"%s","logisticsBufferDays":0}"""
@@ -464,7 +465,7 @@ class OrderApiTest {
                         .content("""
                                 {"customerId":"%s","orderType":"INDIVIDUAL","createdByCreatorId":"%s",
                                  "itemName":"Amigurumi bear","orderReceivedDate":"2026-01-01T00:00:00Z",
-                                 "mandatoryItems":[{"itemKey":"wool","value":"Cream","quantity":1,"unitCost":100}],
+                                 "mandatoryItems":[{"kind":"YARN","value":"Cream","quantity":1,"unitCost":100}],
                                  "craftingTimeHours":1}""".formatted(customerId, creatorAId)))
                 .andReturn().getResponse().getContentAsString();
         return mapper.readTree(body).get("id").asText();
@@ -477,7 +478,7 @@ class OrderApiTest {
                                 {"customerId":"%s","orderType":"BULK","createdByCreatorId":"%s",
                                  "itemName":"Mini succulent crochet pots","orderReceivedDate":"2026-01-01T00:00:00Z",
                                  "variants":[{"label":"Blue flower","quantity":20,
-                                   "mandatoryItems":[{"itemKey":"wool","value":"Blue","quantity":1,"unitCost":100}],
+                                   "mandatoryItems":[{"kind":"YARN","value":"Blue","quantity":1,"unitCost":100}],
                                    "craftingTimeHours":1,
                                    "splitAllocation":[{"creatorId":"%s","quantityAssigned":20}]}]}"""
                                 .formatted(customerId, creatorAId, creatorAId)))

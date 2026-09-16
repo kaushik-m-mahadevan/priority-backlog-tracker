@@ -37,13 +37,6 @@ export interface Creator {
   hoursAvailablePerDay: number;
 }
 
-export interface MandatoryItemType {
-  itemKey: string;
-  label: string;
-  allowedValues: string[] | null;
-  isTool: boolean;
-}
-
 export interface WorkStageType {
   stageKey: string;
   label: string;
@@ -86,7 +79,6 @@ export interface BusinessConfig {
   currency: string;
   individualOrderTypeCode: string;
   bulkOrderTypeCode: string;
-  mandatoryItemTypes: MandatoryItemType[];
   workStages: WorkStageType[];
   setupComplete: boolean;
 }
@@ -114,23 +106,20 @@ export interface ResearchItem {
   description: string | null;
 }
 
+export type MaterialKind = "YARN" | "NEEDLE";
+
 export interface MandatoryItem {
-  itemKey: string;
+  kind: MaterialKind;
   value: string;
   quantity: number;
   unitCost: number;
   notes: string | null;
-  /** Optional — set only when this material is linked to a specific Material Inventory
-   *  YarnType (only offered when the business has a linked inventory group). Opaque to
-   *  Order Tracker's own backend; the frontend uses it to look up the current user's
-   *  on-hand quantity for a shortfall check. */
+  /** Optional — set only when {@code kind === "YARN"} and this business has a linked
+   *  Material Inventory group. Opaque to Order Tracker's own backend; the frontend uses it
+   *  to look up the current user's on-hand quantity for a shortfall check. */
   linkedYarnTypeId: string | null;
-}
-
-export interface Tool {
-  itemKey: string;
-  value: string;
-  notes: string | null;
+  /** Same idea as {@link linkedYarnTypeId}, but for {@code kind === "NEEDLE"}. */
+  linkedNeedleTypeId: string | null;
 }
 
 export interface LineItem {
@@ -216,7 +205,6 @@ export interface Variant {
   label: string;
   quantity: number;
   mandatoryItems: MandatoryItem[];
-  tools: Tool[];
   addOns: LineItem[];
   packaging: Packaging | null;
   craftingTimeHours: number;
@@ -263,7 +251,6 @@ export interface OrderView {
   assemblyPackagingInstructions: string | null;
   notes: string | null;
   mandatoryItems: MandatoryItem[];
-  tools: Tool[];
   addOns: LineItem[];
   packaging: Packaging | null;
   craftingTimeHours: number;

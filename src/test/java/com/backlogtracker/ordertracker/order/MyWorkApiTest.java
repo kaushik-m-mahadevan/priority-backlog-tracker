@@ -215,7 +215,7 @@ class MyWorkApiTest {
                                 {"customerId":"%s","orderType":"BULK","createdByCreatorId":"%s",
                                  "itemName":"Mini succulent crochet pots","orderReceivedDate":"2026-01-01T00:00:00Z",
                                  "variants":[{"label":"Blue flower","quantity":20,
-                                   "mandatoryItems":[{"itemKey":"wool","value":"Blue","quantity":1,"unitCost":100}],
+                                   "mandatoryItems":[{"kind":"YARN","value":"Blue","quantity":1,"unitCost":100}],
                                    "craftingTimeHours":1,
                                    "splitAllocation":[{"creatorId":"%s","quantityAssigned":20}]}]}"""
                                 .formatted(customerId, creatorAId, creatorAId)))
@@ -271,7 +271,7 @@ class MyWorkApiTest {
                         .content("""
                                 {"customerId":"%s","orderType":"INDIVIDUAL","createdByCreatorId":"%s",
                                  "itemName":"Amigurumi bear","orderReceivedDate":"%s",
-                                 "mandatoryItems":[{"itemKey":"wool","value":"Cream","quantity":1,"unitCost":100}],
+                                 "mandatoryItems":[{"kind":"YARN","value":"Cream","quantity":1,"unitCost":100}],
                                  "craftingTimeHours":1}""".formatted(customerId, createdByCreatorId, orderReceivedDate)))
                 .andReturn().getResponse().getContentAsString();
         return mapper.readTree(body).get("id").asText();

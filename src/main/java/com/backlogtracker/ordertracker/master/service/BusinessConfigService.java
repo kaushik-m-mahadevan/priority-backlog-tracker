@@ -7,7 +7,6 @@ import org.springframework.stereotype.Service;
 
 import com.backlogtracker.commons.group.service.GroupService;
 import com.backlogtracker.ordertracker.master.domain.BusinessConfig;
-import com.backlogtracker.ordertracker.master.domain.BusinessConfig.MandatoryItemType;
 import com.backlogtracker.ordertracker.master.domain.BusinessConfig.WorkStageType;
 import com.backlogtracker.ordertracker.master.repository.BusinessConfigRepository;
 
@@ -31,11 +30,9 @@ public class BusinessConfigService {
      *  unanimous-approval flow (platform integration decision). Everything else about a
      *  business's config is low-stakes enough for any member to change freely. */
     public BusinessConfig update(String groupId, String userId, String currency,
-                                 List<MandatoryItemType> mandatoryItemTypes,
                                  List<WorkStageType> workStages) {
         BusinessConfig cfg = get(groupId, userId); // ensures membership + seeds if absent
         cfg.setCurrency(currency);
-        cfg.setMandatoryItemTypes(mandatoryItemTypes);
         cfg.setWorkStages(workStages);
         return repository.save(cfg);
     }

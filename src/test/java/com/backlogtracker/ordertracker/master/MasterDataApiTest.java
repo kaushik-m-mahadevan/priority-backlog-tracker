@@ -81,7 +81,6 @@ class MasterDataApiTest {
         String body = mvc.perform(auth(get("/api/ordertracker/groups/" + groupId + "/business-config"), token))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.currency").value("INR"))
-                .andExpect(jsonPath("$.mandatoryItemTypes.length()").value(2))
                 .andExpect(jsonPath("$.workStages.length()").value(4))
                 .andReturn().getResponse().getContentAsString();
         JsonNode cfg = mapper.readTree(body);

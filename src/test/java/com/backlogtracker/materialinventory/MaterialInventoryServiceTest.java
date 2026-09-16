@@ -66,7 +66,7 @@ class MaterialInventoryServiceTest {
 
     private YarnTypeView createWool() {
         return yarnTypeService.create(inventoryGroup.getId(), userAId,
-                new CreateYarnTypeRequest("Red Heart", "Worsted (4)", "Sunflower Yellow", null, null, null, null, null));
+                new CreateYarnTypeRequest("Red Heart", "Worsted (4)", "Sunflower Yellow", null, null, null, null, null, null));
     }
 
     @Test
@@ -75,7 +75,7 @@ class MaterialInventoryServiceTest {
         assertThat(created.brand()).isEqualTo("Red Heart");
 
         YarnTypeView updated = yarnTypeService.update(inventoryGroup.getId(), userBId, created.id(),
-                new CreateYarnTypeRequest("Red Heart", "Worsted (4)", "Sunflower Yellow", null, null, null, null, "slightly faded"));
+                new CreateYarnTypeRequest("Red Heart", "Worsted (4)", "Sunflower Yellow", null, null, null, null, "slightly faded", null));
         assertThat(updated.notes()).isEqualTo("slightly faded");
     }
 
@@ -84,9 +84,37 @@ class MaterialInventoryServiceTest {
         createWool();
 
         assertThatThrownBy(() -> yarnTypeService.create(inventoryGroup.getId(), userBId,
-                new CreateYarnTypeRequest("red heart", "worsted (4)", "sunflower yellow", null, null, null, null, null)))
+                new CreateYarnTypeRequest("red heart", "worsted (4)", "sunflower yellow", null, null, null, null, null, null)))
                 .isInstanceOf(ResponseStatusException.class)
                 .hasMessageContaining("already exists");
+    }
+
+    @Test
+    void settingACostOnCreateRecordsTheFirstHistoryEntry() {
+        YarnTypeView created = yarnTypeService.create(inventoryGroup.getId(), userAId,
+                new CreateYarnTypeRequest("Red Heart", "Worsted (4)", "Sunflower Yellow", null, null, null, null, null, 180.0));
+
+        assertThat(created.costPerSkein()).isEqualTo(180.0);
+        assertThat(created.costHistory()).hasSize(1);
+        assertThat(created.costHistory().get(0).previousCost()).isNull();
+        assertThat(created.costHistory().get(0).newCost()).isEqualTo(180.0);
+    }
+
+    @Test
+    void changingCostOnUpdateAppendsAHistoryEntryButUnrelatedEditsDoNotAddSpuriousOnes() {
+        YarnTypeView created = yarnTypeService.create(inventoryGroup.getId(), userAId,
+                new CreateYarnTypeRequest("Red Heart", "Worsted (4)", "Sunflower Yellow", null, null, null, null, null, 180.0));
+
+        YarnTypeView sameCost = yarnTypeService.update(inventoryGroup.getId(), userAId, created.id(),
+                new CreateYarnTypeRequest("Red Heart", "Worsted (4)", "Sunflower Yellow", null, null, null, null, "re-saved", 180.0));
+        assertThat(sameCost.costHistory()).hasSize(1);
+
+        YarnTypeView priceIncrease = yarnTypeService.update(inventoryGroup.getId(), userAId, created.id(),
+                new CreateYarnTypeRequest("Red Heart", "Worsted (4)", "Sunflower Yellow", null, null, null, null, "re-saved", 200.0));
+        assertThat(priceIncrease.costPerSkein()).isEqualTo(200.0);
+        assertThat(priceIncrease.costHistory()).hasSize(2);
+        assertThat(priceIncrease.costHistory().get(1).previousCost()).isEqualTo(180.0);
+        assertThat(priceIncrease.costHistory().get(1).newCost()).isEqualTo(200.0);
     }
 
     @Test

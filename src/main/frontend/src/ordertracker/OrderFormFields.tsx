@@ -1,13 +1,13 @@
-import { Link } from "react-router-dom";
-import type { BusinessConfig, MandatoryItemType } from "./types";
+import type { MaterialKind } from "./types";
 
 export interface MandatoryItemDraft {
-  itemKey: string;
+  kind: MaterialKind;
   value: string;
   quantity: number;
   unitCost: number;
   notes: string;
   linkedYarnTypeId: string | null;
+  linkedNeedleTypeId: string | null;
 }
 
 /** Minimal shape needed to populate the optional "link to inventory yarn" dropdown —
@@ -21,10 +21,11 @@ export interface LinkableYarnType {
   colour: string;
 }
 
-export interface ToolDraft {
-  itemKey: string;
-  value: string;
-  notes: string;
+/** Same idea as {@link LinkableYarnType}, mirroring materialinventory's NeedleTypeView. */
+export interface LinkableNeedleType {
+  id: string;
+  kind: "CROCHET_HOOK" | "KNITTING_NEEDLE";
+  size: string;
 }
 
 export interface LineItemDraft {
@@ -43,38 +44,30 @@ export interface VariantDraft {
   label: string;
   quantity: number;
   mandatoryItems: MandatoryItemDraft[];
-  tools: ToolDraft[];
   addOns: LineItemDraft[];
   craftingTimeHours: number;
   assemblyTimeHours: number;
   splitAllocation: SplitDraft[];
 }
 
-const materialTypes = (types: MandatoryItemType[]) => types.filter((t) => !t.isTool);
-const toolTypes = (types: MandatoryItemType[]) => types.filter((t) => t.isTool);
+const KIND_LABEL: Record<MaterialKind, string> = { YARN: "Yarn", NEEDLE: "Needle" };
 
-export function blankMandatoryItemEntry(itemKey: string): MandatoryItemDraft {
-  return { itemKey, value: "", quantity: 1, unitCost: 0, notes: "", linkedYarnTypeId: null };
+export function blankMandatoryItemEntry(kind: MaterialKind): MandatoryItemDraft {
+  return { kind, value: "", quantity: 1, unitCost: 0, notes: "", linkedYarnTypeId: null, linkedNeedleTypeId: null };
 }
 
-export function blankToolEntry(itemKey: string): ToolDraft {
-  return { itemKey, value: "", notes: "" };
+/** Exactly two mandatory item kinds exist (design decision: descope the previously
+ *  configurable, freeform mandatory-item-type list) — every order starts with one blank
+ *  entry of each. */
+export function blankMandatoryItems(): MandatoryItemDraft[] {
+  return [blankMandatoryItemEntry("YARN"), blankMandatoryItemEntry("NEEDLE")];
 }
 
-export function blankMandatoryItems(config: BusinessConfig): MandatoryItemDraft[] {
-  return materialTypes(config.mandatoryItemTypes).map((it) => blankMandatoryItemEntry(it.itemKey));
-}
-
-export function blankTools(config: BusinessConfig): ToolDraft[] {
-  return toolTypes(config.mandatoryItemTypes).map((it) => blankToolEntry(it.itemKey));
-}
-
-export function blankVariant(config: BusinessConfig): VariantDraft {
+export function blankVariant(): VariantDraft {
   return {
     label: "",
     quantity: 1,
-    mandatoryItems: blankMandatoryItems(config),
-    tools: blankTools(config),
+    mandatoryItems: blankMandatoryItems(),
     addOns: [],
     craftingTimeHours: 0,
     assemblyTimeHours: 0,
@@ -90,7 +83,6 @@ export function duplicateVariant(source: VariantDraft): VariantDraft {
     label: source.label,
     quantity: source.quantity,
     mandatoryItems: source.mandatoryItems.map((m) => ({ ...m })),
-    tools: source.tools.map((t) => ({ ...t })),
     addOns: source.addOns.map((a) => ({ ...a })),
     craftingTimeHours: source.craftingTimeHours,
     assemblyTimeHours: source.assemblyTimeHours,
@@ -98,52 +90,47 @@ export function duplicateVariant(source: VariantDraft): VariantDraft {
   };
 }
 
-/** One configured material type can appear multiple times per order/variant (e.g. two
- *  colors of wool) — entries are grouped by itemKey, each group independently extensible.
- *  Tools live in a separate list ({@link ToolsFields}) since they carry no cost/quantity. */
+/** Either kind can appear multiple times per order/variant (e.g. two colors of yarn, or
+ *  two needle sizes) — entries are grouped by kind, each group independently extensible.
+ *  Each kind links to its own matching Material Inventory catalog (yarn entries to Yarn
+ *  Types, needle entries to Needle Types) rather than sharing one generic link field. */
 export function MandatoryItemsFields({
   items,
-  types: allTypes,
   onChange,
   yarnTypes,
+  needleTypes,
 }: {
   items: MandatoryItemDraft[];
-  types: MandatoryItemType[];
   onChange: (items: MandatoryItemDraft[]) => void;
   /** Only offered when the business has a linked Material Inventory group — omit or pass
    *  an empty array to hide the dropdown entirely (design decision: opt-in, not required). */
   yarnTypes?: LinkableYarnType[];
+  needleTypes?: LinkableNeedleType[];
 }) {
-  const types = materialTypes(allTypes);
-  if (types.length === 0) {
-    return (
-      <p className="empty">
-        No material types configured yet — add some in{" "}
-        <Link to="/ordertracker/business-settings">Business Settings</Link> to track materials per order.
-      </p>
-    );
-  }
+  const kinds: MaterialKind[] = ["YARN", "NEEDLE"];
 
   return (
     <div>
-      {types.map((type) => {
-        const entries = items.filter((it) => it.itemKey === type.itemKey);
+      {kinds.map((kind) => {
+        const label = KIND_LABEL[kind];
+        const entries = items.filter((it) => it.kind === kind);
+        const linkOptions = kind === "YARN" ? yarnTypes : needleTypes;
         return (
-          <fieldset key={type.itemKey} style={{ marginBottom: 16, border: "none", padding: 0 }}>
+          <fieldset key={kind} style={{ marginBottom: 16, border: "none", padding: 0 }}>
             <legend className="muted" style={{ fontSize: 12 }}>
-              {type.label}
+              {label}
             </legend>
             <div className="grid cols-3">
               {entries.map((it, entryIndex) => {
                 const globalIndex = items.indexOf(it);
-                const valueId = `mi-${type.itemKey}-${globalIndex}-value`;
-                const qtyId = `mi-${type.itemKey}-${globalIndex}-qty`;
-                const costId = `mi-${type.itemKey}-${globalIndex}-cost`;
-                const notesId = `mi-${type.itemKey}-${globalIndex}-notes`;
+                const valueId = `mi-${kind}-${globalIndex}-value`;
+                const qtyId = `mi-${kind}-${globalIndex}-qty`;
+                const costId = `mi-${kind}-${globalIndex}-cost`;
+                const notesId = `mi-${kind}-${globalIndex}-notes`;
                 return (
                   <div className="card" key={globalIndex} style={{ background: "var(--bg-elev-2)" }}>
                     <label htmlFor={valueId} className="sr-only">
-                      {type.label} entry {entryIndex + 1} value
+                      {label} entry {entryIndex + 1} value
                     </label>
                     <input
                       id={valueId}
@@ -151,7 +138,7 @@ export function MandatoryItemsFields({
                       onChange={(e) =>
                         onChange(items.map((x, j) => (j === globalIndex ? { ...x, value: e.target.value } : x)))
                       }
-                      placeholder="e.g. Cream, 50g"
+                      placeholder={kind === "YARN" ? "e.g. Cream, 50g" : "e.g. 4mm crochet hook"}
                       style={{ marginBottom: 8 }}
                     />
                     <div className="form-grid">
@@ -194,38 +181,57 @@ export function MandatoryItemsFields({
                       onChange={(e) => onChange(items.map((x, j) => (j === globalIndex ? { ...x, notes: e.target.value } : x)))}
                       placeholder="Why is this mandatory?"
                     />
-                    {yarnTypes && yarnTypes.length > 0 && (
+                    {linkOptions && linkOptions.length > 0 && (
                       <>
                         <label
-                          htmlFor={`${valueId}-yarn`}
+                          htmlFor={`${valueId}-link`}
                           className="muted"
                           style={{ fontSize: 11, marginTop: 8, display: "block" }}
                         >
-                          Link to inventory yarn (optional)
+                          Link to inventory {kind === "YARN" ? "yarn" : "needle"} (optional)
                         </label>
-                        <select
-                          id={`${valueId}-yarn`}
-                          value={it.linkedYarnTypeId ?? ""}
-                          onChange={(e) =>
-                            onChange(
-                              items.map((x, j) => (j === globalIndex ? { ...x, linkedYarnTypeId: e.target.value || null } : x))
-                            )
-                          }
-                        >
-                          <option value="">Not linked</option>
-                          {yarnTypes.map((y) => (
-                            <option key={y.id} value={y.id}>
-                              {y.brand} — {y.thickness}, {y.colour}
-                            </option>
-                          ))}
-                        </select>
+                        {kind === "YARN" ? (
+                          <select
+                            id={`${valueId}-link`}
+                            value={it.linkedYarnTypeId ?? ""}
+                            onChange={(e) =>
+                              onChange(
+                                items.map((x, j) => (j === globalIndex ? { ...x, linkedYarnTypeId: e.target.value || null } : x))
+                              )
+                            }
+                          >
+                            <option value="">Not linked</option>
+                            {(yarnTypes ?? []).map((y) => (
+                              <option key={y.id} value={y.id}>
+                                {y.brand} — {y.thickness}, {y.colour}
+                              </option>
+                            ))}
+                          </select>
+                        ) : (
+                          <select
+                            id={`${valueId}-link`}
+                            value={it.linkedNeedleTypeId ?? ""}
+                            onChange={(e) =>
+                              onChange(
+                                items.map((x, j) => (j === globalIndex ? { ...x, linkedNeedleTypeId: e.target.value || null } : x))
+                              )
+                            }
+                          >
+                            <option value="">Not linked</option>
+                            {(needleTypes ?? []).map((n) => (
+                              <option key={n.id} value={n.id}>
+                                {n.kind === "CROCHET_HOOK" ? "Hook" : "Needle"} {n.size}
+                              </option>
+                            ))}
+                          </select>
+                        )}
                       </>
                     )}
                     {entries.length > 1 && (
                       <button
                         type="button"
                         style={{ marginTop: 8 }}
-                        aria-label={`Remove ${type.label} entry ${entryIndex + 1}`}
+                        aria-label={`Remove ${label} entry ${entryIndex + 1}`}
                         onClick={() => onChange(items.filter((_, j) => j !== globalIndex))}
                       >
                         Remove
@@ -235,93 +241,8 @@ export function MandatoryItemsFields({
                       <button
                         type="button"
                         style={{ marginTop: 8, marginLeft: entries.length > 1 ? 8 : 0 }}
-                        aria-label={`Add another ${type.label} entry`}
-                        onClick={() => onChange([...items, blankMandatoryItemEntry(type.itemKey)])}
-                      >
-                        + Add another
-                      </button>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </fieldset>
-        );
-      })}
-    </div>
-  );
-}
-
-/** Tools (e.g. a crochet hook) — reused across orders, never purchased or itemized per
- *  order, so unlike {@link MandatoryItemsFields} there's no quantity/cost here, just which
- *  tool and an optional note. */
-export function ToolsFields({
-  items,
-  types: allTypes,
-  onChange,
-}: {
-  items: ToolDraft[];
-  types: MandatoryItemType[];
-  onChange: (items: ToolDraft[]) => void;
-}) {
-  const types = toolTypes(allTypes);
-  if (types.length === 0) {
-    return <p className="empty">No tool types configured yet.</p>;
-  }
-
-  return (
-    <div>
-      {types.map((type) => {
-        const entries = items.filter((it) => it.itemKey === type.itemKey);
-        return (
-          <fieldset key={type.itemKey} style={{ marginBottom: 16, border: "none", padding: 0 }}>
-            <legend className="muted" style={{ fontSize: 12 }}>
-              {type.label}
-            </legend>
-            <div className="grid cols-3">
-              {entries.map((it, entryIndex) => {
-                const globalIndex = items.indexOf(it);
-                const valueId = `tool-${type.itemKey}-${globalIndex}-value`;
-                const notesId = `tool-${type.itemKey}-${globalIndex}-notes`;
-                return (
-                  <div className="card" key={globalIndex} style={{ background: "var(--bg-elev-2)" }}>
-                    <label htmlFor={valueId} className="sr-only">
-                      {type.label} entry {entryIndex + 1} value
-                    </label>
-                    <input
-                      id={valueId}
-                      value={it.value}
-                      onChange={(e) =>
-                        onChange(items.map((x, j) => (j === globalIndex ? { ...x, value: e.target.value } : x)))
-                      }
-                      placeholder="e.g. 4mm hook"
-                      style={{ marginBottom: 8 }}
-                    />
-                    <label htmlFor={notesId} className="muted" style={{ fontSize: 11, display: "block" }}>
-                      Notes (optional)
-                    </label>
-                    <input
-                      id={notesId}
-                      value={it.notes}
-                      onChange={(e) => onChange(items.map((x, j) => (j === globalIndex ? { ...x, notes: e.target.value } : x)))}
-                      placeholder="e.g. size 4 for the edging"
-                    />
-                    {entries.length > 1 && (
-                      <button
-                        type="button"
-                        style={{ marginTop: 8 }}
-                        aria-label={`Remove ${type.label} entry ${entryIndex + 1}`}
-                        onClick={() => onChange(items.filter((_, j) => j !== globalIndex))}
-                      >
-                        Remove
-                      </button>
-                    )}
-                    {entryIndex === entries.length - 1 && (
-                      <button
-                        type="button"
-                        style={{ marginTop: 8, marginLeft: entries.length > 1 ? 8 : 0 }}
-                        aria-label={`Add another ${type.label} entry`}
-                        onClick={() => onChange([...items, blankToolEntry(type.itemKey)])}
+                        aria-label={`Add another ${label} entry`}
+                        onClick={() => onChange([...items, blankMandatoryItemEntry(kind)])}
                       >
                         + Add another
                       </button>

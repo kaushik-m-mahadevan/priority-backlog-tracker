@@ -89,7 +89,7 @@ class OrderFinalizationApiTest {
                                 {"customerId":"%s","orderType":"INDIVIDUAL","createdByCreatorId":"%s",
                                  "itemName":"Sunflower amigurumi keychain",
                                  "orderReceivedDate":"2026-01-01T00:00:00Z",
-                                 "mandatoryItems":[{"itemKey":"wool","value":"Yellow","quantity":1,"unitCost":120}],
+                                 "mandatoryItems":[{"kind":"YARN","value":"Yellow","quantity":1,"unitCost":120}],
                                  "craftingTimeHours":4}""".formatted(customerId, creatorAId)))
                 .andReturn().getResponse().getContentAsString();
         orderId = mapper.readTree(orderBody).get("id").asText();

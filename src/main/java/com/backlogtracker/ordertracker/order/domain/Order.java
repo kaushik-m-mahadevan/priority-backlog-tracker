@@ -80,10 +80,6 @@ public class Order {
     // ---- 5.5 mandatory items (individual only; bulk uses per-variant) ----
     @Builder.Default
     private List<MandatoryItem> mandatoryItems = new ArrayList<>();
-    /** Tools used (individual only; bulk uses per-variant) — kept out of mandatoryItems
-     *  entirely since tools carry no cost/quantity. */
-    @Builder.Default
-    private List<ToolUsage> tools = new ArrayList<>();
 
     // ---- 5.6 add-ons (individual only; bulk uses per-variant) ----
     @Builder.Default
@@ -148,44 +144,36 @@ public class Order {
         private String description;
     }
 
-    /** Entries per {@code BusinessConfig.mandatoryItemTypes} (spec §5.5) — plain text/number
-     *  entry, no catalog; an order may carry several entries for the same itemKey (e.g. two
-     *  wool colours, or two needle sizes). {@code inventoryItemId} is reserved/unused per
-     *  spec §11. {@code notes} is an optional free-text explanation of why this particular
-     *  entry is needed — most useful for a tool-type item ("size 4 hook for the edging"). */
+    /** Exactly two kinds of mandatory item exist (design decision: descope the previously
+     *  configurable, freeform mandatory-item-type list down to these two) — each links to
+     *  its own matching Material Inventory catalog rather than sharing one generic link
+     *  field. */
+    public enum MaterialKind { YARN, NEEDLE }
+
+    /** Plain text/number entry, no catalog of its own; an order may carry several entries
+     *  of the same {@code kind} (e.g. two wool colours, or two needle sizes). {@code notes}
+     *  is an optional free-text explanation of why this particular entry is needed. */
     @Getter
     @Setter
     @Builder
     @NoArgsConstructor
     @AllArgsConstructor
     public static class MandatoryItem {
-        private String itemKey;
+        private MaterialKind kind;
         private String value;
         private double quantity;
         private double unitCost;
         private String notes;
-        /** Optional — only meaningful when this business has a linked Material Inventory
-         *  group. Points at a {@code YarnType} id in that (separate-applet) group; Order
-         *  Tracker's backend never validates or interprets it, just stores and returns it
-         *  opaquely (no cross-applet import), consistent with the whole platform's
-         *  Group/GroupLink model. The frontend does the actual lookup and the resulting
-         *  on-hand-vs-needed shortfall comparison. */
+        /** Only meaningful when {@code kind == YARN} and this business has a linked
+         *  Material Inventory group. Points at a {@code YarnType} id in that (separate-
+         *  applet) group; Order Tracker's backend never validates or interprets it, just
+         *  stores and returns it opaquely (no cross-applet import), consistent with the
+         *  whole platform's Group/GroupLink model. The frontend does the actual lookup and
+         *  the resulting on-hand-vs-needed shortfall comparison. */
         private String linkedYarnTypeId;
-    }
-
-    /** A tool used on this order (e.g. "4mm hook") — separate from {@link MandatoryItem}
-     *  because tools are reused across orders, not purchased or costed per order (matches
-     *  {@code MandatoryItemType.isTool} in BusinessConfig). No quantity/cost fields at all,
-     *  just which tool and an optional note. */
-    @Getter
-    @Setter
-    @Builder
-    @NoArgsConstructor
-    @AllArgsConstructor
-    public static class ToolUsage {
-        private String itemKey;
-        private String value;
-        private String notes;
+        /** Same idea as {@link #linkedYarnTypeId}, but for {@code kind == NEEDLE} — points
+         *  at a {@code NeedleType} id instead. */
+        private String linkedNeedleTypeId;
     }
 
     /** Shared sub-schema used for add-ons and packaging's finalized itemized list (spec §3).
@@ -412,8 +400,6 @@ public class Order {
         private int quantity;
         @Builder.Default
         private List<MandatoryItem> mandatoryItems = new ArrayList<>();
-        @Builder.Default
-        private List<ToolUsage> tools = new ArrayList<>();
         @Builder.Default
         private List<LineItem> addOns = new ArrayList<>();
         private Packaging packaging;

@@ -7,7 +7,6 @@ import com.backlogtracker.ordertracker.order.dto.CreateOrderRequest.LineItemInpu
 import com.backlogtracker.ordertracker.order.dto.CreateOrderRequest.MandatoryItemInput;
 import com.backlogtracker.ordertracker.order.dto.CreateOrderRequest.PatternInput;
 import com.backlogtracker.ordertracker.order.dto.CreateOrderRequest.ResearchItemInput;
-import com.backlogtracker.ordertracker.order.dto.CreateOrderRequest.ToolInput;
 
 /** Full replace of an individual order's editable envelope (every card on the order
  *  screen except status/payments/shipment/stage-assignment, which have their own focused
@@ -16,7 +15,7 @@ public record UpdateOrderRequest(String customerId, String itemName, Instant ord
                                  Instant quotedDeliveryDate,
                                  PatternInput pattern, List<ResearchItemInput> researchItems,
                                  double researchTimeHours, String assemblyPackagingInstructions, String notes,
-                                 List<MandatoryItemInput> mandatoryItems, List<ToolInput> tools,
+                                 List<MandatoryItemInput> mandatoryItems,
                                  List<LineItemInput> addOns, String packagingPresetId,
                                  List<LineItemInput> itemizedPackaging, double craftingTimeHours,
                                  double assemblyTimeHours) {

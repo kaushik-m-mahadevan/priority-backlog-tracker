@@ -30,7 +30,7 @@ class OrderCalculatorTest {
     private final OrderCalculator calc = new OrderCalculator();
 
     private MandatoryItem item(double qty, double unitCost) {
-        return MandatoryItem.builder().itemKey("wool").value("cream").quantity(qty).unitCost(unitCost).build();
+        return MandatoryItem.builder().kind(Order.MaterialKind.YARN).value("cream").quantity(qty).unitCost(unitCost).build();
     }
 
     private LineItem lineItem(double qty, double unitCost, Double unitTimeHours) {

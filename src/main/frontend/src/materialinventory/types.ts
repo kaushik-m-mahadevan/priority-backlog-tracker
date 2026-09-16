@@ -1,3 +1,9 @@
+export interface YarnCostChange {
+  previousCost: number | null;
+  newCost: number | null;
+  changedAt: string;
+}
+
 export interface YarnTypeView {
   id: string;
   brand: string;
@@ -8,6 +14,8 @@ export interface YarnTypeView {
   skeinLengthMeters: number | null;
   recommendedHookSize: string | null;
   notes: string | null;
+  costPerSkein: number | null;
+  costHistory: YarnCostChange[];
 }
 
 export interface CreateYarnTypeRequest {
@@ -19,6 +27,7 @@ export interface CreateYarnTypeRequest {
   skeinLengthMeters: number | null;
   recommendedHookSize: string | null;
   notes: string | null;
+  costPerSkein: number | null;
 }
 
 export type NeedleKind = "CROCHET_HOOK" | "KNITTING_NEEDLE";

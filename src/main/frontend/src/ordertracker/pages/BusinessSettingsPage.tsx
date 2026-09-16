@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { orderTrackerApi } from "../api";
 import { useAuth } from "../../auth/AuthContext";
 import { useBusiness } from "../BusinessContext";
-import type { BusinessConfig, CostConfigChangeRequest, Creator, MandatoryItemType, PresetOption } from "../types";
+import type { BusinessConfig, CostConfigChangeRequest, Creator, PresetOption } from "../types";
 
 export default function BusinessSettingsPage() {
   const { currentGroupId, currentBusiness } = useBusiness();
@@ -17,9 +17,6 @@ export default function BusinessSettingsPage() {
   const [presetLabel, setPresetLabel] = useState("");
   const [presetCost, setPresetCost] = useState(0);
   const [presetHours, setPresetHours] = useState(0);
-  const [newItemKey, setNewItemKey] = useState("");
-  const [newItemLabel, setNewItemLabel] = useState("");
-  const [newItemIsTool, setNewItemIsTool] = useState(false);
   const [proposedOverhead, setProposedOverhead] = useState(0);
   const [proposedMargin, setProposedMargin] = useState(0);
   const [costConfigError, setCostConfigError] = useState<string | null>(null);
@@ -63,40 +60,6 @@ export default function BusinessSettingsPage() {
     setPresetCost(0);
     setPresetHours(0);
     await load();
-  };
-
-  const saveMandatoryItemTypes = async (types: MandatoryItemType[]) => {
-    if (!config) return;
-    const updated = await orderTrackerApi.updateBusinessConfig(groupId, {
-      currency: config.currency,
-      mandatoryItemTypes: types,
-      workStages: config.workStages,
-    });
-    setConfig(updated);
-  };
-
-  const addMandatoryItemType = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!config || !newItemKey.trim() || !newItemLabel.trim()) return;
-    await saveMandatoryItemTypes([
-      ...config.mandatoryItemTypes,
-      { itemKey: newItemKey.trim(), label: newItemLabel.trim(), allowedValues: null, isTool: newItemIsTool },
-    ]);
-    setNewItemKey("");
-    setNewItemLabel("");
-    setNewItemIsTool(false);
-  };
-
-  const removeMandatoryItemType = async (itemKey: string) => {
-    if (!config) return;
-    await saveMandatoryItemTypes(config.mandatoryItemTypes.filter((t) => t.itemKey !== itemKey));
-  };
-
-  const toggleMandatoryItemTool = async (itemKey: string) => {
-    if (!config) return;
-    await saveMandatoryItemTypes(
-      config.mandatoryItemTypes.map((t) => (t.itemKey === itemKey ? { ...t, isTool: !t.isTool } : t))
-    );
   };
 
   const pendingChangeRequest = changeRequests.find((c) => c.status === "PENDING") ?? null;
@@ -232,47 +195,6 @@ export default function BusinessSettingsPage() {
             </button>
           </form>
         )}
-      </div>
-
-      <h2 className="settings-section">Mandatory item types</h2>
-      <div className="card">
-        <p className="muted" style={{ marginTop: 0, fontSize: 13 }}>
-          Mark an item as a tool (e.g. a crochet hook) to skip cost/quantity tracking for it — tools are reused, not
-          purchased per order.
-        </p>
-        {config.mandatoryItemTypes.length === 0 ? (
-          <p className="empty">No mandatory item types configured.</p>
-        ) : (
-          <div className="kv" style={{ marginBottom: 12 }}>
-            {config.mandatoryItemTypes.map((t) => (
-              <span className="chip" key={t.itemKey}>
-                {t.label} ({t.itemKey})
-                <label style={{ marginLeft: 8, fontSize: 12 }}>
-                  <input type="checkbox" checked={t.isTool} onChange={() => toggleMandatoryItemTool(t.itemKey)} /> tool
-                </label>
-                <button
-                  type="button"
-                  className="linkbtn"
-                  style={{ marginLeft: 8 }}
-                  aria-label={`Remove mandatory item type ${t.label}`}
-                  onClick={() => removeMandatoryItemType(t.itemKey)}
-                >
-                  Remove
-                </button>
-              </span>
-            ))}
-          </div>
-        )}
-        <form className="toolbar" onSubmit={addMandatoryItemType}>
-          <input aria-label="New item type key" placeholder="Key (e.g. wool)" value={newItemKey} onChange={(e) => setNewItemKey(e.target.value)} required />
-          <input aria-label="New item type label" placeholder="Label (e.g. Wool)" value={newItemLabel} onChange={(e) => setNewItemLabel(e.target.value)} required />
-          <label style={{ fontSize: 13 }}>
-            <input type="checkbox" checked={newItemIsTool} onChange={(e) => setNewItemIsTool(e.target.checked)} /> Tool
-          </label>
-          <button className="primary" type="submit">
-            Add
-          </button>
-        </form>
       </div>
 
       <h2 className="settings-section">Packaging presets</h2>

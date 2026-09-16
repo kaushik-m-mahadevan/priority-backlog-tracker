@@ -2,19 +2,17 @@ import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { orderTrackerApi } from "../api";
 import { useBusiness } from "../BusinessContext";
+import { useLinkedNeedleTypes } from "../useLinkedNeedleTypes";
 import { useLinkedYarnTypes } from "../useLinkedYarnTypes";
 import {
   AddOnsFields,
   MandatoryItemsFields,
-  ToolsFields,
   blankMandatoryItems,
-  blankTools,
   blankVariant,
   duplicateVariant,
   validateSplits,
   type LineItemDraft,
   type MandatoryItemDraft,
-  type ToolDraft,
   type VariantDraft,
 } from "../OrderFormFields";
 import type { AcquisitionChannel, BusinessConfig, Creator, Customer, OrderType, PatternType, PresetOption } from "../types";
@@ -26,6 +24,7 @@ export default function NewOrderPage() {
   const groupId = currentGroupId!;
   const navigate = useNavigate();
   const linkedYarnTypes = useLinkedYarnTypes(groupId);
+  const linkedNeedleTypes = useLinkedNeedleTypes(groupId);
 
   const [config, setConfig] = useState<BusinessConfig | null>(null);
   const [customers, setCustomers] = useState<Customer[]>([]);
@@ -56,7 +55,6 @@ export default function NewOrderPage() {
 
   // individual-only
   const [mandatoryItems, setMandatoryItems] = useState<MandatoryItemDraft[]>([]);
-  const [tools, setTools] = useState<ToolDraft[]>([]);
   const [addOns, setAddOns] = useState<LineItemDraft[]>([]);
   const [craftingTimeHours, setCraftingTimeHours] = useState(0);
   const [assemblyTimeHours, setAssemblyTimeHours] = useState(0);
@@ -79,9 +77,8 @@ export default function NewOrderPage() {
       setCustomerMode(c.length === 0 ? "new" : "existing");
       setCreatedByCreatorId(cr[0]?.id ?? "");
       setPresets(p);
-      setMandatoryItems(blankMandatoryItems(cfg));
-      setTools(blankTools(cfg));
-      setVariants([blankVariant(cfg)]);
+      setMandatoryItems(blankMandatoryItems());
+      setVariants([blankVariant()]);
     });
   }, [groupId]);
 
@@ -168,7 +165,6 @@ export default function NewOrderPage() {
       };
       if (orderType === "INDIVIDUAL") {
         body.mandatoryItems = mandatoryItems.filter((m) => m.value.trim());
-        body.tools = tools.filter((t) => t.value.trim());
         body.addOns = addOns.filter((a) => a.name.trim());
         body.packagingPresetId = packagingPresetId || null;
         body.craftingTimeHours = craftingTimeHours;
@@ -180,7 +176,6 @@ export default function NewOrderPage() {
             label: v.label,
             quantity: v.quantity,
             mandatoryItems: v.mandatoryItems.filter((m) => m.value.trim()),
-            tools: v.tools.filter((t) => t.value.trim()),
             addOns: v.addOns.filter((a) => a.name.trim()),
             craftingTimeHours: v.craftingTimeHours,
             assemblyTimeHours: v.assemblyTimeHours,
@@ -388,15 +383,17 @@ export default function NewOrderPage() {
             <label className="muted" style={{ fontSize: 12, display: "block", marginBottom: 6 }}>
               Mandatory items
             </label>
-            <MandatoryItemsFields items={mandatoryItems} types={config.mandatoryItemTypes} onChange={setMandatoryItems} yarnTypes={linkedYarnTypes} />
+            <MandatoryItemsFields
+              items={mandatoryItems}
+              onChange={setMandatoryItems}
+              yarnTypes={linkedYarnTypes}
+              needleTypes={linkedNeedleTypes}
+            />
 
             <label className="muted" style={{ fontSize: 12, display: "block", margin: "12px 0 6px" }}>
               Add-ons
             </label>
             <AddOnsFields addOns={addOns} onChange={setAddOns} />
-
-            <h2 className="settings-section">Tools</h2>
-            <ToolsFields items={tools} types={config.mandatoryItemTypes} onChange={setTools} />
 
             <h2 className="settings-section">Packaging</h2>
             <div className="form-row" style={{ maxWidth: 300 }}>
@@ -454,9 +451,9 @@ export default function NewOrderPage() {
                   </div>
                   <MandatoryItemsFields
                     items={v.mandatoryItems}
-                    types={config.mandatoryItemTypes}
                     onChange={(items) => setVariants((prev) => prev.map((x, j) => (j === i ? { ...x, mandatoryItems: items } : x)))}
                     yarnTypes={linkedYarnTypes}
+                    needleTypes={linkedNeedleTypes}
                   />
 
                   <div className="muted" style={{ fontSize: 12, marginTop: 12 }}>
@@ -465,15 +462,6 @@ export default function NewOrderPage() {
                   <AddOnsFields
                     addOns={v.addOns}
                     onChange={(a) => setVariants((prev) => prev.map((x, j) => (j === i ? { ...x, addOns: a } : x)))}
-                  />
-
-                  <div className="muted" style={{ fontSize: 12, fontWeight: 600, marginTop: 16 }}>
-                    Tools
-                  </div>
-                  <ToolsFields
-                    items={v.tools}
-                    types={config.mandatoryItemTypes}
-                    onChange={(items) => setVariants((prev) => prev.map((x, j) => (j === i ? { ...x, tools: items } : x)))}
                   />
 
                   <div className="muted" style={{ fontSize: 12, fontWeight: 600, marginTop: 16 }}>
@@ -533,7 +521,7 @@ export default function NewOrderPage() {
               );
             })}
             <button type="button" onClick={() =>
-              setVariants((prev) => [...prev, duplicateVariant(prev[prev.length - 1] ?? blankVariant(config))])}>
+              setVariants((prev) => [...prev, duplicateVariant(prev[prev.length - 1] ?? blankVariant())])}>
               + Add variant (copies the last one)
             </button>
           </>

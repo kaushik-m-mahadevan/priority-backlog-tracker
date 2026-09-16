@@ -1,5 +1,5 @@
 import { api } from "../api/client";
-import type { BusinessConfig, ChangeLog, CostConfigChangeRequest, Creator, Customer, MandatoryItemType, OrderFinalizationView, OrderView, PresetOption, WorkStageType } from "./types";
+import type { BusinessConfig, ChangeLog, CostConfigChangeRequest, Creator, Customer, OrderFinalizationView, OrderView, PresetOption, WorkStageType } from "./types";
 
 const base = (groupId: string) => `/ordertracker/groups/${groupId}`;
 
@@ -9,7 +9,7 @@ export const orderTrackerApi = {
   completeBusinessSetup: (groupId: string) => api.post<BusinessConfig>(`${base(groupId)}/business-config/setup/complete`),
   updateBusinessConfig: (
     groupId: string,
-    body: { currency: string; mandatoryItemTypes: MandatoryItemType[]; workStages: WorkStageType[] }
+    body: { currency: string; workStages: WorkStageType[] }
   ) => api.put<BusinessConfig>(`${base(groupId)}/business-config`, body),
 
   costConfigChangeRequests: (groupId: string) =>

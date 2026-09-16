@@ -14,7 +14,6 @@ import org.springframework.web.bind.annotation.RestController;
 import com.backlogtracker.commons.security.AuthUser;
 import com.backlogtracker.commons.security.RequiresUser;
 import com.backlogtracker.ordertracker.master.domain.BusinessConfig;
-import com.backlogtracker.ordertracker.master.domain.BusinessConfig.MandatoryItemType;
 import com.backlogtracker.ordertracker.master.domain.BusinessConfig.WorkStageType;
 import com.backlogtracker.ordertracker.master.service.BusinessConfigService;
 
@@ -36,7 +35,7 @@ public class BusinessConfigController {
     @PutMapping
     public BusinessConfig update(@PathVariable String groupId, @RequestBody UpdateRequest request,
                                  @AuthenticationPrincipal AuthUser actor) {
-        return service.update(groupId, actor.id(), request.currency(), request.mandatoryItemTypes(), request.workStages());
+        return service.update(groupId, actor.id(), request.currency(), request.workStages());
     }
 
     @PostMapping("/setup/start")
@@ -51,7 +50,6 @@ public class BusinessConfigController {
 
     /** overheadPercentage/profitMarginPercentage are not here on purpose — see
      *  CostConfigChangeController for changing those, which requires unanimous approval. */
-    public record UpdateRequest(String currency, List<MandatoryItemType> mandatoryItemTypes,
-                                List<WorkStageType> workStages) {
+    public record UpdateRequest(String currency, List<WorkStageType> workStages) {
     }
 }

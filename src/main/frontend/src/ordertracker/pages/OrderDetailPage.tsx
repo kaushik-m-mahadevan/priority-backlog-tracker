@@ -6,19 +6,18 @@ import { useAuth } from "../../auth/AuthContext";
 import { useBusiness } from "../BusinessContext";
 import AddToGroupModal from "../AddToGroupModal";
 import ImageGallery from "../../components/ImageGallery";
+import { useLinkedNeedleTypes } from "../useLinkedNeedleTypes";
 import { useLinkedYarnTypes } from "../useLinkedYarnTypes";
+import { useMyNeedleInventory } from "../useMyNeedleInventory";
 import { useMyYarnInventory } from "../useMyYarnInventory";
 import {
   AddOnsFields,
   MandatoryItemsFields,
-  ToolsFields,
   blankMandatoryItems,
-  blankTools,
   duplicateVariant,
   validateSplits,
   type LineItemDraft,
   type MandatoryItemDraft,
-  type ToolDraft,
   type VariantDraft,
 } from "../OrderFormFields";
 import type { BusinessConfig, Creator, Customer, OrderFinalizationView, OrderStatus, OrderView, PaymentType, PresetOption } from "../types";
@@ -74,6 +73,7 @@ function EditOrderForm({
   onCancel: () => void;
 }) {
   const linkedYarnTypes = useLinkedYarnTypes(groupId);
+  const linkedNeedleTypes = useLinkedNeedleTypes(groupId);
   const [customerId, setCustomerId] = useState(order.customerId);
   const [itemName, setItemName] = useState(order.itemName ?? "");
   const [orderReceivedDate, setOrderReceivedDate] = useState(order.orderReceivedDate?.slice(0, 10) ?? "");
@@ -86,13 +86,11 @@ function EditOrderForm({
   const [notes, setNotes] = useState(order.notes ?? "");
   const [mandatoryItems, setMandatoryItems] = useState<MandatoryItemDraft[]>(
     order.mandatoryItems.length > 0
-      ? order.mandatoryItems.map((m) => ({ itemKey: m.itemKey, value: m.value, quantity: m.quantity, unitCost: m.unitCost, notes: m.notes ?? "", linkedYarnTypeId: m.linkedYarnTypeId }))
-      : blankMandatoryItems(config)
-  );
-  const [tools, setTools] = useState<ToolDraft[]>(
-    order.tools.length > 0
-      ? order.tools.map((t) => ({ itemKey: t.itemKey, value: t.value, notes: t.notes ?? "" }))
-      : blankTools(config)
+      ? order.mandatoryItems.map((m) => ({
+          kind: m.kind, value: m.value, quantity: m.quantity, unitCost: m.unitCost, notes: m.notes ?? "",
+          linkedYarnTypeId: m.linkedYarnTypeId, linkedNeedleTypeId: m.linkedNeedleTypeId,
+        }))
+      : blankMandatoryItems()
   );
   const [addOns, setAddOns] = useState<LineItemDraft[]>(
     order.addOns.map((a) => ({ name: a.name, quantity: a.quantity, unitCost: a.unitCost }))
@@ -124,7 +122,6 @@ function EditOrderForm({
         assemblyPackagingInstructions: assemblyPackagingInstructions.trim() || null,
         notes: notes.trim() || null,
         mandatoryItems: mandatoryItems.filter((m) => m.value.trim()),
-        tools: tools.filter((t) => t.value.trim()),
         addOns: addOns.filter((a) => a.name.trim()),
         packagingPresetId: packagingPresetId || null,
         itemizedPackaging: [],
@@ -211,15 +208,17 @@ function EditOrderForm({
       <div className="muted" style={{ fontSize: 12, marginBottom: 6 }}>
         Mandatory items
       </div>
-      <MandatoryItemsFields items={mandatoryItems} types={config.mandatoryItemTypes} onChange={setMandatoryItems} yarnTypes={linkedYarnTypes} />
+      <MandatoryItemsFields
+        items={mandatoryItems}
+        onChange={setMandatoryItems}
+        yarnTypes={linkedYarnTypes}
+        needleTypes={linkedNeedleTypes}
+      />
 
       <div className="muted" style={{ fontSize: 12, margin: "12px 0 6px" }}>
         Add-ons
       </div>
       <AddOnsFields addOns={addOns} onChange={setAddOns} />
-
-      <h2 className="settings-section">Tools</h2>
-      <ToolsFields items={tools} types={config.mandatoryItemTypes} onChange={setTools} />
 
       <h2 className="settings-section">Packaging</h2>
       <div className="form-row" style={{ maxWidth: 300 }}>
@@ -282,6 +281,7 @@ function EditBulkDetailsForm({
   onCancel: () => void;
 }) {
   const linkedYarnTypes = useLinkedYarnTypes(groupId);
+  const linkedNeedleTypes = useLinkedNeedleTypes(groupId);
   const [customerId, setCustomerId] = useState(order.customerId);
   const [itemName, setItemName] = useState(order.itemName ?? "");
   const [orderReceivedDate, setOrderReceivedDate] = useState(order.orderReceivedDate?.slice(0, 10) ?? "");
@@ -298,8 +298,10 @@ function EditBulkDetailsForm({
       variantId: v.variantId,
       label: v.label,
       quantity: v.quantity,
-      mandatoryItems: v.mandatoryItems.map((m) => ({ itemKey: m.itemKey, value: m.value, quantity: m.quantity, unitCost: m.unitCost, notes: m.notes ?? "", linkedYarnTypeId: m.linkedYarnTypeId })),
-      tools: v.tools.map((t) => ({ itemKey: t.itemKey, value: t.value, notes: t.notes ?? "" })),
+      mandatoryItems: v.mandatoryItems.map((m) => ({
+        kind: m.kind, value: m.value, quantity: m.quantity, unitCost: m.unitCost, notes: m.notes ?? "",
+        linkedYarnTypeId: m.linkedYarnTypeId, linkedNeedleTypeId: m.linkedNeedleTypeId,
+      })),
       addOns: v.addOns.map((a) => ({ name: a.name, quantity: a.quantity, unitCost: a.unitCost })),
       craftingTimeHours: v.craftingTimeHours,
       assemblyTimeHours: v.assemblyTimeHours,
@@ -342,7 +344,6 @@ function EditBulkDetailsForm({
             label: v.label,
             quantity: v.quantity,
             mandatoryItems: v.mandatoryItems.filter((m) => m.value.trim()),
-            tools: v.tools.filter((t) => t.value.trim()),
             addOns: v.addOns.filter((a) => a.name.trim()),
             craftingTimeHours: v.craftingTimeHours,
             assemblyTimeHours: v.assemblyTimeHours,
@@ -473,9 +474,9 @@ function EditBulkDetailsForm({
             </div>
             <MandatoryItemsFields
               items={v.mandatoryItems}
-              types={config.mandatoryItemTypes}
               onChange={(items) => setVariants((prev) => prev.map((x, j) => (j === i ? { ...x, mandatoryItems: items } : x)))}
               yarnTypes={linkedYarnTypes}
+              needleTypes={linkedNeedleTypes}
             />
 
             <div className="muted" style={{ fontSize: 12, marginTop: 12 }}>
@@ -484,15 +485,6 @@ function EditBulkDetailsForm({
             <AddOnsFields
               addOns={v.addOns}
               onChange={(a) => setVariants((prev) => prev.map((x, j) => (j === i ? { ...x, addOns: a } : x)))}
-            />
-
-            <div className="muted" style={{ fontSize: 12, fontWeight: 600, marginTop: 16 }}>
-              Tools
-            </div>
-            <ToolsFields
-              items={v.tools}
-              types={config.mandatoryItemTypes}
-              onChange={(items) => setVariants((prev) => prev.map((x, j) => (j === i ? { ...x, tools: items } : x)))}
             />
 
             <div className="muted" style={{ fontSize: 12, fontWeight: 600, marginTop: 16 }}>
@@ -579,7 +571,9 @@ export default function OrderDetailPage() {
   const { currentGroupId } = useBusiness();
   const groupId = currentGroupId!;
   const linkedYarnTypes = useLinkedYarnTypes(groupId);
+  const linkedNeedleTypes = useLinkedNeedleTypes(groupId);
   const myYarnInventory = useMyYarnInventory(groupId);
+  const myNeedleInventory = useMyNeedleInventory(groupId);
   const [order, setOrder] = useState<OrderView | null>(null);
   const [config, setConfig] = useState<BusinessConfig | null>(null);
   const [customers, setCustomers] = useState<Customer[]>([]);
@@ -619,12 +613,12 @@ export default function OrderDetailPage() {
   const splitTrackedStages = config.workStages.filter((s) => s.splitTracked);
 
   // Order-level "what you need" list — one combined list across all bulk variants (not
-  // per-variant), deduped by itemKey+value; quantities don't matter here, just presence.
-  const itemLabel = (itemKey: string) => config.mandatoryItemTypes.find((t) => t.itemKey === itemKey)?.label ?? itemKey;
-  const dedupeByKeyValue = <T extends { itemKey: string; value: string }>(items: T[]): T[] => {
+  // per-variant), deduped by kind+value; quantities don't matter here, just presence.
+  const itemLabel = (kind: "YARN" | "NEEDLE") => (kind === "YARN" ? "Yarn" : "Needle");
+  const dedupeByKeyValue = <T extends { kind: string; value: string }>(items: T[]): T[] => {
     const seen = new Set<string>();
     return items.filter((i) => {
-      const k = `${i.itemKey} ${i.value}`;
+      const k = `${i.kind} ${i.value}`;
       if (seen.has(k)) return false;
       seen.add(k);
       return true;
@@ -633,26 +627,30 @@ export default function OrderDetailPage() {
   const allMaterials = dedupeByKeyValue(
     order.orderType === "INDIVIDUAL" ? order.mandatoryItems : (order.bulkDetails?.variants ?? []).flatMap((v) => v.mandatoryItems)
   );
-  const allTools = dedupeByKeyValue(
-    order.orderType === "INDIVIDUAL" ? order.tools : (order.bulkDetails?.variants ?? []).flatMap((v) => v.tools)
-  );
-
-  // Shortfall check (design decision: tackled now, opt-in via linkedYarnTypeId) — sums
-  // needed quantity across every material entry sharing a yarn type, not deduped like
-  // allMaterials above, since two variants each needing some can genuinely need more
-  // combined than either alone. Only ever compares against the viewer's own on-hand
-  // count (design decision), never a cross-member total.
+  // Shortfall check (design decision: tackled now, opt-in via linkedYarnTypeId /
+  // linkedNeedleTypeId) — sums needed quantity across every material entry sharing an
+  // inventory type, not deduped like allMaterials above, since two variants each needing
+  // some can genuinely need more combined than either alone. Only ever compares against
+  // the viewer's own on-hand count (design decision), never a cross-member total.
   const allMaterialEntriesRaw =
     order.orderType === "INDIVIDUAL" ? order.mandatoryItems : (order.bulkDetails?.variants ?? []).flatMap((v) => v.mandatoryItems);
   const neededByYarnType = new Map<string, number>();
+  const neededByNeedleType = new Map<string, number>();
   allMaterialEntriesRaw.forEach((m) => {
     if (m.linkedYarnTypeId) {
       neededByYarnType.set(m.linkedYarnTypeId, (neededByYarnType.get(m.linkedYarnTypeId) ?? 0) + m.quantity);
+    }
+    if (m.linkedNeedleTypeId) {
+      neededByNeedleType.set(m.linkedNeedleTypeId, (neededByNeedleType.get(m.linkedNeedleTypeId) ?? 0) + m.quantity);
     }
   });
   const yarnTypeLabel = (id: string) => {
     const y = linkedYarnTypes.find((yt) => yt.id === id);
     return y ? `${y.brand} — ${y.thickness}, ${y.colour}` : "linked yarn";
+  };
+  const needleTypeLabel = (id: string) => {
+    const n = linkedNeedleTypes.find((nt) => nt.id === id);
+    return n ? `${n.kind === "CROCHET_HOOK" ? "Hook" : "Needle"} ${n.size}` : "linked needle";
   };
 
   return (
@@ -774,39 +772,21 @@ export default function OrderDetailPage() {
 
         <div className="card">
           <h2>What you need</h2>
-          {allMaterials.length === 0 && allTools.length === 0 ? (
+          {allMaterials.length === 0 ? (
             <p className="empty">Nothing recorded yet.</p>
           ) : (
             <>
               <div className="muted" style={{ fontSize: 12, marginBottom: 4 }}>
                 Materials
               </div>
-              {allMaterials.length === 0 ? (
-                <p className="empty">None.</p>
-              ) : (
-                <ul style={{ margin: "0 0 10px", paddingLeft: 18 }}>
-                  {allMaterials.map((m, i) => (
-                    <li key={i}>
-                      {itemLabel(m.itemKey)}: {m.value}
-                    </li>
-                  ))}
-                </ul>
-              )}
-              <div className="muted" style={{ fontSize: 12, marginBottom: 4 }}>
-                Tools
-              </div>
-              {allTools.length === 0 ? (
-                <p className="empty">None.</p>
-              ) : (
-                <ul style={{ margin: 0, paddingLeft: 18 }}>
-                  {allTools.map((t, i) => (
-                    <li key={i}>
-                      {itemLabel(t.itemKey)}: {t.value}
-                    </li>
-                  ))}
-                </ul>
-              )}
-              {neededByYarnType.size > 0 && (
+              <ul style={{ margin: "0 0 10px", paddingLeft: 18 }}>
+                {allMaterials.map((m, i) => (
+                  <li key={i}>
+                    {itemLabel(m.kind)}: {m.value}
+                  </li>
+                ))}
+              </ul>
+              {(neededByYarnType.size > 0 || neededByNeedleType.size > 0) && (
                 <>
                   <div className="muted" style={{ fontSize: 12, marginTop: 10, marginBottom: 4 }}>
                     Your inventory
@@ -816,8 +796,20 @@ export default function OrderDetailPage() {
                       const have = myYarnInventory.get(yarnTypeId) ?? 0;
                       const short = have < needed;
                       return (
-                        <li key={yarnTypeId}>
+                        <li key={`yarn-${yarnTypeId}`}>
                           {yarnTypeLabel(yarnTypeId)}: you have {have}, need {needed}
+                          {short && (
+                            <strong style={{ color: "var(--urgent)" }}> — short by {(needed - have).toFixed(2)}</strong>
+                          )}
+                        </li>
+                      );
+                    })}
+                    {Array.from(neededByNeedleType.entries()).map(([needleTypeId, needed]) => {
+                      const have = myNeedleInventory.get(needleTypeId) ?? 0;
+                      const short = have < needed;
+                      return (
+                        <li key={`needle-${needleTypeId}`}>
+                          {needleTypeLabel(needleTypeId)}: you have {have}, need {needed}
                           {short && (
                             <strong style={{ color: "var(--urgent)" }}> — short by {(needed - have).toFixed(2)}</strong>
                           )}
@@ -854,7 +846,7 @@ export default function OrderDetailPage() {
               order.mandatoryItems.map((m, i) => (
                 <div className="row" key={i}>
                   <span className="k">
-                    {m.itemKey}: {m.value}
+                    {m.kind === "YARN" ? "Yarn" : "Needle"}: {m.value}
                     {m.notes && <span className="muted"> ({m.notes})</span>}
                   </span>
                   <span className="v">{m.quantity} × ₹{m.unitCost.toFixed(2)}</span>
@@ -871,21 +863,6 @@ export default function OrderDetailPage() {
                 <div className="row" key={i}>
                   <span className="k">{a.name}</span>
                   <span className="v">{a.quantity} × ₹{a.unitCost.toFixed(2)}</span>
-                </div>
-              ))
-            )}
-          </div>
-          <div className="card">
-            <h2>Tools</h2>
-            {order.tools.length === 0 ? (
-              <p className="empty">None.</p>
-            ) : (
-              order.tools.map((t, i) => (
-                <div className="row" key={i}>
-                  <span className="k">
-                    {t.itemKey}: {t.value}
-                  </span>
-                  {t.notes && <span className="v muted">{t.notes}</span>}
                 </div>
               ))
             )}
@@ -928,7 +905,7 @@ export default function OrderDetailPage() {
                     v.mandatoryItems.map((m, i) => (
                       <div className="row" key={i}>
                         <span className="k">
-                          {m.itemKey}: {m.value}
+                          {m.kind === "YARN" ? "Yarn" : "Needle"}: {m.value}
                           {m.notes && <span className="muted"> ({m.notes})</span>}
                         </span>
                         <span className="v">{m.quantity} × ₹{m.unitCost.toFixed(2)}</span>
@@ -945,21 +922,6 @@ export default function OrderDetailPage() {
                       <div className="row" key={i}>
                         <span className="k">{a.name}</span>
                         <span className="v">{a.quantity} × ₹{a.unitCost.toFixed(2)}</span>
-                      </div>
-                    ))
-                  )}
-                </div>
-                <div className="card" style={{ background: "var(--bg-elev-2)" }}>
-                  <h2>Tools</h2>
-                  {v.tools.length === 0 ? (
-                    <p className="empty">None.</p>
-                  ) : (
-                    v.tools.map((t, i) => (
-                      <div className="row" key={i}>
-                        <span className="k">
-                          {t.itemKey}: {t.value}
-                        </span>
-                        {t.notes && <span className="v muted">{t.notes}</span>}
                       </div>
                     ))
                   )}
@@ -1160,7 +1122,7 @@ export default function OrderDetailPage() {
           <h2>Finished product photos</h2>
           <p className="muted" style={{ marginTop: 0, fontSize: 13 }}>
             One shared gallery for the whole order (design decision) — even a bulk order with several colorways
-            keeps one combined set of photos here, same as the materials/tools summary above.
+            keeps one combined set of photos here, same as the materials summary above.
           </p>
           <ImageGallery groupId={groupId} ownerType="order" ownerId={order.id} />
         </div>
