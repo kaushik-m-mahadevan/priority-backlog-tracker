@@ -3,6 +3,8 @@ package com.backlogtracker.ordertracker.order.dto;
 import java.time.Instant;
 import java.util.List;
 
+import com.backlogtracker.commons.pattern.domain.Pattern;
+import com.backlogtracker.commons.pattern.domain.PatternType;
 import com.backlogtracker.ordertracker.order.domain.Order;
 import com.backlogtracker.ordertracker.order.domain.OrderStatus;
 import com.backlogtracker.ordertracker.order.domain.OrderType;
@@ -12,7 +14,7 @@ public record OrderView(String id, String orderNumber, OrderType orderType, Stri
                         String createdByCreatorId, OrderStatus status,
                         String itemName, Instant orderReceivedDate, Instant quotedDeliveryDate,
                         Instant actualDeliveryDate, PatternView pattern, List<ResearchItemView> researchItems,
-                        double researchTimeHours, List<String> recipeSteps, String assemblyPackagingInstructions,
+                        double researchTimeHours, String assemblyPackagingInstructions,
                         String notes, List<MandatoryItemView> mandatoryItems, List<ToolView> tools, List<LineItemView> addOns,
                         PackagingView packaging, double craftingTimeHours, double assemblyTimeHours,
                         CostEstimateView costEstimate,
@@ -21,11 +23,13 @@ public record OrderView(String id, String orderNumber, OrderType orderType, Stri
                         double balanceAmount, List<ShipmentStopView> shipmentPlan,
                         BulkDetailsView bulkDetails, Instant createdAt, Instant updatedAt) {
 
-    public record PatternView(Order.PatternType patternType, String templateName, String customPatternNotes,
-                              List<String> attachmentUrls) {
-        static PatternView of(Order.Pattern p) {
+    /** {@code recipeSteps} lives here now, not as a separate top-level order field — see
+     *  {@link Pattern} for why they're merged. */
+    public record PatternView(PatternType patternType, String templateName, String customPatternNotes,
+                              List<String> attachmentUrls, List<String> recipeSteps) {
+        static PatternView of(Pattern p) {
             return p == null ? null : new PatternView(p.getPatternType(), p.getTemplateName(),
-                    p.getCustomPatternNotes(), p.getAttachmentUrls());
+                    p.getCustomPatternNotes(), p.getAttachmentUrls(), p.getRecipeSteps());
         }
     }
 
@@ -175,7 +179,7 @@ public record OrderView(String id, String orderNumber, OrderType orderType, Stri
                 o.getCreatedByCreatorId(), o.getStatus(), o.getItemName(), o.getOrderReceivedDate(),
                 o.getQuotedDeliveryDate(), o.getActualDeliveryDate(), PatternView.of(o.getPattern()),
                 o.getResearchItems().stream().map(ResearchItemView::of).toList(), o.getResearchTimeHours(),
-                o.getRecipeSteps(), o.getAssemblyPackagingInstructions(), o.getNotes(),
+                o.getAssemblyPackagingInstructions(), o.getNotes(),
                 o.getMandatoryItems().stream().map(MandatoryItemView::of).toList(),
                 o.getTools().stream().map(ToolView::of).toList(),
                 o.getAddOns().stream().map(LineItemView::of).toList(), PackagingView.of(o.getPackaging()),

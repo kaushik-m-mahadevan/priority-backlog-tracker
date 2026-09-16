@@ -11,6 +11,7 @@ import org.springframework.data.mongodb.core.index.Indexed;
 import org.springframework.data.mongodb.core.mapping.Document;
 
 import com.backlogtracker.commons.crypto.EncryptedString;
+import com.backlogtracker.commons.pattern.domain.Pattern;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -24,8 +25,9 @@ import lombok.Setter;
  * {@code orderType == BULK}. For a bulk order, {@code mandatoryItems}/{@code addOns}/
  * {@code packaging}/{@code craftingTimeHours}/{@code costEstimate}/{@code stageAssignments}
  * live per-variant inside {@code bulkDetails} instead (spec §8) and are left empty here;
- * {@code pattern}/{@code researchItems}/{@code recipeSteps}/{@code payments}/
- * {@code shipmentPlan} apply at the order level regardless of type.
+ * {@code pattern} (which now carries its own recipe steps — see
+ * {@link com.backlogtracker.commons.pattern.domain.Pattern})/{@code researchItems}/
+ * {@code payments}/{@code shipmentPlan} apply at the order level regardless of type.
  */
 @Document("orderTrackerOrders")
 @CompoundIndex(name = "group_orderNumber", def = "{'groupId': 1, 'orderNumber': 1}", unique = true)
@@ -90,12 +92,11 @@ public class Order {
     // ---- 5.7 packaging (individual only; bulk uses per-variant) ----
     private Packaging packaging;
 
-    // ---- 5.8 prototyping / recipe ----
-    @Builder.Default
-    private List<String> recipeSteps = new ArrayList<>();
+    // ---- 5.8 prototyping / recipe (recipeSteps lives on the shared Pattern now — see
+    // commons.pattern.domain.Pattern) ----
     /** Free-text how-to for assembly and packaging (which materials/tools go where, the
-     *  steps to put it together and box it up) — distinct from recipeSteps, which is the
-     *  crochet pattern itself, not what happens after the pieces are made. Design-decision
+     *  steps to put it together and box it up) — distinct from Pattern.recipeSteps, which
+     *  is the crochet pattern itself, not what happens after the pieces are made. Design-decision
      *  extension, not in the original spec. */
     private String assemblyPackagingInstructions;
     /** Free-text catch-all: customer interactions, things that changed mid-order, or any
@@ -133,21 +134,6 @@ public class Order {
     // =====================================================================================
     // Nested embedded types
     // =====================================================================================
-
-    public enum PatternType { TEMPLATE, CUSTOM }
-
-    @Getter
-    @Setter
-    @Builder
-    @NoArgsConstructor
-    @AllArgsConstructor
-    public static class Pattern {
-        private PatternType patternType;
-        private String templateName;
-        private String customPatternNotes;
-        @Builder.Default
-        private List<String> attachmentUrls = new ArrayList<>();
-    }
 
     public enum ResearchItemType { VIDEO, LINK, IMAGE, NOTE }
 

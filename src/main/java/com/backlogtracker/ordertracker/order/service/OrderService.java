@@ -12,6 +12,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 import com.backlogtracker.commons.crypto.EncryptedString;
 import com.backlogtracker.commons.group.service.GroupService;
+import com.backlogtracker.commons.pattern.domain.Pattern;
 import com.backlogtracker.ordertracker.customer.service.CustomerService;
 import com.backlogtracker.ordertracker.master.domain.BusinessConfig;
 import com.backlogtracker.ordertracker.master.domain.Creator;
@@ -184,7 +185,6 @@ public class OrderService {
                 .pattern(toPattern(request.pattern()))
                 .researchItems(toResearchItems(request.researchItems()))
                 .researchTimeHours(request.researchTimeHours())
-                .recipeSteps(request.recipeSteps() == null ? List.of() : request.recipeSteps())
                 .assemblyPackagingInstructions(request.assemblyPackagingInstructions())
                 .notes(request.notes())
                 .payments(new ArrayList<>())
@@ -262,7 +262,6 @@ public class OrderService {
         order.setPattern(toPattern(request.pattern()));
         order.setResearchItems(toResearchItems(request.researchItems()));
         order.setResearchTimeHours(request.researchTimeHours());
-        order.setRecipeSteps(request.recipeSteps() == null ? List.of() : request.recipeSteps());
         order.setAssemblyPackagingInstructions(request.assemblyPackagingInstructions());
         order.setNotes(request.notes());
         List<MandatoryItem> mandatoryItems = toMandatoryItems(request.mandatoryItems());
@@ -309,7 +308,6 @@ public class OrderService {
         order.setPattern(toPattern(request.pattern()));
         order.setResearchItems(toResearchItems(request.researchItems()));
         order.setResearchTimeHours(request.researchTimeHours());
-        order.setRecipeSteps(request.recipeSteps() == null ? List.of() : request.recipeSteps());
         order.setAssemblyPackagingInstructions(request.assemblyPackagingInstructions());
         order.setNotes(request.notes());
 
@@ -580,13 +578,14 @@ public class OrderService {
         return Order.Packaging.builder().itemizedList(List.of()).build();
     }
 
-    private Order.Pattern toPattern(CreateOrderRequest.PatternInput input) {
+    private Pattern toPattern(CreateOrderRequest.PatternInput input) {
         if (input == null) {
             return null;
         }
-        return Order.Pattern.builder().patternType(input.patternType()).templateName(input.templateName())
+        return Pattern.builder().patternType(input.patternType()).templateName(input.templateName())
                 .customPatternNotes(input.customPatternNotes())
                 .attachmentUrls(input.attachmentUrls() == null ? List.of() : input.attachmentUrls())
+                .recipeSteps(input.recipeSteps() == null ? List.of() : input.recipeSteps())
                 .build();
     }
 

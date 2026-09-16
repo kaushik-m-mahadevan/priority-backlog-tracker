@@ -4,13 +4,13 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 
-import com.backlogtracker.ordertracker.order.domain.Order.PatternType;
+import com.backlogtracker.commons.pattern.domain.PatternType;
 import com.backlogtracker.ordertracker.order.domain.Order.ResearchItemType;
 
 public record CreateOrderRequest(String customerId, String orderType, String createdByCreatorId,
                                  String itemName, Instant orderReceivedDate, Instant quotedDeliveryDate,
                                  PatternInput pattern, List<ResearchItemInput> researchItems,
-                                 double researchTimeHours, List<String> recipeSteps, String assemblyPackagingInstructions, String notes,
+                                 double researchTimeHours, String assemblyPackagingInstructions, String notes,
                                  // individual-only
                                  List<MandatoryItemInput> mandatoryItems, List<ToolInput> tools,
                                  List<LineItemInput> addOns,
@@ -20,8 +20,10 @@ public record CreateOrderRequest(String customerId, String orderType, String cre
                                  List<VariantInput> variants, String coordinatingCreatorId,
                                  int logisticsBufferDays) {
 
+    /** {@code recipeSteps} lives here now, not as a separate top-level order field — see
+     *  {@link com.backlogtracker.commons.pattern.domain.Pattern} for why they're merged. */
     public record PatternInput(PatternType patternType, String templateName, String customPatternNotes,
-                               List<String> attachmentUrls) {
+                               List<String> attachmentUrls, List<String> recipeSteps) {
     }
 
     public record ResearchItemInput(ResearchItemType type, String url, String description) {

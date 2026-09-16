@@ -103,6 +103,9 @@ export interface Pattern {
   templateName: string | null;
   customPatternNotes: string | null;
   attachmentUrls: string[];
+  /** Lives here now, not as a separate top-level order field — a design's recipe is part
+   *  of its pattern, matching the shared commons.pattern.domain.Pattern model. */
+  recipeSteps: string[];
 }
 
 export interface ResearchItem {
@@ -257,7 +260,6 @@ export interface OrderView {
   pattern: Pattern | null;
   researchItems: ResearchItem[];
   researchTimeHours: number;
-  recipeSteps: string[];
   assemblyPackagingInstructions: string | null;
   notes: string | null;
   mandatoryItems: MandatoryItem[];

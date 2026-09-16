@@ -81,7 +81,7 @@ function EditOrderForm({
   const [patternType, setPatternType] = useState(order.pattern?.patternType ?? "");
   const [templateName, setTemplateName] = useState(order.pattern?.templateName ?? "");
   const [customPatternNotes, setCustomPatternNotes] = useState(order.pattern?.customPatternNotes ?? "");
-  const [recipeStepsText, setRecipeStepsText] = useState(order.recipeSteps.join("\n"));
+  const [recipeStepsText, setRecipeStepsText] = useState((order.pattern?.recipeSteps ?? []).join("\n"));
   const [assemblyPackagingInstructions, setAssemblyPackagingInstructions] = useState(order.assemblyPackagingInstructions ?? "");
   const [notes, setNotes] = useState(order.notes ?? "");
   const [mandatoryItems, setMandatoryItems] = useState<MandatoryItemDraft[]>(
@@ -112,13 +112,15 @@ function EditOrderForm({
         itemName,
         orderReceivedDate: orderReceivedDate ? new Date(orderReceivedDate).toISOString() : null,
         quotedDeliveryDate: quotedDeliveryDate ? new Date(quotedDeliveryDate).toISOString() : null,
-        pattern: patternType
-          ? { patternType, templateName: patternType === "TEMPLATE" ? templateName : null,
-              customPatternNotes: patternType === "CUSTOM" ? customPatternNotes : null, attachmentUrls: [] }
-          : null,
+        pattern: (() => {
+          const recipeSteps = recipeStepsText.split("\n").map((s) => s.trim()).filter(Boolean);
+          return patternType || recipeSteps.length > 0
+            ? { patternType: patternType || null, templateName: patternType === "TEMPLATE" ? templateName : null,
+                customPatternNotes: patternType === "CUSTOM" ? customPatternNotes : null, attachmentUrls: [], recipeSteps }
+            : null;
+        })(),
         researchItems: order.researchItems,
         researchTimeHours,
-        recipeSteps: recipeStepsText.split("\n").map((s) => s.trim()).filter(Boolean),
         assemblyPackagingInstructions: assemblyPackagingInstructions.trim() || null,
         notes: notes.trim() || null,
         mandatoryItems: mandatoryItems.filter((m) => m.value.trim()),
@@ -287,7 +289,7 @@ function EditBulkDetailsForm({
   const [patternType, setPatternType] = useState(order.pattern?.patternType ?? "");
   const [templateName, setTemplateName] = useState(order.pattern?.templateName ?? "");
   const [customPatternNotes, setCustomPatternNotes] = useState(order.pattern?.customPatternNotes ?? "");
-  const [recipeStepsText, setRecipeStepsText] = useState(order.recipeSteps.join("\n"));
+  const [recipeStepsText, setRecipeStepsText] = useState((order.pattern?.recipeSteps ?? []).join("\n"));
   const [assemblyPackagingInstructions, setAssemblyPackagingInstructions] = useState(order.assemblyPackagingInstructions ?? "");
   const [notes, setNotes] = useState(order.notes ?? "");
   const [researchTimeHours, setResearchTimeHours] = useState(order.researchTimeHours);
@@ -322,13 +324,15 @@ function EditBulkDetailsForm({
         itemName,
         orderReceivedDate: orderReceivedDate ? new Date(orderReceivedDate).toISOString() : null,
         quotedDeliveryDate: quotedDeliveryDate ? new Date(quotedDeliveryDate).toISOString() : null,
-        pattern: patternType
-          ? { patternType, templateName: patternType === "TEMPLATE" ? templateName : null,
-              customPatternNotes: patternType === "CUSTOM" ? customPatternNotes : null, attachmentUrls: [] }
-          : null,
+        pattern: (() => {
+          const recipeSteps = recipeStepsText.split("\n").map((s) => s.trim()).filter(Boolean);
+          return patternType || recipeSteps.length > 0
+            ? { patternType: patternType || null, templateName: patternType === "TEMPLATE" ? templateName : null,
+                customPatternNotes: patternType === "CUSTOM" ? customPatternNotes : null, attachmentUrls: [], recipeSteps }
+            : null;
+        })(),
         researchItems: order.researchItems,
         researchTimeHours,
-        recipeSteps: recipeStepsText.split("\n").map((s) => s.trim()).filter(Boolean),
         assemblyPackagingInstructions: assemblyPackagingInstructions.trim() || null,
         notes: notes.trim() || null,
         variants: variants
@@ -748,11 +752,11 @@ export default function OrderDetailPage() {
 
         <div className="card">
           <h2>Recipe</h2>
-          {order.recipeSteps.length === 0 ? (
+          {(order.pattern?.recipeSteps ?? []).length === 0 ? (
             <p className="empty">No steps recorded.</p>
           ) : (
             <ol style={{ margin: 0, paddingLeft: 18 }}>
-              {order.recipeSteps.map((s, i) => (
+              {(order.pattern?.recipeSteps ?? []).map((s, i) => (
                 <li key={i}>{s}</li>
               ))}
             </ol>

@@ -118,9 +118,8 @@ class OrderApiTest {
                                 {"customerId":"%s","orderType":"INDIVIDUAL","createdByCreatorId":"%s",
                                  "itemName":"Sunflower amigurumi keychain",
                                  "orderReceivedDate":"2026-01-01T00:00:00Z",
-                                 "pattern":{"patternType":"CUSTOM","customPatternNotes":"Kept for recreation"},
+                                 "pattern":{"patternType":"CUSTOM","customPatternNotes":"Kept for recreation","recipeSteps":["Crochet body","Attach clasp"]},
                                  "researchItems":[{"type":"VIDEO","url":"https://example.com/v","description":"reference"}],
-                                 "recipeSteps":["Crochet body","Attach clasp"],
                                  "mandatoryItems":[{"itemKey":"wool","value":"Yellow + green, 50g","quantity":1,"unitCost":120}],
                                  "addOns":[{"name":"Safety eyes","quantity":1,"unitCost":40,"unitTimeHours":0.2}],
                                  "craftingTimeHours":4}""".formatted(customerId, creatorAId)))
@@ -129,7 +128,7 @@ class OrderApiTest {
                 .andExpect(jsonPath("$.status").value("INQUIRY"))
                 .andExpect(jsonPath("$.pattern.customPatternNotes").value("Kept for recreation"))
                 .andExpect(jsonPath("$.researchItems[0].type").value("VIDEO"))
-                .andExpect(jsonPath("$.recipeSteps[1]").value("Attach clasp"))
+                .andExpect(jsonPath("$.pattern.recipeSteps[1]").value("Attach clasp"))
                 .andExpect(jsonPath("$.costEstimate.mandatoryItemsCost").value(120.0))
                 .andExpect(jsonPath("$.costEstimate.addOnsCost").value(40.0))
                 .andReturn().getResponse().getContentAsString();

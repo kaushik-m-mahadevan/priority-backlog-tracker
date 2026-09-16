@@ -124,11 +124,14 @@ export default function NewOrderPage() {
       setError("Enter the new customer's name");
       return;
     }
-    const pattern = patternType
-      ? { patternType, templateName: patternType === "TEMPLATE" ? templateName : null,
-          customPatternNotes: patternType === "CUSTOM" ? customPatternNotes : null, attachmentUrls: [] }
-      : null;
     const recipeSteps = recipeStepsText.split("\n").map((s) => s.trim()).filter(Boolean);
+    // recipeSteps lives inside pattern now (design decision: a design's recipe is part of
+    // its pattern) — send a pattern object whenever there's a type chosen OR steps typed,
+    // even if patternType itself was never picked, so notes-only recipes aren't lost.
+    const pattern = patternType || recipeSteps.length > 0
+      ? { patternType: patternType || null, templateName: patternType === "TEMPLATE" ? templateName : null,
+          customPatternNotes: patternType === "CUSTOM" ? customPatternNotes : null, attachmentUrls: [], recipeSteps }
+      : null;
 
     if (orderType === "BULK") {
       const splitError = validateSplits(variants);
@@ -160,7 +163,6 @@ export default function NewOrderPage() {
         pattern,
         researchItems: [],
         researchTimeHours,
-        recipeSteps,
         assemblyPackagingInstructions: assemblyPackagingInstructions.trim() || null,
         notes: notes.trim() || null,
       };
