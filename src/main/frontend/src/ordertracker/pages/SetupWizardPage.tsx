@@ -1,0 +1,256 @@
+import { useEffect, useState } from "react";
+import { api, ApiError } from "../../api/client";
+import { orderTrackerApi } from "../api";
+import { useBusiness } from "../BusinessContext";
+import ProfileGatePage from "../ProfileGatePage";
+import type { BusinessConfig, MandatoryItemType } from "../types";
+
+const STEP_LABELS = ["Business settings", "Your profile", "Invite your team", "Finance & Inventory"];
+
+/** Forced, one-time flow for a newly-created business (design decision: fully blocking —
+ *  nothing else in Order Tracker is reachable until this finishes). Walks through the
+ *  business's cost/material configuration, the creator's own profile (reuses
+ *  ProfileGatePage as step 2 — same requirement, same form), invites, and optionally
+ *  spinning up linked Finance Tracker / Material Inventory groups in one pass so a
+ *  founder doesn't have to visit three different applets to get a business off the
+ *  ground. OrderTrackerLayout renders this instead of the Outlet — see useSetupGate. */
+export default function SetupWizardPage({ onDone }: { onDone: () => void }) {
+  const { currentBusiness, currentGroupId } = useBusiness();
+  const groupId = currentGroupId!;
+  const [step, setStep] = useState(1);
+  const [config, setConfig] = useState<BusinessConfig | null>(null);
+  const [currency, setCurrency] = useState("INR");
+  const [overheadPct, setOverheadPct] = useState(15);
+  const [marginPct, setMarginPct] = useState(20);
+  const [mandatoryItemTypes, setMandatoryItemTypes] = useState<MandatoryItemType[]>([]);
+  const [newItemKey, setNewItemKey] = useState("");
+  const [newItemLabel, setNewItemLabel] = useState("");
+  const [newItemIsTool, setNewItemIsTool] = useState(false);
+  const [savingStep1, setSavingStep1] = useState(false);
+  const [inviteValue, setInviteValue] = useState("");
+  const [invitesSent, setInvitesSent] = useState<string[]>([]);
+  const [inviteError, setInviteError] = useState<string | null>(null);
+  const [setUpFinance, setSetUpFinance] = useState(true);
+  const [setUpInventory, setSetUpInventory] = useState(true);
+  const [finishing, setFinishing] = useState(false);
+  const [finishError, setFinishError] = useState<string | null>(null);
+
+  useEffect(() => {
+    orderTrackerApi.businessConfig(groupId).then((cfg) => {
+      setConfig(cfg);
+      setCurrency(cfg.currency);
+      setOverheadPct(cfg.overheadPercentage * 100);
+      setMarginPct(cfg.profitMarginPercentage * 100);
+      setMandatoryItemTypes(cfg.mandatoryItemTypes);
+    });
+  }, [groupId]);
+
+  const addMandatoryItemType = () => {
+    if (!newItemKey.trim() || !newItemLabel.trim()) return;
+    setMandatoryItemTypes([
+      ...mandatoryItemTypes,
+      { itemKey: newItemKey.trim(), label: newItemLabel.trim(), allowedValues: null, isTool: newItemIsTool },
+    ]);
+    setNewItemKey("");
+    setNewItemLabel("");
+    setNewItemIsTool(false);
+  };
+
+  const removeMandatoryItemType = (itemKey: string) => {
+    setMandatoryItemTypes(mandatoryItemTypes.filter((t) => t.itemKey !== itemKey));
+  };
+
+  const saveStep1AndContinue = async () => {
+    if (!config) return;
+    setSavingStep1(true);
+    try {
+      await orderTrackerApi.updateBusinessConfig(groupId, { currency, mandatoryItemTypes, workStages: config.workStages });
+      // A brand-new business has exactly one member (its creator) at this point, so this
+      // unanimous-approval proposal auto-resolves immediately — see ApprovalService's own
+      // solo-proposer rule. Skipped entirely if unchanged from the seeded defaults.
+      if (overheadPct / 100 !== config.overheadPercentage || marginPct / 100 !== config.profitMarginPercentage) {
+        await orderTrackerApi.proposeCostConfigChange(groupId, overheadPct / 100, marginPct / 100);
+      }
+      setStep(2);
+    } finally {
+      setSavingStep1(false);
+    }
+  };
+
+  const sendInvite = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const to = inviteValue.trim();
+    if (!to) return;
+    setInviteError(null);
+    try {
+      await api.post(`/groups/${groupId}/invites`, { to });
+      setInvitesSent([...invitesSent, to]);
+      setInviteValue("");
+    } catch (err) {
+      setInviteError(err instanceof ApiError ? err.message : "Could not send that invite");
+    }
+  };
+
+  const finish = async () => {
+    if (!currentBusiness) return;
+    setFinishing(true);
+    setFinishError(null);
+    try {
+      if (setUpFinance) {
+        const financeGroup = await api.post<{ id: string }>(`/groups?appletKey=financetracker`, { name: currentBusiness.name });
+        await api.post(`/groups/${groupId}/links`, { groupId: financeGroup.id });
+      }
+      if (setUpInventory) {
+        const inventoryGroup = await api.post<{ id: string }>(`/groups?appletKey=materialinventory`, { name: currentBusiness.name });
+        await api.post(`/groups/${groupId}/links`, { groupId: inventoryGroup.id });
+      }
+      await orderTrackerApi.completeBusinessSetup(groupId);
+      onDone();
+    } catch (err) {
+      setFinishError(err instanceof ApiError ? err.message : "Failed to finish setup — you can retry.");
+    } finally {
+      setFinishing(false);
+    }
+  };
+
+  return (
+    <div style={{ maxWidth: 640, margin: "0 auto" }}>
+      <h1 className="page-title">Set up {currentBusiness?.name}</h1>
+      <p className="page-sub">
+        Step {step} of {STEP_LABELS.length}: {STEP_LABELS[step - 1]}
+      </p>
+      <div className="toolbar" style={{ marginBottom: 16 }}>
+        {STEP_LABELS.map((label, i) => (
+          <span
+            key={label}
+            className="badge"
+            style={i + 1 === step ? { background: "var(--accent)", color: "#2a1c12" } : undefined}
+          >
+            {i + 1}. {label}
+          </span>
+        ))}
+      </div>
+
+      {step === 1 && config && (
+        <div className="card">
+          <h2>Business settings</h2>
+          <p className="muted" style={{ marginTop: 0, fontSize: 13 }}>
+            Starting defaults are already filled in — change anything now, or leave it and adjust later from
+            Business settings.
+          </p>
+          <div className="form-grid">
+            <div className="form-row">
+              <label htmlFor="wiz-currency">Currency</label>
+              <input id="wiz-currency" value={currency} onChange={(e) => setCurrency(e.target.value)} />
+            </div>
+            <div className="form-row">
+              <label htmlFor="wiz-overhead">Overhead %</label>
+              <input id="wiz-overhead" type="number" min={0} step={1} value={overheadPct} onChange={(e) => setOverheadPct(Number(e.target.value))} />
+            </div>
+            <div className="form-row">
+              <label htmlFor="wiz-margin">Profit margin %</label>
+              <input id="wiz-margin" type="number" min={0} step={1} value={marginPct} onChange={(e) => setMarginPct(Number(e.target.value))} />
+            </div>
+          </div>
+
+          <h3>Mandatory item types</h3>
+          <p className="muted" style={{ marginTop: 0, fontSize: 13 }}>
+            Mark an item as a tool (e.g. a crochet hook) to skip cost/quantity tracking for it.
+          </p>
+          {mandatoryItemTypes.length === 0 ? (
+            <p className="empty">No mandatory item types yet.</p>
+          ) : (
+            <div className="kv" style={{ marginBottom: 12 }}>
+              {mandatoryItemTypes.map((t) => (
+                <span className="chip" key={t.itemKey}>
+                  {t.label} ({t.itemKey}){t.isTool ? " · tool" : ""}
+                  <button type="button" className="linkbtn" style={{ marginLeft: 8 }} onClick={() => removeMandatoryItemType(t.itemKey)}>
+                    Remove
+                  </button>
+                </span>
+              ))}
+            </div>
+          )}
+          <div className="toolbar">
+            <input aria-label="New item type key" placeholder="Key (e.g. wool)" value={newItemKey} onChange={(e) => setNewItemKey(e.target.value)} />
+            <input aria-label="New item type label" placeholder="Label (e.g. Wool)" value={newItemLabel} onChange={(e) => setNewItemLabel(e.target.value)} />
+            <label style={{ fontSize: 13 }}>
+              <input type="checkbox" checked={newItemIsTool} onChange={(e) => setNewItemIsTool(e.target.checked)} /> Tool
+            </label>
+            <button type="button" onClick={addMandatoryItemType}>
+              Add
+            </button>
+          </div>
+
+          <div className="toolbar" style={{ marginTop: 16 }}>
+            <button className="primary" disabled={savingStep1} onClick={saveStep1AndContinue}>
+              {savingStep1 ? "Saving…" : "Continue"}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {step === 2 && <ProfileGatePage onDone={() => setStep(3)} />}
+
+      {step === 3 && (
+        <div className="card">
+          <h2>Invite your team</h2>
+          <p className="muted" style={{ marginTop: 0, fontSize: 13 }}>
+            Optional — you can always invite more people later from Manage business.
+          </p>
+          {inviteError && <div className="error">{inviteError}</div>}
+          <form className="team-add" onSubmit={sendInvite}>
+            <input
+              aria-label="Invite by email or handle"
+              placeholder="Invite by email or @handle"
+              value={inviteValue}
+              onChange={(e) => setInviteValue(e.target.value)}
+            />
+            <button className="primary" disabled={!inviteValue.trim()}>
+              Invite
+            </button>
+          </form>
+          {invitesSent.length > 0 && (
+            <div className="kv" style={{ marginTop: 12 }}>
+              {invitesSent.map((to) => (
+                <span className="chip" key={to}>
+                  ✓ {to}
+                </span>
+              ))}
+            </div>
+          )}
+          <div className="toolbar" style={{ marginTop: 16 }}>
+            <button className="primary" onClick={() => setStep(4)}>
+              Continue
+            </button>
+          </div>
+        </div>
+      )}
+
+      {step === 4 && (
+        <div className="card">
+          <h2>Finance &amp; Inventory</h2>
+          <p className="muted" style={{ marginTop: 0, fontSize: 13 }}>
+            Set these up now if you plan to use them — a Finance Tracker group and/or a Material Inventory group get
+            created and linked to {currentBusiness?.name} automatically, named to match. You can always set either
+            up later instead.
+          </p>
+          {finishError && <div className="error">{finishError}</div>}
+          <label style={{ display: "block", marginBottom: 8 }}>
+            <input type="checkbox" checked={setUpFinance} onChange={(e) => setSetUpFinance(e.target.checked)} /> Set up
+            Finance Tracker
+          </label>
+          <label style={{ display: "block", marginBottom: 16 }}>
+            <input type="checkbox" checked={setUpInventory} onChange={(e) => setSetUpInventory(e.target.checked)} /> Set up
+            Material Inventory
+          </label>
+          <div className="toolbar">
+            <button className="primary" disabled={finishing} onClick={finish}>
+              {finishing ? "Finishing…" : "Finish setup"}
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

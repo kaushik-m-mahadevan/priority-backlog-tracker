@@ -5,6 +5,8 @@ const base = (groupId: string) => `/ordertracker/groups/${groupId}`;
 
 export const orderTrackerApi = {
   businessConfig: (groupId: string) => api.get<BusinessConfig>(`${base(groupId)}/business-config`),
+  startBusinessSetup: (groupId: string) => api.post<BusinessConfig>(`${base(groupId)}/business-config/setup/start`),
+  completeBusinessSetup: (groupId: string) => api.post<BusinessConfig>(`${base(groupId)}/business-config/setup/complete`),
   updateBusinessConfig: (
     groupId: string,
     body: { currency: string; mandatoryItemTypes: MandatoryItemType[]; workStages: WorkStageType[] }

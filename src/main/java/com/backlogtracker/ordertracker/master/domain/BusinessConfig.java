@@ -34,6 +34,26 @@ public class BusinessConfig {
     private double profitMarginPercentage;
     private String currency;
 
+    /** True unless a business is actively going through the first-time setup wizard
+     *  (design decision: forced setup only for newly-created businesses, never a
+     *  retroactive prompt for ones that already existed). {@code defaultsFor} always
+     *  seeds this true — a business only ever gets {@code false} via
+     *  {@link com.backlogtracker.ordertracker.master.service.BusinessConfigService#startSetup},
+     *  called by the frontend immediately after creating a new business, right before it
+     *  routes into the wizard. Boxed so a document persisted before this field existed
+     *  (every pre-existing business) hydrates as null and is treated as complete, not
+     *  incomplete — see {@code MandatoryItemType.isTool}'s compact constructor for the
+     *  same Mongo-missing-field pattern. */
+    private Boolean setupComplete;
+
+    /** Not named getSetupComplete()/isSetupComplete() on purpose — either would collide
+     *  with Lombok's own generated accessor for the {@code setupComplete} field and break
+     *  Jackson's bean introspection ("Conflicting getter definitions"). */
+    @com.fasterxml.jackson.annotation.JsonIgnore
+    public boolean setupCompleteOrDefault() {
+        return setupComplete == null || setupComplete;
+    }
+
     /** 2-digit, auto-assigned, guaranteed different from {@link #bulkOrderTypeCode}. */
     private String individualOrderTypeCode;
     /** 2-digit, auto-assigned, guaranteed different from {@link #individualOrderTypeCode}. */
@@ -93,6 +113,7 @@ public class BusinessConfig {
                 .overheadPercentage(0.15)
                 .profitMarginPercentage(0.20)
                 .currency("INR")
+                .setupComplete(true)
                 .mandatoryItemTypes(new ArrayList<>(List.of(
                         new MandatoryItemType("wool", "Wool", null, false),
                         new MandatoryItemType("needle", "Needle", null, true))))

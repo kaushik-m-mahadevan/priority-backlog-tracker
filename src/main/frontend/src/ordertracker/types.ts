@@ -88,6 +88,7 @@ export interface BusinessConfig {
   bulkOrderTypeCode: string;
   mandatoryItemTypes: MandatoryItemType[];
   workStages: WorkStageType[];
+  setupComplete: boolean;
 }
 
 export interface PresetOption {

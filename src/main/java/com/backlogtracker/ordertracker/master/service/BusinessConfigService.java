@@ -48,6 +48,24 @@ public class BusinessConfigService {
         return repository.save(cfg);
     }
 
+    /** Called once, immediately after a business is created, right before the frontend
+     *  routes into the setup wizard — flips this specific business into "setup pending"
+     *  so {@link #get} keeps reporting it as incomplete until {@link #completeSetup}.
+     *  Every other business (created before this feature existed, or reached through any
+     *  other path) keeps {@code defaultsFor}'s {@code true} and is never gated — design
+     *  decision: no retroactive setup prompt for businesses that already existed. */
+    public BusinessConfig startSetup(String groupId, String userId) {
+        BusinessConfig cfg = get(groupId, userId); // ensures membership + seeds if absent
+        cfg.setSetupComplete(false);
+        return repository.save(cfg);
+    }
+
+    public BusinessConfig completeSetup(String groupId, String userId) {
+        BusinessConfig cfg = get(groupId, userId);
+        cfg.setSetupComplete(true);
+        return repository.save(cfg);
+    }
+
     private BusinessConfig seed(String groupId) {
         BusinessConfig cfg = BusinessConfig.defaultsFor(groupId);
         String individual = randomTwoDigit();

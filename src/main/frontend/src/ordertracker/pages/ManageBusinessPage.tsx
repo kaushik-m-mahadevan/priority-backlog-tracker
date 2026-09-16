@@ -1,5 +1,6 @@
 import { FormEvent, useEffect, useState } from "react";
 import { api, ApiError } from "../../api/client";
+import { orderTrackerApi } from "../api";
 import { useBusiness } from "../BusinessContext";
 import { Creature } from "../../components/Creature";
 import type { GroupView } from "../../types";
@@ -22,6 +23,15 @@ export default function ManageBusinessPage() {
   const [financeGroups, setFinanceGroups] = useState<GroupView[]>([]);
   const [selectedFinanceGroupId, setSelectedFinanceGroupId] = useState("");
   const [linkLoading, setLinkLoading] = useState(true);
+  const [membersWithoutProfile, setMembersWithoutProfile] = useState<string[]>([]);
+
+  useEffect(() => {
+    if (!currentGroupId || !currentBusiness) return;
+    orderTrackerApi.creators(currentGroupId).then((creators) => {
+      const withProfile = new Set(creators.map((c) => c.userId));
+      setMembersWithoutProfile(currentBusiness.members.filter((m) => !withProfile.has(m.id)).map((m) => m.name));
+    });
+  }, [currentGroupId, currentBusiness]);
 
   useEffect(() => {
     if (!currentGroupId) return;
@@ -123,6 +133,17 @@ export default function ManageBusinessPage() {
       {msg && (
         <div className="hint" style={{ color: "var(--growth)", marginBottom: 12 }}>
           {msg}
+        </div>
+      )}
+
+      {membersWithoutProfile.length > 0 && (
+        <div className="card" style={{ marginBottom: 16, background: "var(--bg-elev-2)" }}>
+          <p className="hint" style={{ margin: 0, color: "var(--urgent)" }}>
+            {membersWithoutProfile.length === 1
+              ? `${membersWithoutProfile[0]} hasn't set up their profile yet`
+              : `${membersWithoutProfile.join(", ")} haven't set up their profiles yet`}{" "}
+            — they can't be assigned any work until they do (base location + hours/day, from Business settings).
+          </p>
         </div>
       )}
 

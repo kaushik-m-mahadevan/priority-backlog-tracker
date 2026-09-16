@@ -72,6 +72,10 @@ export function BusinessProvider({ children }: { children: ReactNode }) {
   const createBusiness = useCallback(
     async (name: string) => {
       const created = await api.post<GroupView>(`/groups?appletKey=${APPLET_KEY}`, { name });
+      // Flips this specific business into "setup pending" (design decision: forced setup
+      // only for newly-created businesses, never retroactively) — OrderTrackerLayout's own
+      // gate picks this up and routes into the wizard instead of the normal Outlet.
+      await api.post(`/ordertracker/groups/${created.id}/business-config/setup/start`);
       await refresh();
       setCurrentBusiness(created.id);
       return created;

@@ -1,7 +1,10 @@
 import { useState } from "react";
 import { NavLink, Outlet } from "react-router-dom";
 import AppHeader from "../components/AppHeader";
+import ProfileGatePage from "./ProfileGatePage";
+import SetupWizardPage from "./pages/SetupWizardPage";
 import { useBusiness } from "./BusinessContext";
+import { useSetupGate } from "./useSetupGate";
 
 function BusinessSwitcher() {
   const { businesses, currentGroupId, setCurrentBusiness, createBusiness } = useBusiness();
@@ -57,6 +60,12 @@ function BusinessSwitcher() {
 
 export default function OrderTrackerLayout() {
   const { loading, currentGroupId, businesses } = useBusiness();
+  const { status: gateStatus, refresh: refreshGate } = useSetupGate(currentGroupId);
+
+  // Fully blocking (design decision): while a business is mid-wizard or the caller has no
+  // profile yet in an already-set-up business, nav links and the bottom tabbar disappear
+  // along with the Outlet — there is nothing else reachable until the gate clears.
+  const showNav = !!currentGroupId && gateStatus === "ready";
 
   return (
     <div className="app">
@@ -65,7 +74,7 @@ export default function OrderTrackerLayout() {
         appletName="Order Tracker"
         appletHref="/ordertracker/orders"
         navLinks={
-          currentGroupId && (
+          showNav && (
             <div className="nav-links">
               <NavLink to="/ordertracker/orders">Orders</NavLink>
               <NavLink to="/ordertracker/my-work">My Work</NavLink>
@@ -79,7 +88,7 @@ export default function OrderTrackerLayout() {
       />
 
       <div className="container">
-        {loading ? (
+        {loading || (currentGroupId && gateStatus === "loading") ? (
           <p className="muted">Loading…</p>
         ) : !currentGroupId ? (
           <div className="card">
@@ -90,6 +99,10 @@ export default function OrderTrackerLayout() {
             </p>
             {businesses.length === 0 && <p className="empty">No businesses yet.</p>}
           </div>
+        ) : gateStatus === "wizard" ? (
+          <SetupWizardPage onDone={refreshGate} />
+        ) : gateStatus === "profile-gate" ? (
+          <ProfileGatePage onDone={refreshGate} />
         ) : (
           <Outlet />
         )}
@@ -98,7 +111,7 @@ export default function OrderTrackerLayout() {
       {/* .nav-links (the desktop nav) hides below 760px, same as Backlog Tracker's own
           Layout — this is Order Tracker's equivalent bottom bar so Business/Customers
           stay reachable on mobile instead of just disappearing. */}
-      {currentGroupId && (
+      {showNav && (
         <nav className="tabbar text">
           <NavLink to="/ordertracker/orders">Orders</NavLink>
           <NavLink to="/ordertracker/my-work">My Work</NavLink>

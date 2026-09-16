@@ -5,6 +5,7 @@ import java.util.List;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -36,6 +37,16 @@ public class BusinessConfigController {
     public BusinessConfig update(@PathVariable String groupId, @RequestBody UpdateRequest request,
                                  @AuthenticationPrincipal AuthUser actor) {
         return service.update(groupId, actor.id(), request.currency(), request.mandatoryItemTypes(), request.workStages());
+    }
+
+    @PostMapping("/setup/start")
+    public BusinessConfig startSetup(@PathVariable String groupId, @AuthenticationPrincipal AuthUser actor) {
+        return service.startSetup(groupId, actor.id());
+    }
+
+    @PostMapping("/setup/complete")
+    public BusinessConfig completeSetup(@PathVariable String groupId, @AuthenticationPrincipal AuthUser actor) {
+        return service.completeSetup(groupId, actor.id());
     }
 
     /** overheadPercentage/profitMarginPercentage are not here on purpose — see
