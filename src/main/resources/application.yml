@@ -1,6 +1,14 @@
 spring:
   application:
     name: priority-backlog-tracker
+  servlet:
+    multipart:
+      # Raw upload cap before server-side compression — a few MB above the accepted
+      # 5MB-per-image rule so a slightly-over phone photo still reaches the validation
+      # code (which gives a clear error) instead of being silently rejected by Tomcat
+      # first with a generic 500.
+      max-file-size: 8MB
+      max-request-size: 8MB
   data:
     mongodb:
       database: backlog

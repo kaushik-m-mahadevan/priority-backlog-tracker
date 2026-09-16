@@ -5,6 +5,7 @@ import { orderTrackerApi } from "../api";
 import { useAuth } from "../../auth/AuthContext";
 import { useBusiness } from "../BusinessContext";
 import AddToGroupModal from "../AddToGroupModal";
+import ImageGallery from "../../components/ImageGallery";
 import {
   AddOnsFields,
   MandatoryItemsFields,
@@ -1102,6 +1103,17 @@ export default function OrderDetailPage() {
 
       <Section title="Finalization" icon="✅">
         <FinalizationCard groupId={groupId} order={order} />
+      </Section>
+
+      <Section title="Photos" icon="📷">
+        <div className="card">
+          <h2>Finished product photos</h2>
+          <p className="muted" style={{ marginTop: 0, fontSize: 13 }}>
+            One shared gallery for the whole order (design decision) — even a bulk order with several colorways
+            keeps one combined set of photos here, same as the materials/tools summary above.
+          </p>
+          <ImageGallery groupId={groupId} ownerType="order" ownerId={order.id} />
+        </div>
       </Section>
 
       <Section title="Logistics" icon="🚚">
