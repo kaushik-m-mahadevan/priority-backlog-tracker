@@ -3,6 +3,10 @@ export interface YarnTypeView {
   brand: string;
   thickness: string;
   colour: string;
+  material: string | null;
+  skeinWeightGrams: number | null;
+  skeinLengthMeters: number | null;
+  recommendedHookSize: string | null;
   notes: string | null;
 }
 
@@ -10,7 +14,38 @@ export interface CreateYarnTypeRequest {
   brand: string;
   thickness: string;
   colour: string;
+  material: string | null;
+  skeinWeightGrams: number | null;
+  skeinLengthMeters: number | null;
+  recommendedHookSize: string | null;
   notes: string | null;
+}
+
+export type NeedleKind = "CROCHET_HOOK" | "KNITTING_NEEDLE";
+
+export interface NeedleTypeView {
+  id: string;
+  kind: NeedleKind;
+  size: string;
+  notes: string | null;
+}
+
+export interface CreateNeedleTypeRequest {
+  kind: NeedleKind;
+  size: string;
+  notes: string | null;
+}
+
+export interface NeedleInventoryEntryView {
+  id: string;
+  userId: string;
+  needleTypeId: string;
+  quantity: number;
+  updatedAt: string;
+}
+
+export interface SetNeedleQuantityRequest {
+  quantity: number;
 }
 
 export interface InventoryEntryView {

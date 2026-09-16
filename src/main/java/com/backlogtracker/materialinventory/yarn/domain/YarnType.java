@@ -36,6 +36,17 @@ public class YarnType {
     private String thickness;
     private String colour;
 
+    /** Fiber content, e.g. "100% cotton" or "acrylic/wool blend" — descriptive only, not
+     *  part of the identity (two batches of the same brand/thickness/colour are the same
+     *  yarn type even if a label wording differs slightly). */
+    private String material;
+    /** Per-skein weight in grams, as printed on the label. Null when unknown. */
+    private Double skeinWeightGrams;
+    /** Per-skein length in meters, as printed on the label. Null when unknown. */
+    private Double skeinLengthMeters;
+    /** Free text, e.g. "4mm / US H-8" — the label's own suggestion, not a business rule. */
+    private String recommendedHookSize;
+
     /** Free-text extra detail (dye lot, texture) that doesn't affect identity. */
     private String notes;
 }

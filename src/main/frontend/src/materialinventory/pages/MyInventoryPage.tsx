@@ -2,28 +2,60 @@ import { useEffect, useState } from "react";
 import { useAuth } from "../../auth/AuthContext";
 import { materialInventoryApi } from "../api";
 import { useMaterialInventory } from "../MaterialInventoryContext";
-import type { InventoryEntryView, YarnTypeView } from "../types";
+import type { InventoryEntryView, NeedleInventoryEntryView, NeedleKind, NeedleTypeView, YarnTypeView } from "../types";
 
-type NewYarnDraft = { brand: string; thickness: string; colour: string; notes: string };
+type NewYarnDraft = {
+  brand: string;
+  thickness: string;
+  colour: string;
+  material: string;
+  skeinWeightGrams: string;
+  skeinLengthMeters: string;
+  recommendedHookSize: string;
+  notes: string;
+};
 
-const blankYarnDraft = (): NewYarnDraft => ({ brand: "", thickness: "", colour: "", notes: "" });
+const blankYarnDraft = (): NewYarnDraft => ({
+  brand: "",
+  thickness: "",
+  colour: "",
+  material: "",
+  skeinWeightGrams: "",
+  skeinLengthMeters: "",
+  recommendedHookSize: "",
+  notes: "",
+});
+
+type NewNeedleDraft = { kind: NeedleKind; size: string; notes: string };
+
+const blankNeedleDraft = (): NewNeedleDraft => ({ kind: "CROCHET_HOOK", size: "", notes: "" });
 
 /** Everyone's on-hand yarn, business-wide (design decision: full transparency, same
  *  precedent as Finance Tracker's balances) — this member's own row is editable inline,
  *  everyone else's is read-only. Yarn types themselves (brand + thickness + colour) are a
  *  shared, business-wide catalog any member can add to (design decision), so two people
- *  describing the same yarn always point at the same row instead of drifting apart. */
+ *  describing the same yarn always point at the same row instead of drifting apart.
+ *
+ *  Hooks/needles get their own separate section below (design decision) — they're
+ *  reusable tools, not a consumable material, tracked in whole units rather than
+ *  quarter-skein steps. */
 export default function MyInventoryPage() {
   const { currentInventoryGroup, currentGroupId } = useMaterialInventory();
   const { user } = useAuth();
   const [yarnTypes, setYarnTypes] = useState<YarnTypeView[]>([]);
   const [entries, setEntries] = useState<InventoryEntryView[]>([]);
+  const [needleTypes, setNeedleTypes] = useState<NeedleTypeView[]>([]);
+  const [needleEntries, setNeedleEntries] = useState<NeedleInventoryEntryView[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showNewYarn, setShowNewYarn] = useState(false);
   const [newYarn, setNewYarn] = useState<NewYarnDraft>(blankYarnDraft());
   const [editingQuantity, setEditingQuantity] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState<string | null>(null);
+  const [showNewNeedle, setShowNewNeedle] = useState(false);
+  const [newNeedle, setNewNeedle] = useState<NewNeedleDraft>(blankNeedleDraft());
+  const [editingNeedleQuantity, setEditingNeedleQuantity] = useState<Record<string, string>>({});
+  const [savingNeedle, setSavingNeedle] = useState<string | null>(null);
 
   const members = currentInventoryGroup?.members ?? [];
   const memberName = (id: string) => members.find((m) => m.id === id)?.name ?? "Unknown";
@@ -31,10 +63,17 @@ export default function MyInventoryPage() {
   const load = () => {
     if (!currentGroupId) return;
     setLoading(true);
-    Promise.all([materialInventoryApi.yarnTypes(currentGroupId), materialInventoryApi.inventory(currentGroupId)])
-      .then(([types, inv]) => {
+    Promise.all([
+      materialInventoryApi.yarnTypes(currentGroupId),
+      materialInventoryApi.inventory(currentGroupId),
+      materialInventoryApi.needleTypes(currentGroupId),
+      materialInventoryApi.needleInventory(currentGroupId),
+    ])
+      .then(([types, inv, needles, needleInv]) => {
         setYarnTypes(types);
         setEntries(inv);
+        setNeedleTypes(needles);
+        setNeedleEntries(needleInv);
       })
       .finally(() => setLoading(false));
   };
@@ -45,6 +84,9 @@ export default function MyInventoryPage() {
     entries.find((e) => e.yarnTypeId === yarnTypeId && e.userId === userId);
   const quantityFor = (yarnTypeId: string, userId: string) => entryFor(yarnTypeId, userId)?.quantity ?? 0;
   const isStale = (yarnTypeId: string, userId: string) => entryFor(yarnTypeId, userId)?.stale ?? false;
+
+  const needleQuantityFor = (needleTypeId: string, userId: string) =>
+    needleEntries.find((e) => e.needleTypeId === needleTypeId && e.userId === userId)?.quantity ?? 0;
 
   const submitNewYarn = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -59,6 +101,10 @@ export default function MyInventoryPage() {
         brand: newYarn.brand.trim(),
         thickness: newYarn.thickness.trim(),
         colour: newYarn.colour.trim(),
+        material: newYarn.material.trim() || null,
+        skeinWeightGrams: newYarn.skeinWeightGrams.trim() ? Number(newYarn.skeinWeightGrams) : null,
+        skeinLengthMeters: newYarn.skeinLengthMeters.trim() ? Number(newYarn.skeinLengthMeters) : null,
+        recommendedHookSize: newYarn.recommendedHookSize.trim() || null,
         notes: newYarn.notes.trim() || null,
       });
       setNewYarn(blankYarnDraft());
@@ -106,6 +152,65 @@ export default function MyInventoryPage() {
     }
   };
 
+  const submitNewNeedle = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!currentGroupId) return;
+    if (!newNeedle.size.trim()) {
+      setError("Size is required");
+      return;
+    }
+    setError(null);
+    try {
+      await materialInventoryApi.createNeedleType(currentGroupId, {
+        kind: newNeedle.kind,
+        size: newNeedle.size.trim(),
+        notes: newNeedle.notes.trim() || null,
+      });
+      setNewNeedle(blankNeedleDraft());
+      setShowNewNeedle(false);
+      load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to add needle type");
+    }
+  };
+
+  const startEditingNeedle = (needleTypeId: string) => {
+    setEditingNeedleQuantity({ ...editingNeedleQuantity, [needleTypeId]: String(needleQuantityFor(needleTypeId, user?.id ?? "")) });
+  };
+
+  const saveNeedleQuantity = async (needleTypeId: string) => {
+    if (!currentGroupId) return;
+    const value = Number(editingNeedleQuantity[needleTypeId]);
+    if (!Number.isInteger(value) || value < 0) {
+      setError("Enter a whole number of zero or more");
+      return;
+    }
+    setError(null);
+    setSavingNeedle(needleTypeId);
+    try {
+      await materialInventoryApi.setMyNeedleQuantity(currentGroupId, needleTypeId, { quantity: value });
+      const rest = { ...editingNeedleQuantity };
+      delete rest[needleTypeId];
+      setEditingNeedleQuantity(rest);
+      load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to update quantity");
+    } finally {
+      setSavingNeedle(null);
+    }
+  };
+
+  const removeNeedleType = async (needleTypeId: string) => {
+    if (!currentGroupId) return;
+    setError(null);
+    try {
+      await materialInventoryApi.deleteNeedleType(currentGroupId, needleTypeId);
+      load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to remove needle type");
+    }
+  };
+
   return (
     <div>
       <h1 className="page-title">Team inventory</h1>
@@ -143,6 +248,46 @@ export default function MyInventoryPage() {
               <div className="form-row">
                 <label htmlFor="yarn-colour">Colour</label>
                 <input id="yarn-colour" value={newYarn.colour} onChange={(e) => setNewYarn({ ...newYarn, colour: e.target.value })} required />
+              </div>
+            </div>
+            <div className="form-grid">
+              <div className="form-row">
+                <label htmlFor="yarn-material">Material (optional)</label>
+                <input
+                  id="yarn-material"
+                  placeholder="e.g. 100% cotton"
+                  value={newYarn.material}
+                  onChange={(e) => setNewYarn({ ...newYarn, material: e.target.value })}
+                />
+              </div>
+              <div className="form-row">
+                <label htmlFor="yarn-weight">Skein weight, grams (optional)</label>
+                <input
+                  id="yarn-weight"
+                  type="number"
+                  min={0}
+                  value={newYarn.skeinWeightGrams}
+                  onChange={(e) => setNewYarn({ ...newYarn, skeinWeightGrams: e.target.value })}
+                />
+              </div>
+              <div className="form-row">
+                <label htmlFor="yarn-length">Skein length, meters (optional)</label>
+                <input
+                  id="yarn-length"
+                  type="number"
+                  min={0}
+                  value={newYarn.skeinLengthMeters}
+                  onChange={(e) => setNewYarn({ ...newYarn, skeinLengthMeters: e.target.value })}
+                />
+              </div>
+              <div className="form-row">
+                <label htmlFor="yarn-hook">Recommended hook size (optional)</label>
+                <input
+                  id="yarn-hook"
+                  placeholder="e.g. 4mm / US H-8"
+                  value={newYarn.recommendedHookSize}
+                  onChange={(e) => setNewYarn({ ...newYarn, recommendedHookSize: e.target.value })}
+                />
               </div>
             </div>
             <div className="form-row">
@@ -184,6 +329,12 @@ export default function MyInventoryPage() {
                   <tr key={y.id}>
                     <td className="cell-title">
                       {y.brand} — {y.thickness}, {y.colour}
+                      <div className="muted" style={{ fontSize: 12 }}>
+                        {[y.material, y.skeinWeightGrams != null ? `${y.skeinWeightGrams}g` : null,
+                          y.skeinLengthMeters != null ? `${y.skeinLengthMeters}m` : null,
+                          y.recommendedHookSize ? `hook ${y.recommendedHookSize}` : null]
+                          .filter(Boolean).join(" · ")}
+                      </div>
                       {y.notes && <div className="muted" style={{ fontSize: 12 }}>{y.notes}</div>}
                     </td>
                     {members.map((m) => {
@@ -239,6 +390,127 @@ export default function MyInventoryPage() {
         <p className="hint" style={{ marginTop: 10 }}>
           Quantities are in skeins, to the nearest quarter. Everyone in {currentInventoryGroup?.name} can see this
           whole table, but only your own column is editable.
+        </p>
+      </div>
+
+      <div className="card" style={{ marginTop: 16 }}>
+        <div className="toolbar">
+          <h2 style={{ margin: 0 }}>Hooks &amp; needles</h2>
+          <span className="spacer" />
+          {!showNewNeedle && (
+            <button type="button" onClick={() => setShowNewNeedle(true)}>
+              + Add hook/needle
+            </button>
+          )}
+        </div>
+
+        {showNewNeedle && (
+          <form onSubmit={submitNewNeedle} style={{ marginTop: 12 }}>
+            <div className="form-grid">
+              <div className="form-row">
+                <label htmlFor="needle-kind">Kind</label>
+                <select
+                  id="needle-kind"
+                  value={newNeedle.kind}
+                  onChange={(e) => setNewNeedle({ ...newNeedle, kind: e.target.value as NeedleKind })}
+                >
+                  <option value="CROCHET_HOOK">Crochet hook</option>
+                  <option value="KNITTING_NEEDLE">Knitting needle</option>
+                </select>
+              </div>
+              <div className="form-row">
+                <label htmlFor="needle-size">Size</label>
+                <input
+                  id="needle-size"
+                  placeholder="e.g. 4mm / US H-8"
+                  value={newNeedle.size}
+                  onChange={(e) => setNewNeedle({ ...newNeedle, size: e.target.value })}
+                  required
+                />
+              </div>
+            </div>
+            <div className="form-row">
+              <label htmlFor="needle-notes">Notes (optional)</label>
+              <input id="needle-notes" value={newNeedle.notes} onChange={(e) => setNewNeedle({ ...newNeedle, notes: e.target.value })} />
+            </div>
+            <div className="toolbar">
+              <button className="primary" type="submit">
+                Add
+              </button>
+              <button type="button" onClick={() => { setShowNewNeedle(false); setNewNeedle(blankNeedleDraft()); }}>
+                Cancel
+              </button>
+            </div>
+          </form>
+        )}
+
+        {loading ? (
+          <p className="muted" style={{ marginTop: 12 }}>Loading…</p>
+        ) : needleTypes.length === 0 ? (
+          <p className="empty" style={{ marginTop: 12 }}>No hooks or needles yet — add one above to start tracking them.</p>
+        ) : (
+          <div className="table-wrap" style={{ marginTop: 12 }}>
+            <table className="ot-table">
+              <thead>
+                <tr>
+                  <th>Hook / needle</th>
+                  {members.map((m) => (
+                    <th key={m.id}>{m.id === user?.id ? "You" : m.name}</th>
+                  ))}
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                {needleTypes.map((n) => (
+                  <tr key={n.id}>
+                    <td className="cell-title">
+                      {n.kind === "CROCHET_HOOK" ? "Crochet hook" : "Knitting needle"} — {n.size}
+                      {n.notes && <div className="muted" style={{ fontSize: 12 }}>{n.notes}</div>}
+                    </td>
+                    {members.map((m) => {
+                      const isMe = m.id === user?.id;
+                      const editing = editingNeedleQuantity[n.id] !== undefined;
+                      return (
+                        <td key={m.id} className="cell-order mono">
+                          {isMe && editing ? (
+                            <span style={{ display: "inline-flex", gap: 4 }}>
+                              <input
+                                aria-label={`Quantity for ${n.size}`}
+                                type="number"
+                                min={0}
+                                step={1}
+                                style={{ width: 56 }}
+                                value={editingNeedleQuantity[n.id]}
+                                onChange={(e) => setEditingNeedleQuantity({ ...editingNeedleQuantity, [n.id]: e.target.value })}
+                              />
+                              <button type="button" disabled={savingNeedle === n.id} onClick={() => saveNeedleQuantity(n.id)}>
+                                Save
+                              </button>
+                            </span>
+                          ) : isMe ? (
+                            <button type="button" onClick={() => startEditingNeedle(n.id)}>
+                              {needleQuantityFor(n.id, m.id)}
+                            </button>
+                          ) : (
+                            needleQuantityFor(n.id, m.id)
+                          )}
+                        </td>
+                      );
+                    })}
+                    <td className="cell-type">
+                      <button type="button" onClick={() => removeNeedleType(n.id)}>
+                        Remove
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+        <p className="hint" style={{ marginTop: 10 }}>
+          Whole units — no fractional hooks. Same visibility rule as yarn: everyone sees this table, only your own
+          column is editable.
         </p>
       </div>
     </div>

@@ -58,7 +58,7 @@ class TransferRequestServiceTest {
         inventoryGroup = groupService.addMember(inventoryGroup.getId(), targetId);
 
         wool = yarnTypeService.create(inventoryGroup.getId(), requesterId,
-                new CreateYarnTypeRequest("Lion Brand", "Bulky (5)", "Ocean Blue", null));
+                new CreateYarnTypeRequest("Lion Brand", "Bulky (5)", "Ocean Blue", null, null, null, null, null));
         inventoryService.setMyQuantity(inventoryGroup.getId(), targetId, wool.id(), 3.0);
     }
 

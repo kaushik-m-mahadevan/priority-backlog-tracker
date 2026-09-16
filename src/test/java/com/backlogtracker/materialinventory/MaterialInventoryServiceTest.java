@@ -66,7 +66,7 @@ class MaterialInventoryServiceTest {
 
     private YarnTypeView createWool() {
         return yarnTypeService.create(inventoryGroup.getId(), userAId,
-                new CreateYarnTypeRequest("Red Heart", "Worsted (4)", "Sunflower Yellow", null));
+                new CreateYarnTypeRequest("Red Heart", "Worsted (4)", "Sunflower Yellow", null, null, null, null, null));
     }
 
     @Test
@@ -75,7 +75,7 @@ class MaterialInventoryServiceTest {
         assertThat(created.brand()).isEqualTo("Red Heart");
 
         YarnTypeView updated = yarnTypeService.update(inventoryGroup.getId(), userBId, created.id(),
-                new CreateYarnTypeRequest("Red Heart", "Worsted (4)", "Sunflower Yellow", "slightly faded"));
+                new CreateYarnTypeRequest("Red Heart", "Worsted (4)", "Sunflower Yellow", null, null, null, null, "slightly faded"));
         assertThat(updated.notes()).isEqualTo("slightly faded");
     }
 
@@ -84,7 +84,7 @@ class MaterialInventoryServiceTest {
         createWool();
 
         assertThatThrownBy(() -> yarnTypeService.create(inventoryGroup.getId(), userBId,
-                new CreateYarnTypeRequest("red heart", "worsted (4)", "sunflower yellow", null)))
+                new CreateYarnTypeRequest("red heart", "worsted (4)", "sunflower yellow", null, null, null, null, null)))
                 .isInstanceOf(ResponseStatusException.class)
                 .hasMessageContaining("already exists");
     }

@@ -1,10 +1,14 @@
 import { api } from "../api/client";
 import type {
+  CreateNeedleTypeRequest,
   CreateTransferRequestRequest,
   CreateYarnTypeRequest,
   FulfillTransferRequest,
   InventoryEntryView,
+  NeedleInventoryEntryView,
+  NeedleTypeView,
   SetInventoryQuantityRequest,
+  SetNeedleQuantityRequest,
   TransferRequestView,
   YarnTypeView,
 } from "./types";
@@ -34,4 +38,17 @@ export const materialInventoryApi = {
     api.post<TransferRequestView>(`${base(groupId)}/transfers/${requestId}/complete`),
   cancelTransferRequest: (groupId: string, requestId: string) =>
     api.post<TransferRequestView>(`${base(groupId)}/transfers/${requestId}/cancel`),
+
+  needleTypes: (groupId: string) => api.get<NeedleTypeView[]>(`${base(groupId)}/needle-types`),
+  createNeedleType: (groupId: string, body: CreateNeedleTypeRequest) =>
+    api.post<NeedleTypeView>(`${base(groupId)}/needle-types`, body),
+  updateNeedleType: (groupId: string, needleTypeId: string, body: CreateNeedleTypeRequest) =>
+    api.put<NeedleTypeView>(`${base(groupId)}/needle-types/${needleTypeId}`, body),
+  deleteNeedleType: (groupId: string, needleTypeId: string) =>
+    api.delete<void>(`${base(groupId)}/needle-types/${needleTypeId}`),
+
+  needleInventory: (groupId: string) => api.get<NeedleInventoryEntryView[]>(`${base(groupId)}/needle-inventory`),
+  myNeedleInventory: (groupId: string) => api.get<NeedleInventoryEntryView[]>(`${base(groupId)}/needle-inventory/mine`),
+  setMyNeedleQuantity: (groupId: string, needleTypeId: string, body: SetNeedleQuantityRequest) =>
+    api.put<void>(`${base(groupId)}/needle-inventory/mine/${needleTypeId}`, body),
 };

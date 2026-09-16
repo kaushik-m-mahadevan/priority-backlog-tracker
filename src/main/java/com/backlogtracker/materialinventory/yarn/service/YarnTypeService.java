@@ -50,7 +50,11 @@ public class YarnTypeService {
                 .brand(brand)
                 .thickness(thickness)
                 .colour(colour)
-                .notes(request.notes() == null ? null : request.notes().trim())
+                .material(trimOrNull(request.material()))
+                .skeinWeightGrams(request.skeinWeightGrams())
+                .skeinLengthMeters(request.skeinLengthMeters())
+                .recommendedHookSize(trimOrNull(request.recommendedHookSize()))
+                .notes(trimOrNull(request.notes()))
                 .build());
         return YarnTypeView.of(saved);
     }
@@ -72,7 +76,11 @@ public class YarnTypeService {
         yarnType.setBrand(brand);
         yarnType.setThickness(thickness);
         yarnType.setColour(colour);
-        yarnType.setNotes(request.notes() == null ? null : request.notes().trim());
+        yarnType.setMaterial(trimOrNull(request.material()));
+        yarnType.setSkeinWeightGrams(request.skeinWeightGrams());
+        yarnType.setSkeinLengthMeters(request.skeinLengthMeters());
+        yarnType.setRecommendedHookSize(trimOrNull(request.recommendedHookSize()));
+        yarnType.setNotes(trimOrNull(request.notes()));
         return YarnTypeView.of(repository.save(yarnType));
     }
 
@@ -100,5 +108,9 @@ public class YarnTypeService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, field + " is required");
         }
         return value.trim();
+    }
+
+    private static String trimOrNull(String value) {
+        return value == null || value.isBlank() ? null : value.trim();
     }
 }
