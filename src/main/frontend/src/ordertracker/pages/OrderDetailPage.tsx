@@ -613,8 +613,10 @@ export default function OrderDetailPage() {
   const dueDate = order.orderType === "INDIVIDUAL" ? order.costEstimate?.computedDueDate : order.bulkDetails?.computedDueDate;
   const splitTrackedStages = config.workStages.filter((s) => s.splitTracked);
 
-  const logTime = async (stage: TimeStage, hours: number, date: string | null, note: string | null, variantId?: string) => {
-    const updated = await orderTrackerApi.addTimeLogEntry(groupId, order.id, { stage, hours, date, note, variantId: variantId ?? null });
+  const logTime = async (stage: TimeStage, hours: number, variantId?: string) => {
+    const updated = await orderTrackerApi.addTimeLogEntry(groupId, order.id, {
+      stage, hours, date: null, note: null, variantId: variantId ?? null,
+    });
     setOrder(updated);
   };
   const removeTime = async (entryId: string) => {
@@ -753,8 +755,17 @@ export default function OrderDetailPage() {
           ) : (
             <p className="empty">Not recorded.</p>
           )}
-          <div className="row" style={{ marginTop: 8 }}>
-            <span className="k">Research time</span><span className="v">{order.researchTimeHours}h</span>
+          <div className="row" style={{ marginTop: 8, alignItems: "center", flexWrap: "wrap" }}>
+            <span className="k">Research time</span>
+            <TimeStageControl
+              icon="🔍"
+              label="Research"
+              estimatedHours={order.researchTimeHours}
+              entries={order.timeLogEntries.filter((e) => e.stage === "RESEARCH")}
+              creatorName={creatorName}
+              onLog={(hours) => logTime("RESEARCH", hours)}
+              onRemove={removeTime}
+            />
           </div>
         </div>
 
@@ -885,8 +896,30 @@ export default function OrderDetailPage() {
         </div>
         <h2 className="settings-section">Processes</h2>
         <div className="card">
-          <div className="row"><span className="k">Crochet time</span><span className="v">{order.craftingTimeHours}h</span></div>
-          <div className="row"><span className="k">Assembly time</span><span className="v">{order.assemblyTimeHours}h</span></div>
+          <div className="row" style={{ alignItems: "center", flexWrap: "wrap" }}>
+            <span className="k">Crochet time</span>
+            <TimeStageControl
+              icon="🧶"
+              label="Crochet"
+              estimatedHours={order.craftingTimeHours}
+              entries={order.timeLogEntries.filter((e) => e.stage === "CRAFTING")}
+              creatorName={creatorName}
+              onLog={(hours) => logTime("CRAFTING", hours)}
+              onRemove={removeTime}
+            />
+          </div>
+          <div className="row" style={{ alignItems: "center", marginTop: 8, flexWrap: "wrap" }}>
+            <span className="k">Assembly time</span>
+            <TimeStageControl
+              icon="🪡"
+              label="Assembly"
+              estimatedHours={order.assemblyTimeHours}
+              entries={order.timeLogEntries.filter((e) => e.stage === "ASSEMBLY")}
+              creatorName={creatorName}
+              onLog={(hours) => logTime("ASSEMBLY", hours)}
+              onRemove={removeTime}
+            />
+          </div>
         </div>
         </Section>
       ) : (
@@ -903,7 +936,27 @@ export default function OrderDetailPage() {
                 <span title="Estimated">~₹{v.perUnitCost.toFixed(2)}/unit</span>
                 <span title="Estimated">Total ~₹{v.totalCost.toFixed(2)}</span>
               </div>
-              <div className="muted" style={{ fontSize: 12, fontWeight: 600, marginBottom: 4 }}>
+              <div className="toolbar" style={{ marginTop: 8, flexWrap: "wrap", gap: 16 }}>
+                <TimeStageControl
+                  icon="🧶"
+                  label={`Crochet — ${v.label}`}
+                  estimatedHours={v.craftingTimeHours}
+                  entries={v.timeLogEntries.filter((e) => e.stage === "CRAFTING")}
+                  creatorName={creatorName}
+                  onLog={(hours) => logTime("CRAFTING", hours, v.variantId)}
+                  onRemove={removeTime}
+                />
+                <TimeStageControl
+                  icon="🪡"
+                  label={`Assembly — ${v.label}`}
+                  estimatedHours={v.assemblyTimeHours}
+                  entries={v.timeLogEntries.filter((e) => e.stage === "ASSEMBLY")}
+                  creatorName={creatorName}
+                  onLog={(hours) => logTime("ASSEMBLY", hours, v.variantId)}
+                  onRemove={removeTime}
+                />
+              </div>
+              <div className="muted" style={{ fontSize: 12, fontWeight: 600, marginTop: 8, marginBottom: 4 }}>
                 Materials
               </div>
               <div className="grid cols-3">
@@ -1123,69 +1176,6 @@ export default function OrderDetailPage() {
         </div>
       </Section>
 
-      <Section title="Time tracking" icon="⏱">
-        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-          <TimeStageControl
-            icon="🔍"
-            label="Research"
-            estimatedHours={order.researchTimeHours}
-            entries={order.timeLogEntries.filter((e) => e.stage === "RESEARCH")}
-            creatorName={creatorName}
-            onLog={(hours, date, note) => logTime("RESEARCH", hours, date, note)}
-            onRemove={removeTime}
-          />
-          {order.orderType === "INDIVIDUAL" ? (
-            <>
-              <TimeStageControl
-                icon="🧶"
-                label="Crochet"
-                estimatedHours={order.craftingTimeHours}
-                entries={order.timeLogEntries.filter((e) => e.stage === "CRAFTING")}
-                creatorName={creatorName}
-                onLog={(hours, date, note) => logTime("CRAFTING", hours, date, note)}
-                onRemove={removeTime}
-              />
-              <TimeStageControl
-                icon="🪡"
-                label="Assembly"
-                estimatedHours={order.assemblyTimeHours}
-                entries={order.timeLogEntries.filter((e) => e.stage === "ASSEMBLY")}
-                creatorName={creatorName}
-                onLog={(hours, date, note) => logTime("ASSEMBLY", hours, date, note)}
-                onRemove={removeTime}
-              />
-            </>
-          ) : (
-            order.bulkDetails?.variants.map((v) => (
-              <div key={v.variantId}>
-                <div className="muted" style={{ fontSize: 12, fontWeight: 600, marginBottom: 6 }}>
-                  {v.label}
-                </div>
-                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                  <TimeStageControl
-                    icon="🧶"
-                    label={`Crochet — ${v.label}`}
-                    estimatedHours={v.craftingTimeHours}
-                    entries={v.timeLogEntries.filter((e) => e.stage === "CRAFTING")}
-                    creatorName={creatorName}
-                    onLog={(hours, date, note) => logTime("CRAFTING", hours, date, note, v.variantId)}
-                    onRemove={removeTime}
-                  />
-                  <TimeStageControl
-                    icon="🪡"
-                    label={`Assembly — ${v.label}`}
-                    estimatedHours={v.assemblyTimeHours}
-                    entries={v.timeLogEntries.filter((e) => e.stage === "ASSEMBLY")}
-                    creatorName={creatorName}
-                    onLog={(hours, date, note) => logTime("ASSEMBLY", hours, date, note, v.variantId)}
-                    onRemove={removeTime}
-                  />
-                </div>
-              </div>
-            ))
-          )}
-        </div>
-      </Section>
 
       <Section title="Finalization" icon="✅">
         <FinalizationCard groupId={groupId} order={order} />

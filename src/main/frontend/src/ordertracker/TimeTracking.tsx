@@ -1,9 +1,15 @@
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import type { TimeLogEntryView } from "./types";
 
-const HOLD_STEP_MS = 500;
-const HOLD_STEP_HOURS = 0.25;
-const HOLD_CAP_HOURS = 4;
+const PX_PER_QUARTER_HOUR = 8;
+const STEP_HOURS = 0.25;
+const MAX_HOURS = 12;
+const LONG_PRESS_MS = 300;
+const MOVE_THRESHOLD_PX = 6;
+
+function roundToStep(hours: number): number {
+  return Math.round(hours / STEP_HOURS) * STEP_HOURS;
+}
 
 export interface TimeStageControlProps {
   icon: string;
@@ -14,73 +20,78 @@ export interface TimeStageControlProps {
   /** Already-filtered to this stage (and variant, where relevant). */
   entries: TimeLogEntryView[];
   creatorName: (id: string) => React.ReactNode;
-  onLog: (hours: number, date: string | null, note: string | null) => Promise<void>;
+  onLog: (hours: number) => Promise<void>;
   onRemove: (entryId: string) => Promise<void>;
 }
 
-/** Press-and-hold to add quarter-hour increments (works identically for touch long-press
- *  and mouse click-hold via pointer events — no separate mobile/desktop logic needed).
- *  Holding fills a gauge behind the icon and accumulates a "pending" amount, capped at
- *  {@link HOLD_CAP_HOURS} per hold so an accidentally-long press can't log something
- *  absurd; releasing and holding again keeps adding on top. Nothing is sent until the
- *  tick button is pressed (design decision: commit needs an explicit confirm, not
- *  immediate-on-release) — the × button discards the pending amount instead. A "+ Log
- *  time" link covers backdated/bulk catch-up entries the gesture isn't meant for. */
+/** Long-press the icon, then drag up/down to set the number of hours — like a volume
+ *  control, not a stepwise accumulator. The live value floats above the icon while
+ *  dragging; releasing leaves it pending (nothing is sent yet), and a separate tap on ✓
+ *  actually logs it. Only date (today), the current user, and the hours matter here — no
+ *  notes, no backdating: log a whole week's worth in one entry whenever you get to it,
+ *  not a running reconstruction of which day each session happened on. */
 export function TimeStageControl({ icon, label, estimatedHours, entries, creatorName, onLog, onRemove }: TimeStageControlProps) {
   const [pending, setPending] = useState(0);
-  const [holding, setHolding] = useState(false);
+  const [dragging, setDragging] = useState(false);
+  const [dragValue, setDragValue] = useState(0);
   const [showLog, setShowLog] = useState(false);
-  const [showManual, setShowManual] = useState(false);
-  const [manualHours, setManualHours] = useState("");
-  const [manualDate, setManualDate] = useState(() => new Date().toISOString().slice(0, 10));
-  const [manualNote, setManualNote] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const intervalRef = useRef<number | null>(null);
 
-  const stopHold = () => {
-    setHolding(false);
-    if (intervalRef.current != null) {
-      window.clearInterval(intervalRef.current);
-      intervalRef.current = null;
+  const armedRef = useRef(false);
+  const startYRef = useRef(0);
+  const baseValueRef = useRef(0);
+  const longPressTimerRef = useRef<number | null>(null);
+
+  const clearLongPressTimer = () => {
+    if (longPressTimerRef.current != null) {
+      window.clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
     }
   };
 
-  useEffect(() => stopHold, []);
+  const arm = () => {
+    armedRef.current = true;
+    setDragging(true);
+    setDragValue(baseValueRef.current);
+  };
 
-  const startHold = (e: React.PointerEvent) => {
+  const handlePointerDown = (e: React.PointerEvent<HTMLButtonElement>) => {
     e.preventDefault();
-    if (intervalRef.current != null) return;
-    setHolding(true);
-    setPending((p) => Math.min(HOLD_CAP_HOURS, p + HOLD_STEP_HOURS));
-    intervalRef.current = window.setInterval(() => {
-      setPending((p) => Math.min(HOLD_CAP_HOURS, p + HOLD_STEP_HOURS));
-    }, HOLD_STEP_MS);
+    (e.target as HTMLElement).setPointerCapture(e.pointerId);
+    armedRef.current = false;
+    startYRef.current = e.clientY;
+    baseValueRef.current = pending;
+    clearLongPressTimer();
+    longPressTimerRef.current = window.setTimeout(arm, LONG_PRESS_MS);
+  };
+
+  const handlePointerMove = (e: React.PointerEvent<HTMLButtonElement>) => {
+    const deltaY = startYRef.current - e.clientY;
+    if (!armedRef.current) {
+      if (Math.abs(deltaY) < MOVE_THRESHOLD_PX) return;
+      clearLongPressTimer();
+      arm();
+    }
+    const hoursFromDrag = deltaY / PX_PER_QUARTER_HOUR / 4;
+    const next = Math.min(MAX_HOURS, Math.max(0, roundToStep(baseValueRef.current + hoursFromDrag)));
+    setDragValue(next);
+  };
+
+  const endGesture = () => {
+    clearLongPressTimer();
+    if (armedRef.current) {
+      setPending(dragValue);
+    }
+    armedRef.current = false;
+    setDragging(false);
   };
 
   const commitPending = async () => {
     if (pending <= 0) return;
     setError(null);
     try {
-      await onLog(pending, null, null);
+      await onLog(pending);
       setPending(0);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to log time");
-    }
-  };
-
-  const submitManual = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const hours = Number(manualHours);
-    if (!hours || hours <= 0) {
-      setError("Enter a positive number of hours");
-      return;
-    }
-    setError(null);
-    try {
-      await onLog(hours, manualDate ? new Date(manualDate).toISOString() : null, manualNote.trim() || null);
-      setManualHours("");
-      setManualNote("");
-      setShowManual(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to log time");
     }
@@ -88,122 +99,73 @@ export function TimeStageControl({ icon, label, estimatedHours, entries, creator
 
   const loggedTotal = entries.reduce((sum, e) => sum + e.hours, 0);
   const delta = loggedTotal - estimatedHours;
-  const pct = estimatedHours > 0 ? Math.min(150, Math.round((loggedTotal / estimatedHours) * 100)) : 0;
-  const over = estimatedHours > 0 && loggedTotal > estimatedHours;
+  const displayValue = dragging ? dragValue : pending;
 
   return (
-    <div className="card" style={{ background: "var(--bg-elev-2)" }}>
-      {error && <div className="error" style={{ marginBottom: 8 }}>{error}</div>}
-      <div className="toolbar" style={{ alignItems: "center", gap: 12 }}>
+    <span style={{ display: "inline-flex", flexDirection: "column", gap: 4 }}>
+    <span style={{ display: "inline-flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+      <span style={{ position: "relative" }}>
+        {dragging && (
+          <span className="time-track-live-label mono" aria-hidden="true">
+            {dragValue.toFixed(2)}h
+          </span>
+        )}
         <button
           type="button"
-          aria-label={`Hold to add ${label} time`}
-          onPointerDown={startHold}
-          onPointerUp={stopHold}
-          onPointerLeave={stopHold}
-          onPointerCancel={stopHold}
-          className="time-track-button"
-          style={{ borderColor: holding ? "var(--accent)" : undefined }}
+          aria-label={`Long-press and drag to set ${label} time`}
+          onPointerDown={handlePointerDown}
+          onPointerMove={handlePointerMove}
+          onPointerUp={endGesture}
+          onPointerCancel={endGesture}
+          className="time-track-button time-track-button-inline"
+          style={{ borderColor: dragging ? "var(--accent)" : undefined }}
         >
           <span
             aria-hidden="true"
             className="time-track-fill"
-            style={{ height: `${Math.min(100, (pending / HOLD_CAP_HOURS) * 100)}%` }}
+            style={{ height: `${Math.min(100, (displayValue / MAX_HOURS) * 100)}%` }}
           />
           <span className="time-track-icon">{icon}</span>
         </button>
-        <div style={{ flex: 1, minWidth: 140 }}>
-          <div style={{ fontWeight: 600 }}>{label}</div>
-          <div className="muted" style={{ fontSize: 12 }}>
-            {loggedTotal.toFixed(2)}h logged
-            {estimatedHours > 0 && ` / ${estimatedHours.toFixed(2)}h estimated`}
-            {estimatedHours > 0 && delta !== 0 && (
-              <> · {delta > 0 ? `over by ${delta.toFixed(2)}h` : `under by ${Math.abs(delta).toFixed(2)}h`}</>
-            )}
-          </div>
-          {estimatedHours > 0 && (
-            <div className="order-progress-track" style={{ marginTop: 6 }}>
-              <div
-                className="order-progress-fill"
-                style={{ width: `${pct}%`, background: over ? "var(--urgent)" : undefined }}
-              />
-            </div>
-          )}
-        </div>
-        {pending > 0 && (
-          <span style={{ display: "inline-flex", gap: 4, alignItems: "center" }}>
-            <span className="mono">{pending.toFixed(2)}h</span>
-            <button type="button" aria-label={`Confirm ${label} time`} onClick={commitPending}>
-              ✓
-            </button>
-            <button type="button" aria-label={`Cancel pending ${label} time`} onClick={() => setPending(0)}>
-              ×
-            </button>
-          </span>
-        )}
-      </div>
+      </span>
 
-      <div className="toolbar" style={{ marginTop: 8 }}>
-        <button type="button" className="linkbtn" onClick={() => setShowManual((s) => !s)}>
-          + Log time
-        </button>
-        {entries.length > 0 && (
-          <button type="button" className="linkbtn" onClick={() => setShowLog((s) => !s)}>
-            {showLog ? "hide log" : `log (${entries.length})`}
+      <span className="muted" style={{ fontSize: 12 }}>
+        {loggedTotal.toFixed(2)}h logged
+        {estimatedHours > 0 && ` / ${estimatedHours.toFixed(2)}h estimated`}
+        {estimatedHours > 0 && delta !== 0 && (
+          <> · {delta > 0 ? `over by ${delta.toFixed(2)}h` : `under by ${Math.abs(delta).toFixed(2)}h`}</>
+        )}
+      </span>
+
+      {pending > 0 && !dragging && (
+        <span style={{ display: "inline-flex", gap: 4, alignItems: "center" }}>
+          <span className="mono">{pending.toFixed(2)}h</span>
+          <button type="button" aria-label={`Confirm ${label} time`} onClick={commitPending}>
+            ✓
           </button>
-        )}
-      </div>
-
-      {showManual && (
-        <form onSubmit={submitManual} className="form-grid" style={{ marginTop: 8 }}>
-          <div className="form-row">
-            <label htmlFor={`${label}-manual-hours`} className="muted" style={{ fontSize: 11 }}>
-              Hours
-            </label>
-            <input
-              id={`${label}-manual-hours`}
-              type="number"
-              min={0.25}
-              step={0.25}
-              value={manualHours}
-              onChange={(e) => setManualHours(e.target.value)}
-              required
-            />
-          </div>
-          <div className="form-row">
-            <label htmlFor={`${label}-manual-date`} className="muted" style={{ fontSize: 11 }}>
-              Date
-            </label>
-            <input
-              id={`${label}-manual-date`}
-              type="date"
-              value={manualDate}
-              onChange={(e) => setManualDate(e.target.value)}
-            />
-          </div>
-          <div className="form-row">
-            <label htmlFor={`${label}-manual-note`} className="muted" style={{ fontSize: 11 }}>
-              Note (optional)
-            </label>
-            <input id={`${label}-manual-note`} value={manualNote} onChange={(e) => setManualNote(e.target.value)} />
-          </div>
-          <div style={{ alignSelf: "flex-end" }}>
-            <button className="primary" type="submit">
-              Add
-            </button>
-          </div>
-        </form>
+          <button type="button" aria-label={`Cancel pending ${label} time`} onClick={() => setPending(0)}>
+            ×
+          </button>
+        </span>
       )}
 
+      {error && <span className="error" style={{ fontSize: 12 }}>{error}</span>}
+
+      {entries.length > 0 && (
+        <button type="button" className="linkbtn" style={{ fontSize: 12 }} onClick={() => setShowLog((s) => !s)}>
+          {showLog ? "hide log" : `log (${entries.length})`}
+        </button>
+      )}
+    </span>
+
       {showLog && entries.length > 0 && (
-        <ul style={{ margin: "8px 0 0", paddingLeft: 18, fontSize: 12 }} className="muted">
+        <ul style={{ margin: 0, paddingLeft: 18, fontSize: 12 }} className="muted">
           {entries
             .slice()
             .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
             .map((e) => (
               <li key={e.entryId} style={{ marginBottom: 2 }}>
-                {new Date(e.date).toLocaleDateString()} — {e.hours.toFixed(2)}h ({creatorName(e.loggedByCreatorId)})
-                {e.note && <> — {e.note}</>}{" "}
+                {new Date(e.date).toLocaleDateString()} — {e.hours.toFixed(2)}h ({creatorName(e.loggedByCreatorId)}){" "}
                 <button type="button" className="linkbtn" onClick={() => onRemove(e.entryId)}>
                   remove
                 </button>
@@ -211,6 +173,6 @@ export function TimeStageControl({ icon, label, estimatedHours, entries, creator
             ))}
         </ul>
       )}
-    </div>
+    </span>
   );
 }

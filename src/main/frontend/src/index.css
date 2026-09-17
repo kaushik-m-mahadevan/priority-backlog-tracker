@@ -560,6 +560,29 @@ label {
   font-size: 26px;
   pointer-events: none;
 }
+.time-track-button-inline {
+  width: 40px;
+  height: 40px;
+  min-width: 40px;
+}
+.time-track-button-inline .time-track-icon {
+  font-size: 18px;
+}
+.time-track-live-label {
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  margin-bottom: 6px;
+  padding: 2px 8px;
+  border-radius: 6px;
+  background: var(--accent);
+  color: var(--bg);
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  pointer-events: none;
+}
 
 .card h2 {
   margin: 0 0 12px;
