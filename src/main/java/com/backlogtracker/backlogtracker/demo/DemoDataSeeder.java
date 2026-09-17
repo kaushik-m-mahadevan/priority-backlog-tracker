@@ -29,6 +29,31 @@ import com.backlogtracker.commons.user.domain.AccountStatus;
 import com.backlogtracker.commons.user.domain.Role;
 import com.backlogtracker.commons.user.domain.User;
 import com.backlogtracker.commons.user.repository.UserRepository;
+import com.backlogtracker.financetracker.ledger.domain.LedgerEntryType;
+import com.backlogtracker.financetracker.ledger.domain.SplitPartyType;
+import com.backlogtracker.financetracker.ledger.dto.CreateLedgerEntryRequest;
+import com.backlogtracker.financetracker.ledger.dto.CreateLedgerEntryRequest.ShareInput;
+import com.backlogtracker.financetracker.ledger.service.LedgerEntryService;
+import com.backlogtracker.ordertracker.customer.domain.AcquisitionChannel;
+import com.backlogtracker.ordertracker.customer.dto.CustomerView;
+import com.backlogtracker.ordertracker.customer.dto.UpsertCustomerRequest;
+import com.backlogtracker.ordertracker.customer.service.CustomerService;
+import com.backlogtracker.ordertracker.master.domain.Creator;
+import com.backlogtracker.ordertracker.master.service.BusinessConfigService;
+import com.backlogtracker.ordertracker.master.service.CreatorService;
+import com.backlogtracker.ordertracker.order.domain.Order.MaterialKind;
+import com.backlogtracker.ordertracker.order.domain.OrderStatus;
+import com.backlogtracker.ordertracker.order.dto.CreateOrderRequest;
+import com.backlogtracker.ordertracker.order.dto.CreateOrderRequest.MandatoryItemInput;
+import com.backlogtracker.ordertracker.order.dto.CreateOrderRequest.SplitLineInput;
+import com.backlogtracker.ordertracker.order.dto.CreateOrderRequest.VariantInput;
+import com.backlogtracker.ordertracker.order.dto.OrderView;
+import com.backlogtracker.ordertracker.order.dto.UpdateOrderStatusRequest;
+import com.backlogtracker.ordertracker.order.service.OrderService;
+import com.backlogtracker.productcatalog.colorway.dto.CreateColorwayRequest;
+import com.backlogtracker.productcatalog.colorway.service.ColorwayService;
+
+import java.math.BigDecimal;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -56,6 +81,12 @@ public class DemoDataSeeder implements ApplicationRunner {
     private final CounterService counters;
     private final MongoOperations mongo;
     private final org.springframework.core.env.Environment env;
+    private final BusinessConfigService businessConfigService;
+    private final CreatorService creatorService;
+    private final CustomerService customerService;
+    private final OrderService orderService;
+    private final ColorwayService colorwayService;
+    private final LedgerEntryService ledgerEntryService;
 
     @Override
     public void run(ApplicationArguments args) {
@@ -160,6 +191,107 @@ public class DemoDataSeeder implements ApplicationRunner {
 
         log.info("Demo data: {} live items, {} archived, {} users",
                 items.count(), archived.count(), users.count());
+
+        // Each applet is its own separate "business"/workspace, keyed by appletKey — a
+        // group can't double as both a Backlog Tracker group and an Order Tracker one, so
+        // Order Tracker/Product Catalog/Finance Tracker each need their own "Founders"
+        // group here, not the backlog one above.
+        List<String> allFounders = List.of(test123, alex.getId(), priya.getId(), sam.getId());
+        String otGroupId = seedAppletGroup("Founders", allFounders,
+                com.backlogtracker.commons.group.domain.Group.APPLET_ORDER_TRACKER);
+        String ftGroupId = seedAppletGroup("Founders", allFounders,
+                com.backlogtracker.commons.group.domain.Group.APPLET_FINANCE_TRACKER);
+        String pcGroupId = seedAppletGroup("Founders", allFounders,
+                com.backlogtracker.commons.group.domain.Group.APPLET_PRODUCT_CATALOG);
+
+        seedOrderTrackerCatalogAndFinance(otGroupId, ftGroupId, pcGroupId, test123, alex, priya, sam);
+    }
+
+    private String seedAppletGroup(String name, List<String> memberIds, String appletKey) {
+        return groups.save(com.backlogtracker.commons.group.domain.Group.builder()
+                .name(name)
+                .createdByUserId(memberIds.get(0))
+                .appletKey(appletKey)
+                .memberIds(new ArrayList<>(memberIds))
+                .build()).getId();
+    }
+
+    /** Order Tracker / Product Catalog / Finance Tracker sample data — each in its own
+     *  applet-scoped group (see {@link #seedAppletGroup}) — built through each domain's
+     *  own service layer (not raw repository saves) since these documents have real
+     *  invariants (auto-assigned order numbers/codes, encrypted customer fields, computed
+     *  cost estimates) that only the service layer knows how to satisfy correctly. */
+    private void seedOrderTrackerCatalogAndFinance(String groupId, String financeGroupId, String catalogGroupId,
+                                                    String test123, User alex, User priya, User sam) {
+        businessConfigService.get(groupId, alex.getId()); // seeds default BusinessConfig if absent
+
+        Creator alexCreator = creatorService.upsertMyProfile(groupId, alex.getId(), alex.getName(), "Bengaluru", 3.0);
+        Creator priyaCreator = creatorService.upsertMyProfile(groupId, priya.getId(), priya.getName(), "Mumbai", 2.5);
+        creatorService.upsertMyProfile(groupId, sam.getId(), sam.getName(), "Chennai", 4.0);
+        // The admin signed into every demo group (test123) needs a Creator profile too,
+        // or Order Tracker gates the whole workspace behind a first-time setup prompt.
+        creatorService.upsertMyProfile(groupId, test123, "Test User", "Bengaluru", 4.0);
+
+        CustomerView meera = customerService.create(groupId, alex.getId(), new UpsertCustomerRequest(
+                "Meera Krishnan", "9876543210", "meera.k@example.com", "@meera.makes",
+                AcquisitionChannel.INSTAGRAM, Instant.now().minus(60, ChronoUnit.DAYS),
+                "12 Lake View Road, Bengaluru", null));
+        CustomerView rahul = customerService.create(groupId, alex.getId(), new UpsertCustomerRequest(
+                "Rahul Nair", "9123456780", null, null,
+                AcquisitionChannel.WORD_OF_MOUTH, Instant.now().minus(35, ChronoUnit.DAYS),
+                "45 MG Road, Chennai", "Prefers WhatsApp updates"));
+        CustomerView pooja = customerService.create(groupId, priya.getId(), new UpsertCustomerRequest(
+                "Pooja Desai", "9988776655", "pooja.d@example.com", "@poojawears",
+                AcquisitionChannel.REFERRAL, Instant.now().minus(10, ChronoUnit.DAYS),
+                "7 Marine Drive, Mumbai", null));
+
+        colorwayService.create(catalogGroupId, alex.getId(), new CreateColorwayRequest(
+                "Sunset Coral", "Coral / Cream", 450.0, "Best-seller — pairs well with cream trims", List.of()));
+        colorwayService.create(catalogGroupId, priya.getId(), new CreateColorwayRequest(
+                "Sage Meadow", "Sage Green", 400.0, null, List.of()));
+
+        OrderView order1 = orderService.create(groupId, alex.getId(), new CreateOrderRequest(
+                meera.id(), "INDIVIDUAL", alexCreator.getId(),
+                "Coral crochet tote bag", Instant.now().minus(6, ChronoUnit.DAYS),
+                Instant.now().plus(9, ChronoUnit.DAYS), null, List.of(), 2.0, null, null,
+                List.of(new MandatoryItemInput(MaterialKind.YARN, "Coral cotton yarn", 4, 120, null, null, null)),
+                List.of(), null, List.of(), 6.0, 2.0,
+                null, null, 0));
+        orderService.updateStatus(groupId, alex.getId(), order1.id(), new UpdateOrderStatusRequest(OrderStatus.IN_PROGRESS));
+
+        orderService.create(groupId, priya.getId(), new CreateOrderRequest(
+                rahul.id(), "INDIVIDUAL", priyaCreator.getId(),
+                "Custom amigurumi elephant", Instant.now().minus(2, ChronoUnit.DAYS),
+                Instant.now().plus(14, ChronoUnit.DAYS), null, List.of(), 1.5, null, null,
+                List.of(new MandatoryItemInput(MaterialKind.YARN, "Grey acrylic yarn", 2, 90, null, null, null)),
+                List.of(), null, List.of(), 4.0, 1.5,
+                null, null, 0));
+
+        OrderView bulkOrder = orderService.create(groupId, alex.getId(), new CreateOrderRequest(
+                pooja.id(), "BULK", alexCreator.getId(),
+                "Wedding favour coasters (set of 8)", Instant.now().minus(4, ChronoUnit.DAYS),
+                Instant.now().plus(20, ChronoUnit.DAYS), null, List.of(), 1.0, null, null,
+                null, null, null, null, 0, 0,
+                List.of(
+                        new VariantInput("v1", "Sage Meadow coaster", 5, List.of(), List.of(), null, List.of(),
+                                3.0, 1.0, List.of(new SplitLineInput(alexCreator.getId(), 5))),
+                        new VariantInput("v2", "Sunset Coral coaster", 3, List.of(), List.of(), null, List.of(),
+                                2.0, 1.0, List.of(new SplitLineInput(priyaCreator.getId(), 3)))),
+                alexCreator.getId(), 0));
+        orderService.updateStatus(groupId, alex.getId(), bulkOrder.id(), new UpdateOrderStatusRequest(OrderStatus.CONFIRMED));
+
+        ledgerEntryService.create(financeGroupId, alex.getId(), new CreateLedgerEntryRequest(
+                LedgerEntryType.EXPENSE, "Yarn restock — coral cotton + grey acrylic", new BigDecimal("2400"),
+                alex.getId(), List.of(new ShareInput(SplitPartyType.BUSINESS, null, BigDecimal.ONE))));
+        ledgerEntryService.create(financeGroupId, priya.getId(), new CreateLedgerEntryRequest(
+                LedgerEntryType.EXPENSE, "Packaging boxes (50 pack)", new BigDecimal("850"),
+                priya.getId(), List.of(new ShareInput(SplitPartyType.BUSINESS, null, BigDecimal.ONE))));
+        ledgerEntryService.create(financeGroupId, alex.getId(), new CreateLedgerEntryRequest(
+                LedgerEntryType.INCOME, "Advance for wedding favour order", new BigDecimal("3000"),
+                alex.getId(), List.of(new ShareInput(SplitPartyType.BUSINESS, null, BigDecimal.ONE))));
+
+        log.info("Demo data: seeded Order Tracker (3 creators, 3 customers, 3 orders), "
+                + "Product Catalog (2 colorways), and Finance Tracker (3 ledger entries)");
     }
 
     private User ensureUser(String name, String email, String code) {
