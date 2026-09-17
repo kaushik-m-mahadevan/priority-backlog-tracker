@@ -17,26 +17,17 @@ function clampHours(hours: number): number {
   return Math.min(MAX_HOURS, Math.max(0, roundToStep(hours)));
 }
 
-function isToday(dateIso: string): boolean {
-  const d = new Date(dateIso);
-  const now = new Date();
-  return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth() && d.getDate() === now.getDate();
-}
-
 export interface TimeStageControlProps {
   icon: string;
   label: string;
   /** Total estimated hours for this stage (order-level for Research, order- or
    *  variant-level for Crochet/Assembly depending on order type). */
   estimatedHours: number;
-  /** Already-filtered to this stage (and variant, where relevant). */
+  /** Already-filtered to this stage (and variant, where relevant) — used only for the
+   *  running total shown next to the icon. Full entry-by-entry history lives in one
+   *  consolidated, filterable section at the end of the order page, not here. */
   entries: TimeLogEntryView[];
-  /** The signed-in user's own Creator id for this group, so opening the slider on a stage
-   *  you've already logged today edits that entry instead of piling on a duplicate. */
-  myCreatorId: string | null;
-  creatorName: (id: string) => React.ReactNode;
   onLog: (hours: number) => Promise<void>;
-  onRemove: (entryId: string) => Promise<void>;
 }
 
 /** Tap the icon to open a vertical slider — click the track or drag the knob to set the
@@ -47,18 +38,16 @@ export interface TimeStageControlProps {
  *  whenever you get to it, not a running reconstruction of which day each session
  *  happened on.
  *
- *  Opening the slider when you've already logged this stage today pre-fills it with that
- *  entry's hours instead of starting from zero — confirming replaces it rather than
- *  piling on a second entry for the same day (design decision: at most one entry per
- *  person per stage per day; a different person logging the same stage still gets their
- *  own entry). */
-export function TimeStageControl({ icon, label, estimatedHours, entries, myCreatorId, creatorName, onLog, onRemove }: TimeStageControlProps) {
+ *  Every confirm adds a brand-new entry — logging more time later the same day (e.g.
+ *  plans changed and you crocheted three more hours) is a second, separate entry, not a
+ *  merge into an earlier one. The slider always starts from zero: it's for logging a new
+ *  block of time, not editing a past one — edit/remove a specific entry from the Time
+ *  History section instead. */
+export function TimeStageControl({ icon, label, estimatedHours, entries, onLog }: TimeStageControlProps) {
   const [open, setOpen] = useState(false);
   const [anchor, setAnchor] = useState<{ left: number; bottom: number } | null>(null);
   const [value, setValue] = useState(0);
-  const [editingIds, setEditingIds] = useState<string[]>([]);
   const [dragging, setDragging] = useState(false);
-  const [showLog, setShowLog] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const containerRef = useRef<HTMLSpanElement>(null);
@@ -74,15 +63,7 @@ export function TimeStageControl({ icon, label, estimatedHours, entries, myCreat
       Math.max(VIEWPORT_MARGIN + POPOVER_HALF_WIDTH, rect.left + rect.width / 2)
     );
     setAnchor({ left, bottom: window.innerHeight - rect.top });
-
-    // Editing today's own entry instead of piling on a duplicate — "today" is what "date
-    // doesn't matter, only the total does" collapses down to: at most one entry per person
-    // per stage per day.
-    const mine = myCreatorId
-      ? entries.filter((e) => e.loggedByCreatorId === myCreatorId && isToday(e.date))
-      : [];
-    setEditingIds(mine.map((e) => e.entryId));
-    setValue(clampHours(mine.reduce((sum, e) => sum + e.hours, 0)));
+    setValue(0);
     setOpen(true);
   };
 
@@ -141,20 +122,14 @@ export function TimeStageControl({ icon, label, estimatedHours, entries, myCreat
   };
 
   const confirm = async () => {
-    if (value <= 0 && editingIds.length === 0) {
+    if (value <= 0) {
       setOpen(false);
       return;
     }
     setError(null);
     try {
-      for (const id of editingIds) {
-        await onRemove(id);
-      }
-      if (value > 0) {
-        await onLog(value);
-      }
+      await onLog(value);
       setValue(0);
-      setEditingIds([]);
       setOpen(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to log time");
@@ -163,7 +138,6 @@ export function TimeStageControl({ icon, label, estimatedHours, entries, myCreat
 
   const cancel = () => {
     setValue(0);
-    setEditingIds([]);
     setOpen(false);
   };
 
@@ -172,96 +146,72 @@ export function TimeStageControl({ icon, label, estimatedHours, entries, myCreat
   const knobOffset = (value / MAX_HOURS) * TRACK_HEIGHT;
 
   return (
-    <span ref={containerRef} style={{ display: "inline-flex", flexDirection: "column", gap: 4, position: "relative" }}>
-      <span style={{ display: "inline-flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-        <span style={{ position: "relative" }}>
-          <button
-            ref={triggerRef}
-            type="button"
-            aria-label={`Log ${label} time`}
-            aria-expanded={open}
-            onClick={() => (open ? setOpen(false) : openPopover())}
-            className="time-track-button time-track-button-inline"
-            style={{ borderColor: open ? "var(--accent)" : undefined }}
+    <span ref={containerRef} style={{ display: "inline-flex", alignItems: "center", gap: 10, flexWrap: "wrap", position: "relative" }}>
+      <span style={{ position: "relative" }}>
+        <button
+          ref={triggerRef}
+          type="button"
+          aria-label={`Log ${label} time`}
+          aria-expanded={open}
+          onClick={() => (open ? setOpen(false) : openPopover())}
+          className="time-track-button time-track-button-inline"
+          style={{ borderColor: open ? "var(--accent)" : undefined }}
+        >
+          <span className="time-track-icon">{icon}</span>
+        </button>
+
+        {open && anchor && createPortal(
+          <div
+            ref={popoverRef}
+            className="time-slider-popover"
+            style={{ position: "fixed", left: anchor.left, bottom: anchor.bottom, transform: "translateX(-50%)" }}
           >
-            <span className="time-track-icon">{icon}</span>
-          </button>
-
-          {open && anchor && createPortal(
+            <div className="time-slider-value mono">{value.toFixed(2)}h</div>
             <div
-              ref={popoverRef}
-              className="time-slider-popover"
-              style={{ position: "fixed", left: anchor.left, bottom: anchor.bottom, transform: "translateX(-50%)" }}
+              ref={trackRef}
+              className="time-slider-track"
+              role="slider"
+              tabIndex={0}
+              aria-label={`${label} hours`}
+              aria-valuemin={0}
+              aria-valuemax={MAX_HOURS}
+              aria-valuenow={value}
+              onPointerDown={handleTrackPointerDown}
+              onPointerMove={handleTrackPointerMove}
+              onPointerUp={stopDragging}
+              onPointerCancel={stopDragging}
+              onKeyDown={handleTrackKeyDown}
+              style={{ height: TRACK_HEIGHT }}
             >
-              <div className="time-slider-value mono">{value.toFixed(2)}h</div>
+              <div className="time-slider-fill" style={{ height: knobOffset }} />
               <div
-                ref={trackRef}
-                className="time-slider-track"
-                role="slider"
-                tabIndex={0}
-                aria-label={`${label} hours`}
-                aria-valuemin={0}
-                aria-valuemax={MAX_HOURS}
-                aria-valuenow={value}
-                onPointerDown={handleTrackPointerDown}
-                onPointerMove={handleTrackPointerMove}
-                onPointerUp={stopDragging}
-                onPointerCancel={stopDragging}
-                onKeyDown={handleTrackKeyDown}
-                style={{ height: TRACK_HEIGHT }}
-              >
-                <div className="time-slider-fill" style={{ height: knobOffset }} />
-                <div
-                  className="time-slider-knob"
-                  aria-hidden="true"
-                  style={{ bottom: knobOffset - KNOB_SIZE / 2, width: KNOB_SIZE, height: KNOB_SIZE }}
-                />
-              </div>
-              <div className="time-slider-actions">
-                <button type="button" aria-label={`Confirm ${label} time`} onClick={confirm}>
-                  ✓
-                </button>
-                <button type="button" aria-label={`Cancel ${label} time`} onClick={cancel}>
-                  ×
-                </button>
-              </div>
-            </div>,
-            document.body
-          )}
-        </span>
-
-        <span className="muted" style={{ fontSize: 12 }}>
-          {loggedTotal.toFixed(2)}h logged
-          {estimatedHours > 0 && ` / ${estimatedHours.toFixed(2)}h estimated`}
-          {estimatedHours > 0 && delta !== 0 && (
-            <> · {delta > 0 ? `over by ${delta.toFixed(2)}h` : `under by ${Math.abs(delta).toFixed(2)}h`}</>
-          )}
-        </span>
-
-        {error && <span className="error" style={{ fontSize: 12 }}>{error}</span>}
-
-        {entries.length > 0 && (
-          <button type="button" className="linkbtn" style={{ fontSize: 12 }} onClick={() => setShowLog((s) => !s)}>
-            {showLog ? "hide log" : `log (${entries.length})`}
-          </button>
+                className="time-slider-knob"
+                aria-hidden="true"
+                style={{ bottom: knobOffset - KNOB_SIZE / 2, width: KNOB_SIZE, height: KNOB_SIZE }}
+              />
+            </div>
+            <div className="time-slider-actions">
+              <button type="button" aria-label={`Confirm ${label} time`} onClick={confirm}>
+                ✓
+              </button>
+              <button type="button" aria-label={`Cancel ${label} time`} onClick={cancel}>
+                ×
+              </button>
+            </div>
+          </div>,
+          document.body
         )}
       </span>
 
-      {showLog && entries.length > 0 && (
-        <ul style={{ margin: 0, paddingLeft: 18, fontSize: 12 }} className="muted">
-          {entries
-            .slice()
-            .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-            .map((e) => (
-              <li key={e.entryId} style={{ marginBottom: 2 }}>
-                {new Date(e.date).toLocaleDateString()} — {e.hours.toFixed(2)}h ({creatorName(e.loggedByCreatorId)}){" "}
-                <button type="button" className="linkbtn" onClick={() => onRemove(e.entryId)}>
-                  remove
-                </button>
-              </li>
-            ))}
-        </ul>
-      )}
+      <span className="muted" style={{ fontSize: 12 }}>
+        {loggedTotal.toFixed(2)}h logged
+        {estimatedHours > 0 && ` / ${estimatedHours.toFixed(2)}h estimated`}
+        {estimatedHours > 0 && delta !== 0 && (
+          <> · {delta > 0 ? `over by ${delta.toFixed(2)}h` : `under by ${Math.abs(delta).toFixed(2)}h`}</>
+        )}
+      </span>
+
+      {error && <span className="error" style={{ fontSize: 12 }}>{error}</span>}
     </span>
   );
 }

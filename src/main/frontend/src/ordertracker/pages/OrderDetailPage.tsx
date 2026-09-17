@@ -41,8 +41,13 @@ function stageIcon(stageKey: string): string {
 /** Collapsible top-level grouping for the order detail view — open by default on wide
  *  screens (so the page reads as one organized document), collapsed by default on
  *  narrow ones (so a phone isn't hit with everything at once). */
-function Section({ title, icon, children }: { title: string; icon: string; children: React.ReactNode }) {
-  const [open, setOpen] = useState(() => (typeof window === "undefined" ? true : window.innerWidth >= 768));
+function Section({
+  title, icon, children, defaultOpen,
+}: { title: string; icon: string; children: React.ReactNode; defaultOpen?: boolean }) {
+  const [open, setOpen] = useState(() => {
+    if (defaultOpen !== undefined) return defaultOpen;
+    return typeof window === "undefined" ? true : window.innerWidth >= 768;
+  });
   return (
     <section className="order-section">
       <button type="button" className="order-section-toggle" onClick={() => setOpen((o) => !o)} aria-expanded={open}>
@@ -570,7 +575,6 @@ function EditBulkDetailsForm({
 export default function OrderDetailPage() {
   const { orderId } = useParams<{ orderId: string }>();
   const { currentGroupId } = useBusiness();
-  const { user } = useAuth();
   const groupId = currentGroupId!;
   const linkedYarnTypes = useLinkedYarnTypes(groupId);
   const linkedNeedleTypes = useLinkedNeedleTypes(groupId);
@@ -585,6 +589,8 @@ export default function OrderDetailPage() {
   const [paymentAmount, setPaymentAmount] = useState(0);
   const [paymentType, setPaymentType] = useState<PaymentType>("ADVANCE");
   const [addingToGroup, setAddingToGroup] = useState(false);
+  const [historyCreatorFilter, setHistoryCreatorFilter] = useState("all");
+  const [historyStageFilter, setHistoryStageFilter] = useState("all");
 
   const load = () => {
     Promise.all([
@@ -607,13 +613,28 @@ export default function OrderDetailPage() {
   if (!order || !config) return <p className="muted">Loading…</p>;
 
   const customer = customers.find((c) => c.id === order.customerId);
-  const myCreatorId = creators.find((c) => c.userId === user?.id)?.id ?? null;
   const creatorName = (id: string | null | undefined) => {
     if (!id) return <span className="muted">Unassigned</span>;
     return creators.find((c) => c.id === id)?.name ?? <span className="muted">Unknown creator</span>;
   };
   const dueDate = order.orderType === "INDIVIDUAL" ? order.costEstimate?.computedDueDate : order.bulkDetails?.computedDueDate;
   const splitTrackedStages = config.workStages.filter((s) => s.splitTracked);
+
+  const stageLabel = (stage: TimeStage) =>
+    stage === "RESEARCH" ? "Research" : stage === "CRAFTING" ? "Crochet" : "Assembly";
+
+  type HistoryRow = { entryId: string; stage: TimeStage; hours: number; date: string; loggedByCreatorId: string; variantLabel: string | null };
+  const allTimeEntries: HistoryRow[] = [
+    ...order.timeLogEntries.map((e) => ({ ...e, variantLabel: null as string | null })),
+    ...(order.bulkDetails?.variants.flatMap((v) =>
+      v.timeLogEntries.map((e) => ({ ...e, variantLabel: v.label }))
+    ) ?? []),
+  ];
+  const filteredHistory = allTimeEntries
+    .filter((e) => historyCreatorFilter === "all" || e.loggedByCreatorId === historyCreatorFilter)
+    .filter((e) => historyStageFilter === "all" || e.stage === historyStageFilter)
+    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  const creatorsWithEntries = creators.filter((c) => allTimeEntries.some((e) => e.loggedByCreatorId === c.id));
 
   const logTime = async (stage: TimeStage, hours: number, variantId?: string) => {
     const updated = await orderTrackerApi.addTimeLogEntry(groupId, order.id, {
@@ -764,10 +785,7 @@ export default function OrderDetailPage() {
               label="Research"
               estimatedHours={order.researchTimeHours}
               entries={order.timeLogEntries.filter((e) => e.stage === "RESEARCH")}
-              creatorName={creatorName}
-              myCreatorId={myCreatorId}
               onLog={(hours) => logTime("RESEARCH", hours)}
-              onRemove={removeTime}
             />
           </div>
         </div>
@@ -906,10 +924,7 @@ export default function OrderDetailPage() {
               label="Crochet"
               estimatedHours={order.craftingTimeHours}
               entries={order.timeLogEntries.filter((e) => e.stage === "CRAFTING")}
-              creatorName={creatorName}
-              myCreatorId={myCreatorId}
               onLog={(hours) => logTime("CRAFTING", hours)}
-              onRemove={removeTime}
             />
           </div>
           <div className="row" style={{ alignItems: "center", marginTop: 8, flexWrap: "wrap" }}>
@@ -919,10 +934,7 @@ export default function OrderDetailPage() {
               label="Assembly"
               estimatedHours={order.assemblyTimeHours}
               entries={order.timeLogEntries.filter((e) => e.stage === "ASSEMBLY")}
-              creatorName={creatorName}
-              myCreatorId={myCreatorId}
               onLog={(hours) => logTime("ASSEMBLY", hours)}
-              onRemove={removeTime}
             />
           </div>
         </div>
@@ -947,20 +959,14 @@ export default function OrderDetailPage() {
                   label={`Crochet — ${v.label}`}
                   estimatedHours={v.craftingTimeHours}
                   entries={v.timeLogEntries.filter((e) => e.stage === "CRAFTING")}
-                  creatorName={creatorName}
-              myCreatorId={myCreatorId}
                   onLog={(hours) => logTime("CRAFTING", hours, v.variantId)}
-                  onRemove={removeTime}
                 />
                 <TimeStageControl
                   icon="🪡"
                   label={`Assembly — ${v.label}`}
                   estimatedHours={v.assemblyTimeHours}
                   entries={v.timeLogEntries.filter((e) => e.stage === "ASSEMBLY")}
-                  creatorName={creatorName}
-              myCreatorId={myCreatorId}
                   onLog={(hours) => logTime("ASSEMBLY", hours, v.variantId)}
-                  onRemove={removeTime}
                 />
               </div>
               <div className="muted" style={{ fontSize: 12, fontWeight: 600, marginTop: 8, marginBottom: 4 }}>
@@ -1235,6 +1241,63 @@ export default function OrderDetailPage() {
         </div>
 
         <ShippingCard groupId={groupId} order={order} onUpdated={setOrder} />
+      </Section>
+
+      <Section title="Time History" icon="🕒" defaultOpen={false}>
+        {allTimeEntries.length === 0 ? (
+          <p className="empty">No time logged yet.</p>
+        ) : (
+          <>
+            <div className="toolbar" style={{ marginBottom: 10 }}>
+              <select aria-label="Filter by person" value={historyCreatorFilter} onChange={(e) => setHistoryCreatorFilter(e.target.value)}>
+                <option value="all">Everyone</option>
+                {creatorsWithEntries.map((c) => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
+              </select>
+              <select aria-label="Filter by stage" value={historyStageFilter} onChange={(e) => setHistoryStageFilter(e.target.value)}>
+                <option value="all">All stages</option>
+                <option value="RESEARCH">Research</option>
+                <option value="CRAFTING">Crochet</option>
+                <option value="ASSEMBLY">Assembly</option>
+              </select>
+            </div>
+            {filteredHistory.length === 0 ? (
+              <p className="empty">No entries match this filter.</p>
+            ) : (
+              <div className="table-wrap">
+                <table className="ot-table">
+                  <thead>
+                    <tr>
+                      <th>Date</th>
+                      <th>Stage</th>
+                      <th>Variant</th>
+                      <th>Hours</th>
+                      <th>Logged by</th>
+                      <th></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredHistory.map((e) => (
+                      <tr key={e.entryId}>
+                        <td className="cell-subtitle">{new Date(e.date).toLocaleDateString()}</td>
+                        <td>{stageLabel(e.stage)}</td>
+                        <td className="muted">{e.variantLabel ?? "—"}</td>
+                        <td className="cell-order mono">{e.hours.toFixed(2)}h</td>
+                        <td>{creatorName(e.loggedByCreatorId)}</td>
+                        <td>
+                          <button type="button" className="linkbtn" onClick={() => removeTime(e.entryId)}>
+                            remove
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </>
+        )}
       </Section>
     </div>
   );
