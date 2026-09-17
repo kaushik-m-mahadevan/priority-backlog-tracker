@@ -4,6 +4,7 @@ import java.math.BigDecimal;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -44,6 +45,17 @@ public class LedgerEntryService {
     private final LedgerEntryRepository entries;
     private final SettlementRepository settlements;
     private final GroupService groupService;
+
+    /** Guards {@link #settleUp} against a read-then-write race: balances are a derived
+     *  aggregate over the whole ledger (no single document to put an {@code @Version} on),
+     *  so two concurrent settlements by the same payee (e.g. a double-click, or one
+     *  against the business and one against a person at the same moment) could both read
+     *  the same pre-settlement balance and both pass the "not more than owed" check. Since
+     *  this app runs as a single instance (no distributed lock/queue exists anywhere else
+     *  in this codebase either), an in-process lock keyed by (groupId, userId) is enough to
+     *  serialize a payee's own settlements without needing a Mongo transaction for what's
+     *  otherwise a single-document insert. */
+    private final ConcurrentHashMap<String, Object> settlementLocks = new ConcurrentHashMap<>();
 
     public LedgerEntryView create(String groupId, String userId, CreateLedgerEntryRequest request) {
         Group group = groupService.requireMember(groupId, userId);
@@ -142,26 +154,28 @@ public class LedgerEntryService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "fromPersonId must not be set when fromPartyType is BUSINESS");
         }
 
-        Map<String, BalanceView> current = computeBalances(groupId).stream()
-                .collect(java.util.stream.Collectors.toMap(BalanceView::personId, b -> b));
-        BalanceView mine = current.get(userId);
-        BigDecimal owedToMe = request.fromPartyType() == SplitPartyType.BUSINESS
-                ? (mine == null ? BigDecimal.ZERO : mine.owedByBusiness())
-                : (mine == null ? BigDecimal.ZERO : mine.netFromOthers().max(BigDecimal.ZERO));
-        if (request.amount().compareTo(owedToMe) > 0) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                    "That's more than is currently owed to you (" + owedToMe + ")");
-        }
+        synchronized (settlementLocks.computeIfAbsent(groupId + ":" + userId, k -> new Object())) {
+            Map<String, BalanceView> current = computeBalances(groupId).stream()
+                    .collect(java.util.stream.Collectors.toMap(BalanceView::personId, b -> b));
+            BalanceView mine = current.get(userId);
+            BigDecimal owedToMe = request.fromPartyType() == SplitPartyType.BUSINESS
+                    ? (mine == null ? BigDecimal.ZERO : mine.owedByBusiness())
+                    : (mine == null ? BigDecimal.ZERO : mine.netFromOthers().max(BigDecimal.ZERO));
+            if (request.amount().compareTo(owedToMe) > 0) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "That's more than is currently owed to you (" + owedToMe + ")");
+            }
 
-        Settlement settlement = Settlement.builder()
-                .groupId(groupId)
-                .fromPartyType(request.fromPartyType())
-                .fromPersonId(request.fromPartyType() == SplitPartyType.PERSON ? request.fromPersonId() : null)
-                .toPersonId(userId)
-                .amount(request.amount())
-                .createdByUserId(userId)
-                .build();
-        return SettlementView.of(settlements.save(settlement));
+            Settlement settlement = Settlement.builder()
+                    .groupId(groupId)
+                    .fromPartyType(request.fromPartyType())
+                    .fromPersonId(request.fromPartyType() == SplitPartyType.PERSON ? request.fromPersonId() : null)
+                    .toPersonId(userId)
+                    .amount(request.amount())
+                    .createdByUserId(userId)
+                    .build();
+            return SettlementView.of(settlements.save(settlement));
+        }
     }
 
     private List<BalanceView> computeBalances(String groupId) {

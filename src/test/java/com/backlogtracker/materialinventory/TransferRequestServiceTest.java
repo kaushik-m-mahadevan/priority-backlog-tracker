@@ -3,6 +3,12 @@ package com.backlogtracker.materialinventory;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import java.util.List;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.stream.IntStream;
+
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -159,5 +165,40 @@ class TransferRequestServiceTest {
         assertThatThrownBy(() -> transferRequestService.fulfill(inventoryGroup.getId(), targetId, created.id(), 0.5))
                 .isInstanceOf(ResponseStatusException.class)
                 .hasMessageContaining("already CANCELLED");
+    }
+
+    /** Regression test for a lost-update race: fulfilledQuantity used to be a plain
+     *  read-modify-write with no @Version, so two concurrent partial fulfillments of the
+     *  same request could both read the same starting fulfilledQuantity and one save could
+     *  silently overwrite the other, undercounting how much was actually handed over. It's
+     *  now guarded by @Version with retry-on-conflict, so N concurrent 0.25-skein
+     *  fulfillments must all be recorded — fulfilledQuantity lands on exactly their sum,
+     *  never short. */
+    @Test
+    void concurrentPartialFulfillmentsAreAllRecordedNotLost() throws Exception {
+        inventoryService.setMyQuantity(inventoryGroup.getId(), targetId, wool.id(), 10.0);
+        TransferRequestView created = transferRequestService.create(inventoryGroup.getId(), requesterId,
+                new CreateTransferRequestRequest(targetId, wool.id(), 10.0));
+
+        int n = 20;
+        ExecutorService pool = Executors.newFixedThreadPool(8);
+        try {
+            List<Callable<Void>> tasks = IntStream.range(0, n)
+                    .<Callable<Void>>mapToObj(i -> () -> {
+                        transferRequestService.fulfill(inventoryGroup.getId(), targetId, created.id(), 0.25);
+                        return null;
+                    })
+                    .toList();
+            for (var f : pool.invokeAll(tasks)) {
+                f.get();
+            }
+        } finally {
+            pool.shutdownNow();
+        }
+
+        TransferRequestView finalState = transferRequestService.list(inventoryGroup.getId(), requesterId).stream()
+                .filter(t -> t.id().equals(created.id())).findFirst().orElseThrow();
+        assertThat(finalState.fulfilledQuantity()).isEqualTo(n * 0.25);
+        assertThat(inventoryService.mine(inventoryGroup.getId(), requesterId).get(0).quantity()).isEqualTo(n * 0.25);
     }
 }

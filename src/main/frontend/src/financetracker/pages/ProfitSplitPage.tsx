@@ -141,10 +141,19 @@ export default function ProfitSplitPage() {
                   <p className="hint">You've approved this — waiting on everyone else.</p>
                 ) : (
                   <div className="toolbar">
-                    <button className="primary" disabled={respondingId === d.requestId} onClick={() => respond(d.requestId, true)}>
+                    <button
+                      className="primary"
+                      aria-label={`Approve profit split for ${d.orderReference}`}
+                      disabled={respondingId === d.requestId}
+                      onClick={() => respond(d.requestId, true)}
+                    >
                       Approve
                     </button>
-                    <button disabled={respondingId === d.requestId} onClick={() => respond(d.requestId, false)}>
+                    <button
+                      aria-label={`Reject profit split for ${d.orderReference}`}
+                      disabled={respondingId === d.requestId}
+                      onClick={() => respond(d.requestId, false)}
+                    >
                       Reject
                     </button>
                   </div>
@@ -239,6 +248,7 @@ export default function ProfitSplitPage() {
                 </div>
                 <button
                   type="button"
+                  aria-label={`Remove recipient ${i + 1}${r.personId ? `: ${memberName(r.personId)}` : ""}`}
                   onClick={() => setRecipients(recipients.filter((_, idx) => idx !== i))}
                   disabled={recipients.length <= 1}
                 >

@@ -77,11 +77,11 @@ public class Order {
      *  original spec's time formula). */
     private double researchTimeHours;
 
-    // ---- 5.5 mandatory items (individual only; bulk uses per-variant). Only meaningful
-    // when {@link #components} is empty — an order broken into components keeps its
-    // materials on each component instead (design decision, opt-in: a simple order with
-    // nothing to decompose keeps using this flat list; a decomposed one keeps this empty
-    // and uses components exclusively). ----
+    // ---- 5.5 mandatory items (individual only; bulk uses per-variant). Additive with
+    // {@link #components}, not exclusive with it (design decision, opt-in): a simple order
+    // with nothing to decompose keeps using only this flat list; a partially-decomposed
+    // order can keep some materials here (e.g. shared assembly materials) while specific
+    // pieces move to their own {@link Component} — OrderCalculator sums both. ----
     @Builder.Default
     private List<MandatoryItem> mandatoryItems = new ArrayList<>();
 

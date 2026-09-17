@@ -199,14 +199,14 @@ export default function ColorwaysPage() {
           </div>
           <span className="spacer" />
           {c.ideabox && (
-            <button type="button" onClick={() => promote(c.id)}>
+            <button type="button" aria-label={`Promote ${c.name} to catalog`} onClick={() => promote(c.id)}>
               Promote to catalog
             </button>
           )}
-          <button type="button" onClick={() => startEditing(c)}>
+          <button type="button" aria-label={`Edit ${c.name}`} onClick={() => startEditing(c)}>
             Edit
           </button>
-          <button type="button" onClick={() => remove(c.id)}>
+          <button type="button" aria-label={`Remove ${c.name}`} onClick={() => remove(c.id)}>
             Remove
           </button>
         </div>

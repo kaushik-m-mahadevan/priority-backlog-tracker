@@ -34,7 +34,7 @@ public class GroupLinkController {
     @GetMapping("/{otherAppletKey}")
     public GroupLinkView get(@PathVariable String id, @PathVariable String otherAppletKey,
                              @AuthenticationPrincipal AuthUser actor) {
-        return new GroupLinkView(linkService.linkedGroupId(id, otherAppletKey).orElse(null));
+        return new GroupLinkView(linkService.linkedGroupId(id, actor.id(), otherAppletKey).orElse(null));
     }
 
     @PostMapping

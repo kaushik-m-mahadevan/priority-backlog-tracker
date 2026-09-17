@@ -262,7 +262,7 @@ export default function ExpensesPage() {
                   <td className="cell-subtitle">{memberName(e.payerId)}</td>
                   <td className="cell-type">{shareSummary(e)}</td>
                   <td>
-                    <button type="button" onClick={() => startEditing(e)}>
+                    <button type="button" aria-label={`Edit expense: ${e.description}`} onClick={() => startEditing(e)}>
                       Edit
                     </button>
                   </td>

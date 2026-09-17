@@ -77,6 +77,7 @@ export function SlideToggle<T extends string>({
   const activeIndex = value === options[0].value ? 0 : 1;
   return (
     <div
+      role="radiogroup"
       style={{
         position: "relative", display: "inline-flex", background: "var(--bg-elev-2)",
         border: "1px solid var(--border)", borderRadius: 999, padding: 3,
@@ -96,6 +97,8 @@ export function SlideToggle<T extends string>({
         <button
           key={o.value}
           type="button"
+          role="radio"
+          aria-checked={o.value === value}
           className={o.value === value ? "slide-toggle-active" : undefined}
           onClick={() => onChange(o.value)}
           style={{
@@ -482,7 +485,12 @@ export function ComponentsFields({
               onChange={(a) => onChange(components.map((x, j) => (j === i ? { ...x, addOns: a } : x)))}
             />
 
-            <button type="button" style={{ marginTop: 10 }} onClick={() => onChange(components.filter((_, j) => j !== i))}>
+            <button
+              type="button"
+              style={{ marginTop: 10 }}
+              aria-label={`Remove component ${i + 1}${template ? `: ${template.label}` : ""}`}
+              onClick={() => onChange(components.filter((_, j) => j !== i))}
+            >
               Remove component
             </button>
           </div>

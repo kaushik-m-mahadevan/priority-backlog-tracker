@@ -258,7 +258,7 @@ export default function IncomePage() {
                   <td className="cell-subtitle">{memberName(e.payerId)}</td>
                   <td className="cell-type">{creditSummary(e)}</td>
                   <td>
-                    <button type="button" onClick={() => startEditing(e)}>
+                    <button type="button" aria-label={`Edit income: ${e.description}`} onClick={() => startEditing(e)}>
                       Edit
                     </button>
                   </td>

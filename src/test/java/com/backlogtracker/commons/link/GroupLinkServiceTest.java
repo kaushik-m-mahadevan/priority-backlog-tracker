@@ -57,9 +57,9 @@ class GroupLinkServiceTest {
 
         linkService.link(business.getId(), userId, finance.getId());
 
-        assertThat(linkService.linkedGroupId(business.getId(), Group.APPLET_FINANCE_TRACKER))
+        assertThat(linkService.linkedGroupId(business.getId(), userId, Group.APPLET_FINANCE_TRACKER))
                 .contains(finance.getId());
-        assertThat(linkService.linkedGroupId(finance.getId(), Group.APPLET_ORDER_TRACKER))
+        assertThat(linkService.linkedGroupId(finance.getId(), userId, Group.APPLET_ORDER_TRACKER))
                 .contains(business.getId());
     }
 
@@ -98,7 +98,7 @@ class GroupLinkServiceTest {
 
         linkService.unlink(finance.getId(), userId, Group.APPLET_ORDER_TRACKER);
 
-        assertThat(linkService.linkedGroupId(business.getId(), Group.APPLET_FINANCE_TRACKER)).isEmpty();
+        assertThat(linkService.linkedGroupId(business.getId(), userId, Group.APPLET_FINANCE_TRACKER)).isEmpty();
     }
 
     @Test
@@ -107,6 +107,16 @@ class GroupLinkServiceTest {
         Group finance = groupService.create("Finance", outsiderId, Group.APPLET_FINANCE_TRACKER);
 
         assertThatThrownBy(() -> linkService.link(business.getId(), userId, finance.getId()))
+                .isInstanceOf(ResponseStatusException.class);
+    }
+
+    @Test
+    void readingALinkRequiresMembershipInTheGroupAsked() {
+        Group business = groupService.create("Business", userId, Group.APPLET_ORDER_TRACKER);
+        Group finance = groupService.create("Finance", userId, Group.APPLET_FINANCE_TRACKER);
+        linkService.link(business.getId(), userId, finance.getId());
+
+        assertThatThrownBy(() -> linkService.linkedGroupId(business.getId(), outsiderId, Group.APPLET_FINANCE_TRACKER))
                 .isInstanceOf(ResponseStatusException.class);
     }
 
@@ -123,7 +133,7 @@ class GroupLinkServiceTest {
         // the pairing is free again — a new finance group can now be linked
         Group finance2 = groupService.create("Finance 2", userId, Group.APPLET_FINANCE_TRACKER);
         linkService.link(business.getId(), userId, finance2.getId());
-        assertThat(linkService.linkedGroupId(business.getId(), Group.APPLET_FINANCE_TRACKER))
+        assertThat(linkService.linkedGroupId(business.getId(), userId, Group.APPLET_FINANCE_TRACKER))
                 .contains(finance2.getId());
     }
 }

@@ -6,6 +6,10 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.stream.IntStream;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -118,6 +122,20 @@ class MaterialInventoryServiceTest {
     }
 
     @Test
+    void clearingTheCostBackToNullAppendsAHistoryEntryToo() {
+        YarnTypeView created = yarnTypeService.create(inventoryGroup.getId(), userAId,
+                new CreateYarnTypeRequest("Red Heart", "Worsted (4)", "Sunflower Yellow", null, null, null, null, null, 180.0));
+
+        YarnTypeView cleared = yarnTypeService.update(inventoryGroup.getId(), userAId, created.id(),
+                new CreateYarnTypeRequest("Red Heart", "Worsted (4)", "Sunflower Yellow", null, null, null, null, null, null));
+
+        assertThat(cleared.costPerSkein()).isNull();
+        assertThat(cleared.costHistory()).hasSize(2);
+        assertThat(cleared.costHistory().get(1).previousCost()).isEqualTo(180.0);
+        assertThat(cleared.costHistory().get(1).newCost()).isNull();
+    }
+
+    @Test
     void eachPersonSetsTheirOwnQuantityAndEveryoneCanSeeEveryonesInventory() {
         YarnTypeView wool = createWool();
 
@@ -196,5 +214,67 @@ class MaterialInventoryServiceTest {
         InventoryEntryView view = inventoryService.mine(inventoryGroup.getId(), userAId).get(0);
 
         assertThat(view.stale()).isTrue();
+    }
+
+    @Test
+    void adjustQuantityRejectsWithdrawingMoreThanOnHandWithoutTouchingTheRow() {
+        YarnTypeView wool = createWool();
+        inventoryService.setMyQuantity(inventoryGroup.getId(), userAId, wool.id(), 1.0);
+
+        assertThatThrownBy(() -> inventoryService.adjustQuantity(inventoryGroup.getId(), userAId, wool.id(), -1.5))
+                .isInstanceOf(ResponseStatusException.class)
+                .hasMessageContaining("Not enough on hand");
+
+        assertThat(inventoryService.quantityOf(inventoryGroup.getId(), userAId, wool.id())).isEqualTo(1.0);
+    }
+
+    @Test
+    void adjustQuantityWithdrawingDownToExactlyZeroDeletesTheRow() {
+        YarnTypeView wool = createWool();
+        inventoryService.setMyQuantity(inventoryGroup.getId(), userAId, wool.id(), 1.0);
+
+        inventoryService.adjustQuantity(inventoryGroup.getId(), userAId, wool.id(), -1.0);
+
+        assertThat(inventoryService.mine(inventoryGroup.getId(), userAId)).isEmpty();
+    }
+
+    @Test
+    void adjustQuantityDepositingCreatesARowWhenNoneExistsYet() {
+        YarnTypeView wool = createWool();
+
+        inventoryService.adjustQuantity(inventoryGroup.getId(), userBId, wool.id(), 0.75);
+
+        assertThat(inventoryService.quantityOf(inventoryGroup.getId(), userBId, wool.id())).isEqualTo(0.75);
+    }
+
+    /** Regression test for a real race: adjustQuantity used to be a read-then-write
+     *  (read quantity, compute new value, save), so concurrent withdrawals against the
+     *  same row could both read the same starting quantity and drive it negative or
+     *  lose one decrement. It's now a single atomic findAndModify $inc, so N concurrent
+     *  1-skein withdrawals against a 50-skein starting balance must land on exactly 0,
+     *  never negative and never short (same style as CounterServiceTest's concurrency
+     *  check). */
+    @Test
+    void adjustQuantityUnderConcurrentWithdrawalsNeverGoesNegativeOrLosesAnUpdate() throws Exception {
+        YarnTypeView wool = createWool();
+        int n = 50;
+        inventoryService.setMyQuantity(inventoryGroup.getId(), userAId, wool.id(), n);
+
+        ExecutorService pool = Executors.newFixedThreadPool(16);
+        try {
+            List<Callable<Void>> tasks = IntStream.range(0, n)
+                    .<Callable<Void>>mapToObj(i -> () -> {
+                        inventoryService.adjustQuantity(inventoryGroup.getId(), userAId, wool.id(), -1.0);
+                        return null;
+                    })
+                    .toList();
+            for (var f : pool.invokeAll(tasks)) {
+                f.get();
+            }
+        } finally {
+            pool.shutdownNow();
+        }
+
+        assertThat(inventoryService.mine(inventoryGroup.getId(), userAId)).isEmpty();
     }
 }

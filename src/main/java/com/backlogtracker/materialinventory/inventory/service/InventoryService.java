@@ -5,6 +5,11 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 
+import org.springframework.data.mongodb.core.FindAndModifyOptions;
+import org.springframework.data.mongodb.core.MongoOperations;
+import org.springframework.data.mongodb.core.query.Criteria;
+import org.springframework.data.mongodb.core.query.Query;
+import org.springframework.data.mongodb.core.query.Update;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
@@ -40,6 +45,7 @@ public class InventoryService {
     private static final Duration STALE_AFTER = Duration.ofDays(30);
 
     private final InventoryEntryRepository repository;
+    private final MongoOperations mongo;
     private final YarnTypeService yarnTypeService;
     private final GroupService groupService;
     private final Clock clock;
@@ -81,13 +87,43 @@ public class InventoryService {
      *  trusted application code that has already authorized the action itself (e.g. only
      *  the actual holder of the yarn may trigger a transfer out of their own row), not a
      *  raw self-service request, so there's no "must be yourself" check. {@code delta} may
-     *  be negative (yarn leaving) or positive (yarn arriving). */
+     *  be negative (yarn leaving) or positive (yarn arriving).
+     *
+     *  <p>Applied as a single atomic {@code findAndModify} {@code $inc} (same pattern as
+     *  {@link com.backlogtracker.commons.counter.CounterService}), not a read-then-write —
+     *  two concurrent transfers touching the same row (e.g. two fulfillments racing) can
+     *  never both read the same starting quantity and drive it negative or double-credit
+     *  it. {@code delta} always arrives as an exact quarter-skein multiple (validated by the
+     *  caller), and 0.25 is exactly representable in binary floating point, so repeated
+     *  {@code $inc} calls never drift off the quarter-skein grid. */
     public void adjustQuantity(String groupId, String userId, String yarnTypeId, double delta) {
-        double updated = quantityOf(groupId, userId, yarnTypeId) + delta;
-        if (updated < -QUARTER_STEP_EPSILON) {
+        if (delta < 0) {
+            withdraw(groupId, userId, yarnTypeId, -delta);
+        } else if (delta > 0) {
+            deposit(groupId, userId, yarnTypeId, delta);
+        }
+    }
+
+    private void withdraw(String groupId, String userId, String yarnTypeId, double amount) {
+        Query query = Query.query(Criteria.where("groupId").is(groupId).and("userId").is(userId)
+                .and("yarnTypeId").is(yarnTypeId).and("quantity").gte(amount - QUARTER_STEP_EPSILON));
+        Update update = new Update().inc("quantity", -amount).set("updatedAt", Instant.now(clock));
+        InventoryEntry updated = mongo.findAndModify(query, update,
+                FindAndModifyOptions.options().returnNew(true), InventoryEntry.class);
+        if (updated == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Not enough on hand for this transfer");
         }
-        applyQuantity(groupId, userId, yarnTypeId, requireQuarterStep(Math.max(0, updated)));
+        if (updated.getQuantity() <= QUARTER_STEP_EPSILON) {
+            repository.deleteById(updated.getId());
+        }
+    }
+
+    private void deposit(String groupId, String userId, String yarnTypeId, double amount) {
+        Query query = Query.query(Criteria.where("groupId").is(groupId).and("userId").is(userId)
+                .and("yarnTypeId").is(yarnTypeId));
+        Update update = new Update().inc("quantity", amount).set("updatedAt", Instant.now(clock));
+        mongo.findAndModify(query, update,
+                FindAndModifyOptions.options().upsert(true).returnNew(true), InventoryEntry.class);
     }
 
     private double requireQuarterStep(double quantity) {

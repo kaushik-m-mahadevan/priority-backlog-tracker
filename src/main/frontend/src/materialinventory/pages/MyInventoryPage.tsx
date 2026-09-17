@@ -365,7 +365,13 @@ export default function MyInventoryPage() {
           <p className="empty">No yarn types yet — add one above to start tracking inventory.</p>
         ) : (
           <div className="table-wrap">
-            <table className="ot-table">
+            {/* Not .ot-table: its mobile card-collapse hides <thead> entirely, which
+                works for a fixed-schema row (order #, status, ...) but breaks a
+                person-per-column matrix like this one — collapsing it would turn each
+                row into a stack of bare numbers with no member name attached to any of
+                them. Scrolling horizontally on a narrow screen keeps the header row (and
+                so each number's owner) intact instead. */}
+            <table>
               <thead>
                 <tr>
                   <th>Yarn</th>
@@ -448,7 +454,11 @@ export default function MyInventoryPage() {
                               </button>
                             </span>
                           ) : isMe ? (
-                            <button type="button" onClick={() => startEditing(y.id)}>
+                            <button
+                              type="button"
+                              aria-label={`Edit your quantity of ${y.brand} ${y.colour}, currently ${quantityFor(y.id, m.id)}`}
+                              onClick={() => startEditing(y.id)}
+                            >
                               {quantityFor(y.id, m.id)}
                             </button>
                           ) : (
@@ -457,6 +467,7 @@ export default function MyInventoryPage() {
                           {isStale(y.id, m.id) && quantityFor(y.id, m.id) > 0 && (
                             <span
                               className="muted"
+                              aria-label="Hasn't been updated in a while — this count might be out of date"
                               title="Hasn't been updated in a while — this count might be out of date"
                               style={{ fontSize: 11, marginLeft: 4 }}
                             >
@@ -467,7 +478,7 @@ export default function MyInventoryPage() {
                       );
                     })}
                     <td className="cell-type">
-                      <button type="button" onClick={() => removeYarnType(y.id)}>
+                      <button type="button" aria-label={`Remove yarn type ${y.brand} ${y.colour}`} onClick={() => removeYarnType(y.id)}>
                         Remove
                       </button>
                     </td>
@@ -540,7 +551,9 @@ export default function MyInventoryPage() {
           <p className="empty" style={{ marginTop: 12 }}>No hooks or needles yet — add one above to start tracking them.</p>
         ) : (
           <div className="table-wrap" style={{ marginTop: 12 }}>
-            <table className="ot-table">
+            {/* See the yarn table above for why this isn't .ot-table: a person-per-column
+                matrix needs its header row on mobile too, not the card collapse. */}
+            <table>
               <thead>
                 <tr>
                   <th>Hook / needle</th>
@@ -578,7 +591,11 @@ export default function MyInventoryPage() {
                               </button>
                             </span>
                           ) : isMe ? (
-                            <button type="button" onClick={() => startEditingNeedle(n.id)}>
+                            <button
+                              type="button"
+                              aria-label={`Edit your quantity of ${n.size}, currently ${needleQuantityFor(n.id, m.id)}`}
+                              onClick={() => startEditingNeedle(n.id)}
+                            >
                               {needleQuantityFor(n.id, m.id)}
                             </button>
                           ) : (
@@ -588,7 +605,7 @@ export default function MyInventoryPage() {
                       );
                     })}
                     <td className="cell-type">
-                      <button type="button" onClick={() => removeNeedleType(n.id)}>
+                      <button type="button" aria-label={`Remove ${n.size}`} onClick={() => removeNeedleType(n.id)}>
                         Remove
                       </button>
                     </td>

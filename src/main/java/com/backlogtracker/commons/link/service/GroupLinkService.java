@@ -70,8 +70,11 @@ public class GroupLinkService {
     }
 
     /** The id of the group linked to {@code groupId} for the given other applet, if any —
-     *  checked from either side since the caller may hold either end of the link. */
-    public Optional<String> linkedGroupId(String groupId, String otherAppletKey) {
+     *  checked from either side since the caller may hold either end of the link. Requires
+     *  membership in {@code groupId} first — without this, any authenticated user could probe
+     *  an arbitrary group id to learn what other-applet group it's linked to (IDOR). */
+    public Optional<String> linkedGroupId(String groupId, String userId, String otherAppletKey) {
+        groupService.requireMember(groupId, userId);
         return links.findByGroupIdAAndAppletKeyB(groupId, otherAppletKey).map(GroupLink::getGroupIdB)
                 .or(() -> links.findByGroupIdBAndAppletKeyA(groupId, otherAppletKey).map(GroupLink::getGroupIdA));
     }

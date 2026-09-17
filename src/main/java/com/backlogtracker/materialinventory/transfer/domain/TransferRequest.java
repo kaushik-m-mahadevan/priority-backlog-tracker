@@ -3,6 +3,7 @@ package com.backlogtracker.materialinventory.transfer.domain;
 import java.time.Instant;
 
 import org.springframework.data.annotation.Id;
+import org.springframework.data.annotation.Version;
 import org.springframework.data.mongodb.core.index.Indexed;
 import org.springframework.data.mongodb.core.mapping.Document;
 
@@ -48,4 +49,10 @@ public class TransferRequest {
 
     private Instant createdAt;
     private Instant resolvedAt;
+
+    /** Guards the read-modify-write on {@code fulfilledQuantity} — two concurrent
+     *  fulfillments of the same request retry on a lost-update race instead of one
+     *  silently overwriting the other (same pattern as {@code CostConfigChangeRequest}). */
+    @Version
+    private Long version;
 }

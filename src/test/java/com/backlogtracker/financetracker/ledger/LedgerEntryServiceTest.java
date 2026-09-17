@@ -5,6 +5,10 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.stream.IntStream;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -327,5 +331,57 @@ class LedgerEntryServiceTest {
                 new CreateSettlementRequest(SplitPartyType.PERSON, personAId, new BigDecimal("999.00"))))
                 .isInstanceOf(ResponseStatusException.class)
                 .hasMessageContaining("more than is currently owed");
+    }
+
+    /** Regression test for a read-then-write race: settleUp used to recompute balances,
+     *  validate, and save with nothing serializing concurrent calls by the same payee —
+     *  two racing settlements (e.g. a double-click) could both read the same pre-settlement
+     *  balance and both pass the "not more than owed" check, over-settling. It's now
+     *  guarded by a per-(group, payee) lock, so N concurrent attempts to settle a fixed
+     *  debt one small chunk at a time can never together exceed what was actually owed —
+     *  exactly enough of them succeed to cover the debt and the rest are correctly
+     *  rejected, never all N succeeding. */
+    @Test
+    void concurrentSettlementsBySamePayeeNeverExceedWhatWasActuallyOwed() throws Exception {
+        ledgerEntryService.create(financeGroup.getId(), payerId, new CreateLedgerEntryRequest(
+                LedgerEntryType.EXPENSE, "Lunch", new BigDecimal("100.00"), payerId,
+                List.of(
+                        new ShareInput(SplitPartyType.PERSON, payerId, new BigDecimal("0.5")),
+                        new ShareInput(SplitPartyType.PERSON, personAId, new BigDecimal("0.5")))));
+        // personA owes payer exactly 50.00. Fire 20 concurrent 5.00 settlement attempts —
+        // if the race exists, more than 10 of them could succeed and personA's recorded
+        // debt would be settled more than once over.
+        int n = 20;
+        BigDecimal chunk = new BigDecimal("5.00");
+        ExecutorService pool = Executors.newFixedThreadPool(10);
+        try {
+            List<Callable<Boolean>> tasks = IntStream.range(0, n)
+                    .<Callable<Boolean>>mapToObj(i -> () -> {
+                        try {
+                            ledgerEntryService.settleUp(financeGroup.getId(), payerId,
+                                    new CreateSettlementRequest(SplitPartyType.PERSON, personAId, chunk));
+                            return true;
+                        } catch (ResponseStatusException e) {
+                            return false;
+                        }
+                    })
+                    .toList();
+            long succeeded = pool.invokeAll(tasks).stream().map(LedgerEntryServiceTest::get).filter(Boolean::booleanValue).count();
+            assertThat(succeeded).isEqualTo(10);
+        } finally {
+            pool.shutdownNow();
+        }
+
+        var balances = ledgerEntryService.balances(financeGroup.getId(), payerId).stream()
+                .collect(java.util.stream.Collectors.toMap(b -> b.personId(), b -> b));
+        assertThat(balances.get(personAId).netFromOthers()).isEqualByComparingTo(BigDecimal.ZERO);
+    }
+
+    private static <T> T get(java.util.concurrent.Future<T> f) {
+        try {
+            return f.get();
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
     }
 }

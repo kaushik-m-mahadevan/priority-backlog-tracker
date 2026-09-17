@@ -4,6 +4,7 @@ import java.time.Clock;
 import java.time.Instant;
 import java.util.List;
 
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
@@ -19,6 +20,7 @@ import com.backlogtracker.materialinventory.transfer.repository.TransferRequestR
 import com.backlogtracker.materialinventory.yarn.service.YarnTypeService;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * A targeted request for yarn from one member to another — see {@link TransferRequest}
@@ -28,9 +30,14 @@ import lombok.RequiredArgsConstructor;
  */
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class TransferRequestService {
 
     private static final double QUARTER_STEP_EPSILON = 1e-9;
+    // Higher than CostConfigChangeService's equivalent retry cap: that request is contended
+    // by at most a handful of group members approving once each, while a transfer request
+    // can legitimately be fulfilled in many small installments in quick succession.
+    private static final int MAX_RESERVE_RETRIES = 20;
 
     private final TransferRequestRepository repository;
     private final GroupService groupService;
@@ -76,7 +83,15 @@ public class TransferRequestService {
     /** Only the target member — the one who actually holds the yarn — may fulfill any
      *  amount of it, up to what's still requested and what they actually have on hand
      *  (design decision: allow partial fulfillment, one or more installments). This moves
-     *  the given quantity out of the target's own on-hand inventory into the requester's. */
+     *  the given quantity out of the target's own on-hand inventory into the requester's.
+     *
+     *  <p>{@code request.fulfilledQuantity} is bumped in {@link #recordFulfillment} with
+     *  optimistic-lock retry (same pattern as {@code CostConfigChangeService.approve}), so
+     *  two concurrent fulfillments of the same request can't lose one another's update. The
+     *  actual inventory movement runs through {@link InventoryService#adjustQuantity}, which
+     *  is independently atomic against the physical stock ever going negative — that's the
+     *  one invariant that must never break, so it isn't retried here alongside the request
+     *  bookkeeping (retrying it would double-move yarn on a request-side retry). */
     public TransferRequestView fulfill(String groupId, String userId, String requestId, double quantity) {
         groupService.requireMember(groupId, userId);
         TransferRequest request = requireOpenRequest(groupId, requestId);
@@ -96,11 +111,26 @@ public class TransferRequestService {
         inventoryService.adjustQuantity(groupId, request.getTargetUserId(), request.getYarnTypeId(), -amount);
         inventoryService.adjustQuantity(groupId, request.getRequesterId(), request.getYarnTypeId(), amount);
 
-        request.setFulfilledQuantity(request.getFulfilledQuantity() + amount);
-        if (request.getStatus() == TransferStatus.PENDING) {
-            request.setStatus(TransferStatus.PARTIALLY_FULFILLED);
+        return TransferRequestView.of(recordFulfillment(groupId, requestId, amount));
+    }
+
+    private TransferRequest recordFulfillment(String groupId, String requestId, double amount) {
+        for (int attempt = 1; attempt <= MAX_RESERVE_RETRIES; attempt++) {
+            TransferRequest request = requireOpenRequest(groupId, requestId);
+            request.setFulfilledQuantity(request.getFulfilledQuantity() + amount);
+            if (request.getStatus() == TransferStatus.PENDING) {
+                request.setStatus(TransferStatus.PARTIALLY_FULFILLED);
+            }
+            try {
+                return repository.save(request);
+            } catch (OptimisticLockingFailureException e) {
+                if (attempt == MAX_RESERVE_RETRIES) {
+                    throw e;
+                }
+                log.info("Transfer fulfillment race on request {} — retrying (attempt {})", requestId, attempt);
+            }
         }
-        return TransferRequestView.of(repository.save(request));
+        throw new IllegalStateException("unreachable");
     }
 
     /** Only the target may mark a request complete (design decision), whether or not it
