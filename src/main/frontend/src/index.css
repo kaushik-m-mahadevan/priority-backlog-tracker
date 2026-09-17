@@ -103,6 +103,15 @@ button.primary {
 button.primary:hover {
   background: var(--accent-hover);
 }
+/* SlideToggle's active label sits on top of a moving accent-colored highlight (not its
+   own background, so the highlight's position transition stays visible) — same on-accent
+   text color button.primary already uses per theme. */
+.slide-toggle-active {
+  color: #2a1c12;
+}
+:root[data-theme="tide"] .slide-toggle-active {
+  color: #10262a;
+}
 button.ghost {
   background: transparent;
 }

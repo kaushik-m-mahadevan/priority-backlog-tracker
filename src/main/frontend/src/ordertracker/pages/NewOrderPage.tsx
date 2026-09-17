@@ -8,6 +8,7 @@ import {
   AddOnsFields,
   ComponentsFields,
   MandatoryItemsFields,
+  SlideToggle,
   blankComponent,
   blankMandatoryItems,
   blankVariant,
@@ -227,24 +228,20 @@ export default function NewOrderPage() {
       <form className="card" onSubmit={submit}>
         {error && <div className="error">{error}</div>}
 
-        <div className="toolbar" style={{ marginBottom: 16 }}>
-          <button type="button" className={orderType === "INDIVIDUAL" ? "primary" : ""} onClick={() => setOrderType("INDIVIDUAL")}>
-            Individual order
-          </button>
-          <button type="button" className={orderType === "BULK" ? "primary" : ""} onClick={() => setOrderType("BULK")}>
-            Bulk order
-          </button>
+        <div style={{ marginBottom: 16 }}>
+          <SlideToggle
+            value={orderType}
+            options={[{ value: "INDIVIDUAL", label: "Individual" }, { value: "BULK", label: "Bulk" }]}
+            onChange={setOrderType}
+          />
         </div>
 
-        <div className="toolbar" style={{ marginBottom: 8 }}>
-          <button type="button" className={customerMode === "existing" ? "primary" : ""}
-            onClick={() => setCustomerMode("existing")} disabled={customers.length === 0}>
-            Existing customer
-          </button>
-          <button type="button" className={customerMode === "new" ? "primary" : ""}
-            onClick={() => setCustomerMode("new")}>
-            New customer
-          </button>
+        <div style={{ marginBottom: 8 }}>
+          <SlideToggle
+            value={customerMode}
+            options={[{ value: "existing", label: "Existing customer" }, { value: "new", label: "New customer" }]}
+            onChange={setCustomerMode}
+          />
         </div>
 
         <div className="form-grid">

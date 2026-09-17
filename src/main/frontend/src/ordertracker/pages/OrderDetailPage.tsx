@@ -63,6 +63,36 @@ function Section({
   );
 }
 
+/** A small ring showing a work stage's completion — hours logged vs. estimated for
+ *  crocheting/assembly (the stages with real time-tracking), or units done vs. total for
+ *  packaging/shipment (piece-based, no hour estimate exists for those). Purely a visual
+ *  summary; the underlying number is still edited via the time-tracking icons or the
+ *  existing units-completed control next to it, not by interacting with the ring itself. */
+function ProgressRing({ percent, size = 44 }: { percent: number; size?: number }) {
+  const stroke = 5;
+  const r = (size - stroke) / 2;
+  const circumference = 2 * Math.PI * r;
+  const clamped = Math.max(0, Math.min(100, percent));
+  const offset = circumference * (1 - clamped / 100);
+  return (
+    <span style={{ position: "relative", width: size, height: size, display: "inline-block", flexShrink: 0 }} aria-hidden="true">
+      <svg width={size} height={size} style={{ transform: "rotate(-90deg)" }}>
+        <circle cx={size / 2} cy={size / 2} r={r} stroke="var(--border)" strokeWidth={stroke} fill="none" />
+        <circle
+          cx={size / 2} cy={size / 2} r={r}
+          stroke={clamped >= 100 ? "var(--growth)" : "var(--accent)"}
+          strokeWidth={stroke} fill="none" strokeLinecap="round"
+          strokeDasharray={circumference} strokeDashoffset={offset}
+          style={{ transition: "stroke-dashoffset 0.2s ease" }}
+        />
+      </svg>
+      <span style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 700 }}>
+        {Math.round(clamped)}%
+      </span>
+    </span>
+  );
+}
+
 function EditOrderForm({
   groupId,
   order,
@@ -697,6 +727,28 @@ export default function OrderDetailPage() {
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   const creatorsWithEntries = creators.filter((c) => allTimeEntries.some((e) => e.loggedByCreatorId === c.id));
 
+  // Hours-based completion for crocheting/assembly (the two stages with real time
+  // tracking) — packaging/shipment have no hour estimate, so they stay on the existing
+  // units-completed/total-units mechanism instead.
+  const hoursPct = (logged: number, estimated: number) => (estimated > 0 ? (logged / estimated) * 100 : 0);
+  const craftLoggedIndividual = order.timeLogEntries.filter((e) => e.stage === "CRAFTING").reduce((s, e) => s + e.hours, 0)
+    + order.components.flatMap((c) => c.timeLogEntries).reduce((s, e) => s + e.hours, 0);
+  const craftEstimatedIndividual = order.craftingTimeHours + order.components.reduce((s, c) => s + c.totalTimeHours, 0);
+  const craftPctIndividual = hoursPct(craftLoggedIndividual, craftEstimatedIndividual);
+  const assemblyLoggedIndividual = order.timeLogEntries.filter((e) => e.stage === "ASSEMBLY").reduce((s, e) => s + e.hours, 0);
+  const assemblyPctIndividual = hoursPct(assemblyLoggedIndividual, order.assemblyTimeHours);
+
+  const craftLoggedBulk = (order.bulkDetails?.variants ?? []).reduce((sum, v) =>
+    sum + v.timeLogEntries.filter((e) => e.stage === "CRAFTING").reduce((s, e) => s + e.hours, 0)
+      + v.components.flatMap((c) => c.timeLogEntries).reduce((s, e) => s + e.hours, 0), 0);
+  const craftEstimatedBulk = (order.bulkDetails?.variants ?? []).reduce((sum, v) =>
+    sum + v.craftingTimeHours * v.quantity + v.components.reduce((s, c) => s + c.totalTimeHours, 0), 0);
+  const craftPctBulk = hoursPct(craftLoggedBulk, craftEstimatedBulk);
+  const assemblyLoggedBulk = (order.bulkDetails?.variants ?? []).reduce((sum, v) =>
+    sum + v.timeLogEntries.filter((e) => e.stage === "ASSEMBLY").reduce((s, e) => s + e.hours, 0), 0);
+  const assemblyEstimatedBulk = (order.bulkDetails?.variants ?? []).reduce((sum, v) => sum + v.assemblyTimeHours * v.quantity, 0);
+  const assemblyPctBulk = hoursPct(assemblyLoggedBulk, assemblyEstimatedBulk);
+
   const logTime = async (stage: TimeStage, hours: number, variantId?: string, componentId?: string) => {
     const updated = await orderTrackerApi.addTimeLogEntry(groupId, order.id, {
       stage, hours, date: null, note: null, variantId: variantId ?? null, componentId: componentId ?? null,
@@ -865,15 +917,6 @@ export default function OrderDetailPage() {
         </div>
 
         <div className="card">
-          <h2>Assembly &amp; packaging</h2>
-          {order.assemblyPackagingInstructions ? (
-            <p style={{ whiteSpace: "pre-wrap", margin: 0 }}>{order.assemblyPackagingInstructions}</p>
-          ) : (
-            <p className="empty">Not recorded.</p>
-          )}
-        </div>
-
-        <div className="card">
           <h2>What you need</h2>
           {allMaterials.length === 0 ? (
             <p className="empty">Nothing recorded yet.</p>
@@ -926,14 +969,6 @@ export default function OrderDetailPage() {
           )}
         </div>
 
-        <div className="card">
-          <h2>Notes</h2>
-          {order.notes ? (
-            <p style={{ whiteSpace: "pre-wrap", margin: 0 }}>{order.notes}</p>
-          ) : (
-            <p className="empty">Nothing noted.</p>
-          )}
-        </div>
       </div>
       </Section>
 
@@ -1206,13 +1241,35 @@ export default function OrderDetailPage() {
       {order.orderType === "BULK" && (
         <Section title="Assignments" icon="👥">
           <div className="card" style={{ marginBottom: 16 }}>
+            <h2>Crocheting &amp; assembly (hours logged vs. estimated)</h2>
+            <div className="row" style={{ alignItems: "center" }}>
+              <span style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <ProgressRing percent={craftPctBulk} />
+                <span className="k"><span aria-hidden="true">🧶</span> Crocheting</span>
+              </span>
+              <span className="muted">{craftLoggedBulk.toFixed(2)}h / {craftEstimatedBulk.toFixed(2)}h</span>
+            </div>
+            <div className="row" style={{ alignItems: "center" }}>
+              <span style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <ProgressRing percent={assemblyPctBulk} />
+                <span className="k"><span aria-hidden="true">🪡</span> Assembly</span>
+              </span>
+              <span className="muted">{assemblyLoggedBulk.toFixed(2)}h / {assemblyEstimatedBulk.toFixed(2)}h</span>
+            </div>
+          </div>
+
+          <div className="card" style={{ marginBottom: 16 }}>
             <h2>Batch-tracked stages</h2>
             {order.bulkDetails?.stageProgress.map((sp) => {
               const stageLabel = config.workStages.find((s) => s.stageKey === sp.stageKey)?.label ?? sp.stageKey;
+              const pct = sp.totalUnits > 0 ? (sp.unitsCompleted / sp.totalUnits) * 100 : 0;
               return (
-              <div className="row" key={sp.stageKey}>
-                <span className="k">
-                  <span aria-hidden="true">{stageIcon(sp.stageKey)}</span> {stageLabel}
+              <div className="row" key={sp.stageKey} style={{ alignItems: "center" }}>
+                <span style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <ProgressRing percent={pct} />
+                  <span className="k">
+                    <span aria-hidden="true">{stageIcon(sp.stageKey)}</span> {stageLabel}
+                  </span>
                 </span>
                 <span className="v">
                   <input
@@ -1273,25 +1330,35 @@ export default function OrderDetailPage() {
         <Section title="Assignments" icon="👥">
         <div className="card" style={{ marginBottom: 16 }}>
           <h2>Work stages</h2>
-          {order.stageAssignments.map((s) => (
-            <div className="row" key={s.stageKey}>
-              <span className="k">{s.stageKey} — {creatorName(s.assignedCreatorId)}</span>
-              <label style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                <input
-                  type="checkbox"
-                  checked={s.unitsCompleted >= 1}
-                  onChange={async (e) =>
-                    setOrder(
-                      await orderTrackerApi.updateStageAssignment(
-                        groupId, order.id, s.stageKey, s.assignedCreatorId, e.target.checked ? 1 : 0
-                      )
-                    )
-                  }
-                />
-                Done
-              </label>
-            </div>
-          ))}
+          {order.stageAssignments.map((s) => {
+            const hoursBased = s.stageKey === "crocheting" ? craftPctIndividual
+              : s.stageKey === "assembly" ? assemblyPctIndividual : null;
+            const pct = hoursBased ?? (s.totalUnits > 0 ? (s.unitsCompleted / s.totalUnits) * 100 : 0);
+            return (
+              <div className="row" key={s.stageKey} style={{ alignItems: "center" }}>
+                <span style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <ProgressRing percent={pct} />
+                  <span className="k">{s.stageKey} — {creatorName(s.assignedCreatorId)}</span>
+                </span>
+                {hoursBased === null && (
+                  <label style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                    <input
+                      type="checkbox"
+                      checked={s.unitsCompleted >= 1}
+                      onChange={async (e) =>
+                        setOrder(
+                          await orderTrackerApi.updateStageAssignment(
+                            groupId, order.id, s.stageKey, s.assignedCreatorId, e.target.checked ? 1 : 0
+                          )
+                        )
+                      }
+                    />
+                    Done
+                  </label>
+                )}
+              </div>
+            );
+          })}
         </div>
         </Section>
       )}
@@ -1437,6 +1504,24 @@ export default function OrderDetailPage() {
             )}
           </>
         )}
+      </Section>
+
+      <Section title="Notes" icon="📝">
+        <div className="card">
+          {order.notes ? (
+            <p style={{ whiteSpace: "pre-wrap", margin: 0 }}>{order.notes}</p>
+          ) : (
+            <p className="empty">Nothing noted.</p>
+          )}
+          {order.assemblyPackagingInstructions && (
+            <>
+              <div className="muted" style={{ fontSize: 12, marginTop: 12, marginBottom: 4 }}>
+                Assembly/packaging how-to (from before Components existed)
+              </div>
+              <p style={{ whiteSpace: "pre-wrap", margin: 0 }}>{order.assemblyPackagingInstructions}</p>
+            </>
+          )}
+        </div>
       </Section>
     </div>
   );

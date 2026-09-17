@@ -38,12 +38,16 @@ import com.backlogtracker.ordertracker.customer.domain.AcquisitionChannel;
 import com.backlogtracker.ordertracker.customer.dto.CustomerView;
 import com.backlogtracker.ordertracker.customer.dto.UpsertCustomerRequest;
 import com.backlogtracker.ordertracker.customer.service.CustomerService;
+import com.backlogtracker.commons.pattern.domain.Pattern;
+import com.backlogtracker.ordertracker.master.domain.ComponentTemplate;
 import com.backlogtracker.ordertracker.master.domain.Creator;
 import com.backlogtracker.ordertracker.master.service.BusinessConfigService;
 import com.backlogtracker.ordertracker.master.service.CreatorService;
+import com.backlogtracker.ordertracker.master.service.MasterDataService;
 import com.backlogtracker.ordertracker.order.domain.Order.MaterialKind;
 import com.backlogtracker.ordertracker.order.domain.OrderStatus;
 import com.backlogtracker.ordertracker.order.dto.CreateOrderRequest;
+import com.backlogtracker.ordertracker.order.dto.CreateOrderRequest.ComponentInput;
 import com.backlogtracker.ordertracker.order.dto.CreateOrderRequest.MandatoryItemInput;
 import com.backlogtracker.ordertracker.order.dto.CreateOrderRequest.SplitLineInput;
 import com.backlogtracker.ordertracker.order.dto.CreateOrderRequest.VariantInput;
@@ -83,6 +87,7 @@ public class DemoDataSeeder implements ApplicationRunner {
     private final org.springframework.core.env.Environment env;
     private final BusinessConfigService businessConfigService;
     private final CreatorService creatorService;
+    private final MasterDataService masterDataService;
     private final CustomerService customerService;
     private final OrderService orderService;
     private final ColorwayService colorwayService;
@@ -250,6 +255,17 @@ public class DemoDataSeeder implements ApplicationRunner {
         colorwayService.create(catalogGroupId, priya.getId(), new CreateColorwayRequest(
                 "Sage Meadow", "Sage Green", 400.0, null, List.of()));
 
+        ComponentTemplate vaseTemplate = masterDataService.addComponentTemplate(groupId, alex.getId(), "Vase base",
+                Pattern.builder().recipeSteps(List.of("Magic ring, 6sc", "Increase rounds to widen the base",
+                        "Straight rounds up the body", "Fasten off and weave in ends")).build(),
+                2.5, null);
+        ComponentTemplate lilyTemplate = masterDataService.addComponentTemplate(groupId, alex.getId(), "Lily",
+                Pattern.builder().recipeSteps(List.of("Chain 4, join into ring", "Work 5 petals", "Weave in ends")).build(),
+                0.75, null);
+        ComponentTemplate sunflowerTemplate = masterDataService.addComponentTemplate(groupId, priya.getId(), "Sunflower",
+                Pattern.builder().recipeSteps(List.of("Brown centre, 2 rounds", "Yellow petal round", "Weave in ends")).build(),
+                0.5, null);
+
         OrderView order1 = orderService.create(groupId, alex.getId(), new CreateOrderRequest(
                 meera.id(), "INDIVIDUAL", alexCreator.getId(),
                 "Coral crochet tote bag", Instant.now().minus(6, ChronoUnit.DAYS),
@@ -266,6 +282,25 @@ public class DemoDataSeeder implements ApplicationRunner {
                 List.of(new MandatoryItemInput(MaterialKind.YARN, "Grey acrylic yarn", 2, 90, null, null, null)),
                 List.of(), List.of(), null, List.of(), 4.0, 1.5,
                 null, null, 0));
+
+        OrderView vaseOrder = orderService.create(groupId, alex.getId(), new CreateOrderRequest(
+                meera.id(), "INDIVIDUAL", alexCreator.getId(),
+                "Spring bouquet vase", Instant.now().minus(3, ChronoUnit.DAYS),
+                Instant.now().plus(10, ChronoUnit.DAYS), null, List.of(), 1.0, null, null,
+                List.of(), List.of(),
+                List.of(
+                        new ComponentInput(null, vaseTemplate.getId(), 1, List.of(
+                                new MandatoryItemInput(MaterialKind.YARN, "Brown cotton yarn", 1, 150, null, null, null)),
+                                List.of(), vaseTemplate.getBaseCraftingTimeHours()),
+                        new ComponentInput(null, lilyTemplate.getId(), 3, List.of(
+                                new MandatoryItemInput(MaterialKind.YARN, "White + yellow cotton yarn", 1, 35, null, null, null)),
+                                List.of(), lilyTemplate.getBaseCraftingTimeHours()),
+                        new ComponentInput(null, sunflowerTemplate.getId(), 5, List.of(
+                                new MandatoryItemInput(MaterialKind.YARN, "Yellow + brown cotton yarn", 1, 28, null, null, null)),
+                                List.of(), sunflowerTemplate.getBaseCraftingTimeHours())),
+                null, List.of(), 0.0, 1.5,
+                null, null, 0));
+        orderService.updateStatus(groupId, alex.getId(), vaseOrder.id(), new UpdateOrderStatusRequest(OrderStatus.IN_PROGRESS));
 
         OrderView bulkOrder = orderService.create(groupId, alex.getId(), new CreateOrderRequest(
                 pooja.id(), "BULK", alexCreator.getId(),
@@ -290,8 +325,8 @@ public class DemoDataSeeder implements ApplicationRunner {
                 LedgerEntryType.INCOME, "Advance for wedding favour order", new BigDecimal("3000"),
                 alex.getId(), List.of(new ShareInput(SplitPartyType.BUSINESS, null, BigDecimal.ONE))));
 
-        log.info("Demo data: seeded Order Tracker (3 creators, 3 customers, 3 orders), "
-                + "Product Catalog (2 colorways), and Finance Tracker (3 ledger entries)");
+        log.info("Demo data: seeded Order Tracker (3 creators, 3 customers, 4 orders — one with components, "
+                + "3 component templates), Product Catalog (2 colorways), and Finance Tracker (3 ledger entries)");
     }
 
     private User ensureUser(String name, String email, String code) {
