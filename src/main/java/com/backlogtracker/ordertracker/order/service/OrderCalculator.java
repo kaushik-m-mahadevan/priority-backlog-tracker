@@ -58,21 +58,50 @@ public class OrderCalculator {
         return crochetingTimeHours + assemblyTimeHours + packaging.timeHours();
     }
 
+    /** A component's own materials + add-ons cost and crafting time, scaled by its
+     *  quantity — no overhead or profit margin applied here, since that's applied once on
+     *  the owning order/variant's combined total, not per component (a component isn't
+     *  separately billed, it's a piece of one billed item). */
+    public Order.Component priceComponent(Order.Component component) {
+        double perUnitCost = mandatoryItemsCost(component.getMandatoryItems()) + lineItemsCost(component.getAddOns());
+        component.setPerUnitCost(perUnitCost);
+        component.setTotalCost(perUnitCost * component.getQuantity());
+        component.setPerUnitTimeHours(component.getCraftingTimeHours());
+        component.setTotalTimeHours(component.getCraftingTimeHours() * component.getQuantity());
+        return component;
+    }
+
+    public double componentsCost(List<Order.Component> components) {
+        return components.stream().mapToDouble(Order.Component::getTotalCost).sum();
+    }
+
+    public double componentsTimeHours(List<Order.Component> components) {
+        return components.stream().mapToDouble(Order.Component::getTotalTimeHours).sum();
+    }
+
     /** Builds the full computed snapshot for an individual order (spec §5.10, extended with
-     *  assembly and research time). */
+     *  assembly, research time, and optional components). {@code mandatoryItems}/
+     *  {@code craftingTimeHours} cover a simple, non-decomposed order; {@code components}
+     *  (when present) contribute their own materials/add-ons cost and crafting time on top —
+     *  additive, not a replacement, so a partially-decomposed order (some shared base
+     *  materials plus a few repeatable pieces) still adds up correctly. */
     public Order.CostEstimate estimateIndividual(List<MandatoryItem> mandatoryItems, List<LineItem> addOns,
+                                                 List<Order.Component> components,
                                                  Packaging packaging, double craftingTimeHours,
                                                  double assemblyTimeHours, double researchTimeHours,
                                                  double overheadPct, double profitMarginPct,
                                                  Instant orderReceivedDate, double assignedCreatorHoursPerDay) {
         double mandatoryItemsCost = mandatoryItemsCost(mandatoryItems);
         double addOnsCost = lineItemsCost(addOns);
+        double componentsCost = componentsCost(components);
         double packagingCost = packaging.cost();
-        double gross = grossCost(mandatoryItemsCost, addOnsCost, packagingCost);
+        double gross = grossCost(mandatoryItemsCost + componentsCost, addOnsCost, packagingCost);
         double overhead = overheadAmount(gross, overheadPct);
         double profit = profitAmount(gross, overhead, profitMarginPct);
         double finalCost = finalCost(gross, overhead, profit);
-        double grossTimeHours = grossTimeHours(craftingTimeHours, assemblyTimeHours, packaging) + researchTimeHours;
+        double componentsTimeHours = componentsTimeHours(components);
+        double grossTimeHours = grossTimeHours(craftingTimeHours + componentsTimeHours, assemblyTimeHours, packaging)
+                + researchTimeHours;
 
         return Order.CostEstimate.builder()
                 .mandatoryItemsCost(mandatoryItemsCost)
@@ -85,6 +114,7 @@ public class OrderCalculator {
                 .grossTimeHours(grossTimeHours)
                 .itemizedBreakdown(List.of(
                         new Order.BreakdownLine("Mandatory items", mandatoryItemsCost),
+                        new Order.BreakdownLine("Components", componentsCost),
                         new Order.BreakdownLine("Add-ons", addOnsCost),
                         new Order.BreakdownLine("Packaging", packagingCost),
                         new Order.BreakdownLine("Overhead", overhead),
@@ -115,14 +145,17 @@ public class OrderCalculator {
      *  variant with those fields (and each line's own cost/time) filled in — the caller
      *  saves the result. */
     public Variant priceVariant(Variant variant, double overheadPct, double profitMarginPct) {
+        variant.getComponents().forEach(this::priceComponent);
         double mandatoryItemsCost = mandatoryItemsCost(variant.getMandatoryItems());
         double addOnsCost = lineItemsCost(variant.getAddOns());
+        double componentsCost = componentsCost(variant.getComponents());
         double packagingCost = variant.getPackaging() == null ? 0 : variant.getPackaging().cost();
-        double gross = grossCost(mandatoryItemsCost, addOnsCost, packagingCost);
+        double gross = grossCost(mandatoryItemsCost + componentsCost, addOnsCost, packagingCost);
         double overhead = overheadAmount(gross, overheadPct);
         double profit = profitAmount(gross, overhead, profitMarginPct);
         double perUnitCost = finalCost(gross, overhead, profit);
-        double perUnitTimeHours = grossTimeHours(variant.getCraftingTimeHours(), variant.getAssemblyTimeHours(),
+        double componentsTimeHours = componentsTimeHours(variant.getComponents());
+        double perUnitTimeHours = grossTimeHours(variant.getCraftingTimeHours() + componentsTimeHours, variant.getAssemblyTimeHours(),
                 variant.getPackaging() == null ? Order.Packaging.builder().itemizedList(List.of()).build() : variant.getPackaging());
 
         variant.setPerUnitCost(perUnitCost);

@@ -1,4 +1,4 @@
-import type { MaterialKind } from "./types";
+import type { ComponentTemplate, MaterialKind } from "./types";
 
 export interface MandatoryItemDraft {
   kind: MaterialKind;
@@ -39,12 +39,22 @@ export interface SplitDraft {
   quantityAssigned: number;
 }
 
+export interface ComponentDraft {
+  componentId?: string;
+  templateId: string;
+  quantity: number;
+  mandatoryItems: MandatoryItemDraft[];
+  addOns: LineItemDraft[];
+  craftingTimeHours: number;
+}
+
 export interface VariantDraft {
   variantId?: string;
   label: string;
   quantity: number;
   mandatoryItems: MandatoryItemDraft[];
   addOns: LineItemDraft[];
+  components: ComponentDraft[];
   craftingTimeHours: number;
   assemblyTimeHours: number;
   splitAllocation: SplitDraft[];
@@ -69,6 +79,7 @@ export function blankVariant(): VariantDraft {
     quantity: 1,
     mandatoryItems: blankMandatoryItems(),
     addOns: [],
+    components: [],
     craftingTimeHours: 0,
     assemblyTimeHours: 0,
     splitAllocation: [],
@@ -84,9 +95,20 @@ export function duplicateVariant(source: VariantDraft): VariantDraft {
     quantity: source.quantity,
     mandatoryItems: source.mandatoryItems.map((m) => ({ ...m })),
     addOns: source.addOns.map((a) => ({ ...a })),
+    components: source.components.map((c) => ({ ...c, componentId: undefined })),
     craftingTimeHours: source.craftingTimeHours,
     assemblyTimeHours: source.assemblyTimeHours,
     splitAllocation: source.splitAllocation.map((s) => ({ ...s })),
+  };
+}
+
+export function blankComponent(templates: ComponentTemplate[]): ComponentDraft {
+  return {
+    templateId: templates[0]?.id ?? "",
+    quantity: 1,
+    mandatoryItems: [],
+    addOns: [],
+    craftingTimeHours: templates[0]?.baseCraftingTimeHours ?? 0,
   };
 }
 
@@ -313,6 +335,118 @@ export function AddOnsFields({ addOns, onChange }: { addOns: LineItemDraft[]; on
       <button type="button" onClick={() => onChange([...addOns, { name: "", quantity: 1, unitCost: 0 }])}>
         + Add add-on
       </button>
+    </div>
+  );
+}
+
+/** Each component is a mini project of its own — a template reference (pattern), its own
+ *  materials, its own add-ons, and its own crochet time, multiplied by quantity when
+ *  priced. Picking a template pre-fills the crafting time from its typical estimate;
+ *  everything else about materials/color/add-ons is entered fresh per order (design
+ *  decision — only the pattern and time estimate are reused, not the actual yarn used). */
+export function ComponentsFields({
+  components,
+  onChange,
+  templates,
+}: {
+  components: ComponentDraft[];
+  onChange: (components: ComponentDraft[]) => void;
+  templates: ComponentTemplate[];
+}) {
+  return (
+    <div>
+      {components.map((c, i) => {
+        const template = templates.find((t) => t.id === c.templateId);
+        return (
+          <div className="card" key={i} style={{ background: "var(--bg-elev-2)", marginBottom: 10 }}>
+            <div className="form-grid">
+              <div className="form-row">
+                <label htmlFor={`comp-${i}-template`} className="muted" style={{ fontSize: 11 }}>
+                  Component
+                </label>
+                <select
+                  id={`comp-${i}-template`}
+                  value={c.templateId}
+                  onChange={(e) => {
+                    const t = templates.find((x) => x.id === e.target.value);
+                    onChange(components.map((x, j) => (j === i
+                      ? { ...x, templateId: e.target.value, craftingTimeHours: t?.baseCraftingTimeHours ?? x.craftingTimeHours }
+                      : x)));
+                  }}
+                >
+                  <option value="" disabled>Select…</option>
+                  {templates.map((t) => (
+                    <option key={t.id} value={t.id}>{t.label}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="form-row">
+                <label htmlFor={`comp-${i}-qty`} className="muted" style={{ fontSize: 11 }}>
+                  Quantity
+                </label>
+                <input
+                  id={`comp-${i}-qty`}
+                  type="number"
+                  min={1}
+                  value={c.quantity}
+                  onChange={(e) => onChange(components.map((x, j) => (j === i ? { ...x, quantity: Number(e.target.value) } : x)))}
+                />
+              </div>
+              <div className="form-row">
+                <label htmlFor={`comp-${i}-time`} className="muted" style={{ fontSize: 11 }}>
+                  Crochet time (hours, per unit)
+                </label>
+                <input
+                  id={`comp-${i}-time`}
+                  type="number"
+                  min={0}
+                  step={0.05}
+                  value={c.craftingTimeHours}
+                  onChange={(e) => onChange(components.map((x, j) => (j === i ? { ...x, craftingTimeHours: Number(e.target.value) } : x)))}
+                />
+              </div>
+            </div>
+            {template && (template.pattern?.recipeSteps?.length ?? 0) > 0 && (
+              <p className="muted" style={{ fontSize: 12, marginTop: 8 }}>
+                Pattern: {template.pattern!.recipeSteps.join(" → ")}
+              </p>
+            )}
+
+            <div className="muted" style={{ fontSize: 11, marginTop: 10, marginBottom: 4 }}>
+              Materials (per unit)
+            </div>
+            <MandatoryItemsFields
+              items={c.mandatoryItems}
+              onChange={(items) => onChange(components.map((x, j) => (j === i ? { ...x, mandatoryItems: items } : x)))}
+            />
+            {c.mandatoryItems.length === 0 && (
+              <button type="button" onClick={() => onChange(components.map((x, j) => (j === i ? { ...x, mandatoryItems: blankMandatoryItems() } : x)))}>
+                + Add materials
+              </button>
+            )}
+
+            <div className="muted" style={{ fontSize: 11, marginTop: 10, marginBottom: 4 }}>
+              Add-ons (per unit — e.g. floral wire)
+            </div>
+            <AddOnsFields
+              addOns={c.addOns}
+              onChange={(a) => onChange(components.map((x, j) => (j === i ? { ...x, addOns: a } : x)))}
+            />
+
+            <button type="button" style={{ marginTop: 10 }} onClick={() => onChange(components.filter((_, j) => j !== i))}>
+              Remove component
+            </button>
+          </div>
+        );
+      })}
+      <button type="button" onClick={() => onChange([...components, blankComponent(templates)])} disabled={templates.length === 0}>
+        + Add component
+      </button>
+      {templates.length === 0 && (
+        <p className="muted" style={{ fontSize: 12, marginTop: 6 }}>
+          Add a component template under Manage business → Business settings first.
+        </p>
+      )}
     </div>
   );
 }

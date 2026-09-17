@@ -6,16 +6,19 @@ import { useLinkedNeedleTypes } from "../useLinkedNeedleTypes";
 import { useLinkedYarnTypes } from "../useLinkedYarnTypes";
 import {
   AddOnsFields,
+  ComponentsFields,
   MandatoryItemsFields,
+  blankComponent,
   blankMandatoryItems,
   blankVariant,
   duplicateVariant,
   validateSplits,
+  type ComponentDraft,
   type LineItemDraft,
   type MandatoryItemDraft,
   type VariantDraft,
 } from "../OrderFormFields";
-import type { AcquisitionChannel, BusinessConfig, Creator, Customer, OrderType, PatternType, PresetOption } from "../types";
+import type { AcquisitionChannel, BusinessConfig, ComponentTemplate, Creator, Customer, OrderType, PatternType, PresetOption } from "../types";
 
 const CHANNELS: AcquisitionChannel[] = ["INSTAGRAM", "WHATSAPP", "REFERRAL", "WORD_OF_MOUTH", "WALK_IN", "OTHER"];
 
@@ -30,6 +33,7 @@ export default function NewOrderPage() {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [creators, setCreators] = useState<Creator[]>([]);
   const [presets, setPresets] = useState<PresetOption[]>([]);
+  const [templates, setTemplates] = useState<ComponentTemplate[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   const [orderType, setOrderType] = useState<OrderType>("INDIVIDUAL");
@@ -56,6 +60,7 @@ export default function NewOrderPage() {
   // individual-only
   const [mandatoryItems, setMandatoryItems] = useState<MandatoryItemDraft[]>([]);
   const [addOns, setAddOns] = useState<LineItemDraft[]>([]);
+  const [components, setComponents] = useState<ComponentDraft[]>([]);
   const [craftingTimeHours, setCraftingTimeHours] = useState(0);
   const [assemblyTimeHours, setAssemblyTimeHours] = useState(0);
   const [packagingPresetId, setPackagingPresetId] = useState("");
@@ -69,7 +74,8 @@ export default function NewOrderPage() {
       orderTrackerApi.customers(groupId),
       orderTrackerApi.creators(groupId),
       orderTrackerApi.packagingPresets(groupId),
-    ]).then(([cfg, c, cr, p]) => {
+      orderTrackerApi.componentTemplates(groupId),
+    ]).then(([cfg, c, cr, p, t]) => {
       setConfig(cfg);
       setCustomers(c);
       setCreators(cr);
@@ -77,6 +83,7 @@ export default function NewOrderPage() {
       setCustomerMode(c.length === 0 ? "new" : "existing");
       setCreatedByCreatorId(cr[0]?.id ?? "");
       setPresets(p);
+      setTemplates(t);
       setMandatoryItems(blankMandatoryItems());
       setVariants([blankVariant()]);
     });
@@ -166,6 +173,9 @@ export default function NewOrderPage() {
       if (orderType === "INDIVIDUAL") {
         body.mandatoryItems = mandatoryItems.filter((m) => m.value.trim());
         body.addOns = addOns.filter((a) => a.name.trim());
+        body.components = components.filter((c) => c.templateId).map((c) => ({
+          ...c, mandatoryItems: c.mandatoryItems.filter((m) => m.value.trim()), addOns: c.addOns.filter((a) => a.name.trim()),
+        }));
         body.packagingPresetId = packagingPresetId || null;
         body.craftingTimeHours = craftingTimeHours;
         body.assemblyTimeHours = assemblyTimeHours;
@@ -177,6 +187,9 @@ export default function NewOrderPage() {
             quantity: v.quantity,
             mandatoryItems: v.mandatoryItems.filter((m) => m.value.trim()),
             addOns: v.addOns.filter((a) => a.name.trim()),
+            components: v.components.filter((c) => c.templateId).map((c) => ({
+              ...c, mandatoryItems: c.mandatoryItems.filter((m) => m.value.trim()), addOns: c.addOns.filter((a) => a.name.trim()),
+            })),
             craftingTimeHours: v.craftingTimeHours,
             assemblyTimeHours: v.assemblyTimeHours,
             splitAllocation: v.splitAllocation.filter((s) => s.creatorId),
@@ -395,6 +408,13 @@ export default function NewOrderPage() {
             </label>
             <AddOnsFields addOns={addOns} onChange={setAddOns} />
 
+            <h2 className="settings-section">Components (optional)</h2>
+            <p className="muted" style={{ fontSize: 12, marginTop: -8, marginBottom: 10 }}>
+              Break this order into repeatable atomic pieces — a vase base, 3 lilies, 5 sunflowers —
+              each built separately with its own materials and crochet time, then assembled together.
+            </p>
+            <ComponentsFields components={components} onChange={setComponents} templates={templates} />
+
             <h2 className="settings-section">Packaging</h2>
             <div className="form-row" style={{ maxWidth: 300 }}>
               <label htmlFor="no-packaging-preset">Packaging preset</label>
@@ -462,6 +482,15 @@ export default function NewOrderPage() {
                   <AddOnsFields
                     addOns={v.addOns}
                     onChange={(a) => setVariants((prev) => prev.map((x, j) => (j === i ? { ...x, addOns: a } : x)))}
+                  />
+
+                  <div className="muted" style={{ fontSize: 12, fontWeight: 600, marginTop: 16 }}>
+                    Components (optional)
+                  </div>
+                  <ComponentsFields
+                    components={v.components}
+                    onChange={(c) => setVariants((prev) => prev.map((x, j) => (j === i ? { ...x, components: c } : x)))}
+                    templates={templates}
                   />
 
                   <div className="muted" style={{ fontSize: 12, fontWeight: 600, marginTop: 16 }}>

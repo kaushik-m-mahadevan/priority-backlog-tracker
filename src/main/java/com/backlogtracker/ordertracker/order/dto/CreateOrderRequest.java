@@ -15,6 +15,7 @@ public record CreateOrderRequest(String customerId, String orderType, String cre
                                  // individual-only
                                  List<MandatoryItemInput> mandatoryItems,
                                  List<LineItemInput> addOns,
+                                 List<ComponentInput> components,
                                  String packagingPresetId, List<LineItemInput> itemizedPackaging,
                                  double craftingTimeHours, double assemblyTimeHours,
                                  // bulk-only
@@ -44,8 +45,17 @@ public record CreateOrderRequest(String customerId, String orderType, String cre
     public record VariantInput(String variantId, String label, int quantity,
                                List<MandatoryItemInput> mandatoryItems,
                                List<LineItemInput> addOns,
+                               List<ComponentInput> components,
                                String packagingPresetId, List<LineItemInput> itemizedPackaging,
                                double craftingTimeHours, double assemblyTimeHours,
                                List<SplitLineInput> splitAllocation) {
+    }
+
+    /** One atomic piece — see {@link com.backlogtracker.ordertracker.order.domain.Order.Component}.
+     *  {@code templateId} is required; the service snapshots the template's label and
+     *  crafting-time estimate onto the order at creation. */
+    public record ComponentInput(String componentId, String templateId, int quantity,
+                                 List<MandatoryItemInput> mandatoryItems, List<LineItemInput> addOns,
+                                 double craftingTimeHours) {
     }
 }

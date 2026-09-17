@@ -77,13 +77,27 @@ public class Order {
      *  original spec's time formula). */
     private double researchTimeHours;
 
-    // ---- 5.5 mandatory items (individual only; bulk uses per-variant) ----
+    // ---- 5.5 mandatory items (individual only; bulk uses per-variant). Only meaningful
+    // when {@link #components} is empty — an order broken into components keeps its
+    // materials on each component instead (design decision, opt-in: a simple order with
+    // nothing to decompose keeps using this flat list; a decomposed one keeps this empty
+    // and uses components exclusively). ----
     @Builder.Default
     private List<MandatoryItem> mandatoryItems = new ArrayList<>();
 
-    // ---- 5.6 add-ons (individual only; bulk uses per-variant) ----
+    // ---- 5.6 add-ons (individual only; bulk uses per-variant). Once {@link #components}
+    // is in use, these are specifically the assembly step's own extras ("Finishing
+    // touches" in the UI — glue, backing card) — distinct from any one component's own
+    // add-ons, which live on that {@link Component} instead. ----
     @Builder.Default
     private List<LineItem> addOns = new ArrayList<>();
+
+    // ---- components: an order (or, for bulk, a variant — see Variant#components) can
+    // optionally be broken into repeatable atomic pieces built separately and assembled
+    // later (design decision, opt-in — see class doc on Component). Empty for a simple
+    // order that doesn't need decomposing. ----
+    @Builder.Default
+    private List<Component> components = new ArrayList<>();
 
     // ---- 5.7 packaging (individual only; bulk uses per-variant) ----
     private Packaging packaging;
@@ -447,6 +461,53 @@ public class Order {
         private List<SplitLine> splitAllocation = new ArrayList<>();
         /** Actual crafting/assembly hours logged against this variant's own estimates —
          *  research isn't here since it's a whole-order concept, see {@link Order#timeLogEntries}. */
+        @Builder.Default
+        private List<TimeLogEntry> timeLogEntries = new ArrayList<>();
+        /** Same opt-in decomposition as {@link Order#components} — a variant is "one
+         *  whole repeatable item," and that item can optionally be broken into its own
+         *  atomic pieces too (design decision: two variants can share the same component
+         *  structure — same patterns — while differing only in, say, yarn color per
+         *  component). Empty for a variant that doesn't need decomposing. */
+        @Builder.Default
+        private List<Component> components = new ArrayList<>();
+    }
+
+    /** One repeatable atomic piece of an order or bulk variant — a vase base, a lily, a
+     *  sunflower — built separately (its own pattern, materials, add-ons, crochet time)
+     *  and assembled with the others later (design decision, opt-in — see
+     *  {@link Order#components}/{@link Variant#components}). {@code templateId} references
+     *  a {@code ComponentTemplate} (Order Tracker master data) for the reusable pattern and
+     *  a typical crafting time; {@code label} and {@code templateCraftingTimeHours} are
+     *  snapshotted from it at pick-time so a later template edit never retroactively
+     *  changes a past order — same convention as {@link Packaging#tentativePresetId}.
+     *  Everything else here is specific to this order: which yarn/color was actually used,
+     *  this instance's own add-ons (e.g. floral wire for a stem), and the actual crafting
+     *  time for this order (pre-filled from the snapshot, editable). Packaging is
+     *  deliberately not here — it stays a single step at the order/variant level, not
+     *  per-component. {@code perUnitCost}/{@code totalCost}/{@code perUnitTimeHours}/
+     *  {@code totalTimeHours} are computed the same way {@link Variant}'s are: no overhead
+     *  or profit margin applied at this level — that's applied once, on the order/variant's
+     *  combined total, not per component. */
+    @Getter
+    @Setter
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class Component {
+        private String componentId;
+        private String templateId;
+        private String label;
+        private double templateCraftingTimeHours;
+        private int quantity;
+        @Builder.Default
+        private List<MandatoryItem> mandatoryItems = new ArrayList<>();
+        @Builder.Default
+        private List<LineItem> addOns = new ArrayList<>();
+        private double craftingTimeHours;
+        private double perUnitCost;
+        private double totalCost;
+        private double perUnitTimeHours;
+        private double totalTimeHours;
         @Builder.Default
         private List<TimeLogEntry> timeLogEntries = new ArrayList<>();
     }

@@ -90,6 +90,14 @@ export interface PresetOption {
   estimatedTimeHours: number;
 }
 
+export interface ComponentTemplate {
+  id: string;
+  label: string;
+  pattern: Pattern | null;
+  baseCraftingTimeHours: number;
+  notes: string | null;
+}
+
 export interface Pattern {
   patternType: PatternType | null;
   templateName: string | null;
@@ -211,12 +219,29 @@ export interface SplitLine {
   stageProgress: StageProgressEntry[];
 }
 
+export interface ComponentInstance {
+  componentId: string;
+  templateId: string;
+  label: string;
+  templateCraftingTimeHours: number;
+  quantity: number;
+  mandatoryItems: MandatoryItem[];
+  addOns: LineItem[];
+  craftingTimeHours: number;
+  perUnitCost: number;
+  totalCost: number;
+  perUnitTimeHours: number;
+  totalTimeHours: number;
+  timeLogEntries: TimeLogEntryView[];
+}
+
 export interface Variant {
   variantId: string;
   label: string;
   quantity: number;
   mandatoryItems: MandatoryItem[];
   addOns: LineItem[];
+  components: ComponentInstance[];
   packaging: Packaging | null;
   craftingTimeHours: number;
   assemblyTimeHours: number;
@@ -264,6 +289,7 @@ export interface OrderView {
   notes: string | null;
   mandatoryItems: MandatoryItem[];
   addOns: LineItem[];
+  components: ComponentInstance[];
   packaging: Packaging | null;
   craftingTimeHours: number;
   assemblyTimeHours: number;

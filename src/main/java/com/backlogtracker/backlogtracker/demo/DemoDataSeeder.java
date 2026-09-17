@@ -255,7 +255,7 @@ public class DemoDataSeeder implements ApplicationRunner {
                 "Coral crochet tote bag", Instant.now().minus(6, ChronoUnit.DAYS),
                 Instant.now().plus(9, ChronoUnit.DAYS), null, List.of(), 2.0, null, null,
                 List.of(new MandatoryItemInput(MaterialKind.YARN, "Coral cotton yarn", 4, 120, null, null, null)),
-                List.of(), null, List.of(), 6.0, 2.0,
+                List.of(), List.of(), null, List.of(), 6.0, 2.0,
                 null, null, 0));
         orderService.updateStatus(groupId, alex.getId(), order1.id(), new UpdateOrderStatusRequest(OrderStatus.IN_PROGRESS));
 
@@ -264,18 +264,18 @@ public class DemoDataSeeder implements ApplicationRunner {
                 "Custom amigurumi elephant", Instant.now().minus(2, ChronoUnit.DAYS),
                 Instant.now().plus(14, ChronoUnit.DAYS), null, List.of(), 1.5, null, null,
                 List.of(new MandatoryItemInput(MaterialKind.YARN, "Grey acrylic yarn", 2, 90, null, null, null)),
-                List.of(), null, List.of(), 4.0, 1.5,
+                List.of(), List.of(), null, List.of(), 4.0, 1.5,
                 null, null, 0));
 
         OrderView bulkOrder = orderService.create(groupId, alex.getId(), new CreateOrderRequest(
                 pooja.id(), "BULK", alexCreator.getId(),
                 "Wedding favour coasters (set of 8)", Instant.now().minus(4, ChronoUnit.DAYS),
                 Instant.now().plus(20, ChronoUnit.DAYS), null, List.of(), 1.0, null, null,
-                null, null, null, null, 0, 0,
+                null, null, null, null, null, 0, 0,
                 List.of(
-                        new VariantInput("v1", "Sage Meadow coaster", 5, List.of(), List.of(), null, List.of(),
+                        new VariantInput("v1", "Sage Meadow coaster", 5, List.of(), List.of(), List.of(), null, List.of(),
                                 3.0, 1.0, List.of(new SplitLineInput(alexCreator.getId(), 5))),
-                        new VariantInput("v2", "Sunset Coral coaster", 3, List.of(), List.of(), null, List.of(),
+                        new VariantInput("v2", "Sunset Coral coaster", 3, List.of(), List.of(), List.of(), null, List.of(),
                                 2.0, 1.0, List.of(new SplitLineInput(priyaCreator.getId(), 3)))),
                 alexCreator.getId(), 0));
         orderService.updateStatus(groupId, alex.getId(), bulkOrder.id(), new UpdateOrderStatusRequest(OrderStatus.CONFIRMED));

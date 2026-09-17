@@ -13,13 +13,18 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.backlogtracker.commons.pattern.domain.Pattern;
+import com.backlogtracker.commons.pattern.domain.PatternType;
 import com.backlogtracker.commons.security.AuthUser;
 import com.backlogtracker.commons.security.RequiresUser;
+import com.backlogtracker.ordertracker.master.domain.ComponentTemplate;
 import com.backlogtracker.ordertracker.master.domain.PresetOption;
 import com.backlogtracker.ordertracker.master.domain.ShippingLanePreset;
 import com.backlogtracker.ordertracker.master.service.MasterDataService;
 
 import lombok.RequiredArgsConstructor;
+
+import org.springframework.web.bind.annotation.PutMapping;
 
 @RestController
 @RequestMapping("/api/ordertracker/groups/{groupId}")
@@ -70,10 +75,55 @@ public class MasterDataController {
         service.removeShippingLane(groupId, actor.id(), laneId);
     }
 
+    @GetMapping("/component-templates")
+    public List<ComponentTemplate> componentTemplates(@PathVariable String groupId, @AuthenticationPrincipal AuthUser actor) {
+        return service.componentTemplates(groupId, actor.id());
+    }
+
+    @PostMapping("/component-templates")
+    @ResponseStatus(HttpStatus.CREATED)
+    public ComponentTemplate addComponentTemplate(@PathVariable String groupId, @RequestBody ComponentTemplateRequest request,
+                                                  @AuthenticationPrincipal AuthUser actor) {
+        return service.addComponentTemplate(groupId, actor.id(), request.label(), toPattern(request.pattern()),
+                request.baseCraftingTimeHours(), request.notes());
+    }
+
+    @PutMapping("/component-templates/{templateId}")
+    public ComponentTemplate updateComponentTemplate(@PathVariable String groupId, @PathVariable String templateId,
+                                                      @RequestBody ComponentTemplateRequest request,
+                                                      @AuthenticationPrincipal AuthUser actor) {
+        return service.updateComponentTemplate(groupId, actor.id(), templateId, request.label(), toPattern(request.pattern()),
+                request.baseCraftingTimeHours(), request.notes());
+    }
+
+    @DeleteMapping("/component-templates/{templateId}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void removeComponentTemplate(@PathVariable String groupId, @PathVariable String templateId,
+                                        @AuthenticationPrincipal AuthUser actor) {
+        service.removeComponentTemplate(groupId, actor.id(), templateId);
+    }
+
+    private static Pattern toPattern(ComponentTemplateRequest.PatternInput input) {
+        if (input == null) {
+            return null;
+        }
+        return Pattern.builder().patternType(input.patternType()).templateName(input.templateName())
+                .customPatternNotes(input.customPatternNotes())
+                .attachmentUrls(input.attachmentUrls() == null ? List.of() : input.attachmentUrls())
+                .recipeSteps(input.recipeSteps() == null ? List.of() : input.recipeSteps())
+                .build();
+    }
+
     public record PresetRequest(String label, double estimatedCost, double estimatedTimeHours) {
     }
 
     public record LaneRequest(String originLocationCode, String destinationLocationCode,
                               double estimatedCost, double estimatedTimeHours, String note) {
+    }
+
+    public record ComponentTemplateRequest(String label, PatternInput pattern, double baseCraftingTimeHours, String notes) {
+        public record PatternInput(PatternType patternType, String templateName, String customPatternNotes,
+                                   List<String> attachmentUrls, List<String> recipeSteps) {
+        }
     }
 }

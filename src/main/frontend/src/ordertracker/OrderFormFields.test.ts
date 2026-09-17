@@ -7,6 +7,7 @@ function variant(overrides: Partial<VariantDraft>): VariantDraft {
     quantity: 3,
     mandatoryItems: [],
     addOns: [],
+    components: [],
     craftingTimeHours: 0,
     assemblyTimeHours: 0,
     splitAllocation: [],

@@ -13,15 +13,17 @@ import { useMyNeedleInventory } from "../useMyNeedleInventory";
 import { useMyYarnInventory } from "../useMyYarnInventory";
 import {
   AddOnsFields,
+  ComponentsFields,
   MandatoryItemsFields,
   blankMandatoryItems,
   duplicateVariant,
   validateSplits,
+  type ComponentDraft,
   type LineItemDraft,
   type MandatoryItemDraft,
   type VariantDraft,
 } from "../OrderFormFields";
-import type { BusinessConfig, Creator, Customer, OrderFinalizationView, OrderStatus, OrderView, PaymentType, PresetOption, TimeStage } from "../types";
+import type { BusinessConfig, ComponentTemplate, Creator, Customer, OrderFinalizationView, OrderStatus, OrderView, PaymentType, PresetOption, TimeStage } from "../types";
 
 const STATUSES: OrderStatus[] = ["INQUIRY", "CONFIRMED", "IN_PROGRESS", "READY_TO_SHIP", "SHIPPED", "DELIVERED", "CANCELLED"];
 
@@ -80,6 +82,10 @@ function EditOrderForm({
 }) {
   const linkedYarnTypes = useLinkedYarnTypes(groupId);
   const linkedNeedleTypes = useLinkedNeedleTypes(groupId);
+  const [componentTemplates, setComponentTemplates] = useState<ComponentTemplate[]>([]);
+  useEffect(() => {
+    orderTrackerApi.componentTemplates(groupId).then(setComponentTemplates);
+  }, [groupId]);
   const [customerId, setCustomerId] = useState(order.customerId);
   const [itemName, setItemName] = useState(order.itemName ?? "");
   const [orderReceivedDate, setOrderReceivedDate] = useState(order.orderReceivedDate?.slice(0, 10) ?? "");
@@ -100,6 +106,19 @@ function EditOrderForm({
   );
   const [addOns, setAddOns] = useState<LineItemDraft[]>(
     order.addOns.map((a) => ({ name: a.name, quantity: a.quantity, unitCost: a.unitCost }))
+  );
+  const [components, setComponents] = useState<ComponentDraft[]>(
+    order.components.map((c) => ({
+      componentId: c.componentId,
+      templateId: c.templateId,
+      quantity: c.quantity,
+      mandatoryItems: c.mandatoryItems.map((m) => ({
+        kind: m.kind, value: m.value, quantity: m.quantity, unitCost: m.unitCost, notes: m.notes ?? "",
+        linkedYarnTypeId: m.linkedYarnTypeId, linkedNeedleTypeId: m.linkedNeedleTypeId,
+      })),
+      addOns: c.addOns.map((a) => ({ name: a.name, quantity: a.quantity, unitCost: a.unitCost })),
+      craftingTimeHours: c.craftingTimeHours,
+    }))
   );
   const [craftingTimeHours, setCraftingTimeHours] = useState(order.craftingTimeHours);
   const [assemblyTimeHours, setAssemblyTimeHours] = useState(order.assemblyTimeHours);
@@ -129,6 +148,9 @@ function EditOrderForm({
         notes: notes.trim() || null,
         mandatoryItems: mandatoryItems.filter((m) => m.value.trim()),
         addOns: addOns.filter((a) => a.name.trim()),
+        components: components.filter((c) => c.templateId).map((c) => ({
+          ...c, mandatoryItems: c.mandatoryItems.filter((m) => m.value.trim()), addOns: c.addOns.filter((a) => a.name.trim()),
+        })),
         packagingPresetId: packagingPresetId || null,
         itemizedPackaging: [],
         craftingTimeHours,
@@ -226,6 +248,9 @@ function EditOrderForm({
       </div>
       <AddOnsFields addOns={addOns} onChange={setAddOns} />
 
+      <h2 className="settings-section">Components (optional)</h2>
+      <ComponentsFields components={components} onChange={setComponents} templates={componentTemplates} />
+
       <h2 className="settings-section">Packaging</h2>
       <div className="form-row" style={{ maxWidth: 300 }}>
         <label htmlFor="eod-packaging-preset">Packaging preset</label>
@@ -288,6 +313,10 @@ function EditBulkDetailsForm({
 }) {
   const linkedYarnTypes = useLinkedYarnTypes(groupId);
   const linkedNeedleTypes = useLinkedNeedleTypes(groupId);
+  const [componentTemplates, setComponentTemplates] = useState<ComponentTemplate[]>([]);
+  useEffect(() => {
+    orderTrackerApi.componentTemplates(groupId).then(setComponentTemplates);
+  }, [groupId]);
   const [customerId, setCustomerId] = useState(order.customerId);
   const [itemName, setItemName] = useState(order.itemName ?? "");
   const [orderReceivedDate, setOrderReceivedDate] = useState(order.orderReceivedDate?.slice(0, 10) ?? "");
@@ -309,6 +338,17 @@ function EditBulkDetailsForm({
         linkedYarnTypeId: m.linkedYarnTypeId, linkedNeedleTypeId: m.linkedNeedleTypeId,
       })),
       addOns: v.addOns.map((a) => ({ name: a.name, quantity: a.quantity, unitCost: a.unitCost })),
+      components: v.components.map((c) => ({
+        componentId: c.componentId,
+        templateId: c.templateId,
+        quantity: c.quantity,
+        mandatoryItems: c.mandatoryItems.map((m) => ({
+          kind: m.kind, value: m.value, quantity: m.quantity, unitCost: m.unitCost, notes: m.notes ?? "",
+          linkedYarnTypeId: m.linkedYarnTypeId, linkedNeedleTypeId: m.linkedNeedleTypeId,
+        })),
+        addOns: c.addOns.map((a) => ({ name: a.name, quantity: a.quantity, unitCost: a.unitCost })),
+        craftingTimeHours: c.craftingTimeHours,
+      })),
       craftingTimeHours: v.craftingTimeHours,
       assemblyTimeHours: v.assemblyTimeHours,
       splitAllocation: v.splitAllocation.map((s) => ({ creatorId: s.creatorId, quantityAssigned: s.quantityAssigned })),
@@ -351,6 +391,9 @@ function EditBulkDetailsForm({
             quantity: v.quantity,
             mandatoryItems: v.mandatoryItems.filter((m) => m.value.trim()),
             addOns: v.addOns.filter((a) => a.name.trim()),
+            components: v.components.filter((c) => c.templateId).map((c) => ({
+              ...c, mandatoryItems: c.mandatoryItems.filter((m) => m.value.trim()), addOns: c.addOns.filter((a) => a.name.trim()),
+            })),
             craftingTimeHours: v.craftingTimeHours,
             assemblyTimeHours: v.assemblyTimeHours,
             splitAllocation: v.splitAllocation.filter((s) => s.creatorId),
@@ -494,6 +537,15 @@ function EditBulkDetailsForm({
             />
 
             <div className="muted" style={{ fontSize: 12, fontWeight: 600, marginTop: 16 }}>
+              Components (optional)
+            </div>
+            <ComponentsFields
+              components={v.components}
+              onChange={(c) => setVariants((prev) => prev.map((x, j) => (j === i ? { ...x, components: c } : x)))}
+              templates={componentTemplates}
+            />
+
+            <div className="muted" style={{ fontSize: 12, fontWeight: 600, marginTop: 16 }}>
               Processes
             </div>
             <div className="form-grid" style={{ marginTop: 6, maxWidth: 460 }}>
@@ -623,12 +675,21 @@ export default function OrderDetailPage() {
   const stageLabel = (stage: TimeStage) =>
     stage === "RESEARCH" ? "Research" : stage === "CRAFTING" ? "Crochet" : "Assembly";
 
-  type HistoryRow = { entryId: string; stage: TimeStage; hours: number; date: string; loggedByCreatorId: string; variantLabel: string | null };
+  type HistoryRow = {
+    entryId: string; stage: TimeStage; hours: number; date: string; loggedByCreatorId: string;
+    variantLabel: string | null; componentLabel: string | null;
+  };
   const allTimeEntries: HistoryRow[] = [
-    ...order.timeLogEntries.map((e) => ({ ...e, variantLabel: null as string | null })),
-    ...(order.bulkDetails?.variants.flatMap((v) =>
-      v.timeLogEntries.map((e) => ({ ...e, variantLabel: v.label }))
-    ) ?? []),
+    ...order.timeLogEntries.map((e) => ({ ...e, variantLabel: null as string | null, componentLabel: null as string | null })),
+    ...order.components.flatMap((c) =>
+      c.timeLogEntries.map((e) => ({ ...e, variantLabel: null as string | null, componentLabel: c.label }))
+    ),
+    ...(order.bulkDetails?.variants.flatMap((v) => [
+      ...v.timeLogEntries.map((e) => ({ ...e, variantLabel: v.label as string | null, componentLabel: null as string | null })),
+      ...v.components.flatMap((c) =>
+        c.timeLogEntries.map((e) => ({ ...e, variantLabel: v.label as string | null, componentLabel: c.label }))
+      ),
+    ]) ?? []),
   ];
   const filteredHistory = allTimeEntries
     .filter((e) => historyCreatorFilter === "all" || e.loggedByCreatorId === historyCreatorFilter)
@@ -636,9 +697,9 @@ export default function OrderDetailPage() {
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   const creatorsWithEntries = creators.filter((c) => allTimeEntries.some((e) => e.loggedByCreatorId === c.id));
 
-  const logTime = async (stage: TimeStage, hours: number, variantId?: string) => {
+  const logTime = async (stage: TimeStage, hours: number, variantId?: string, componentId?: string) => {
     const updated = await orderTrackerApi.addTimeLogEntry(groupId, order.id, {
-      stage, hours, date: null, note: null, variantId: variantId ?? null,
+      stage, hours, date: null, note: null, variantId: variantId ?? null, componentId: componentId ?? null,
     });
     setOrder(updated);
   };
@@ -915,18 +976,55 @@ export default function OrderDetailPage() {
             <div className="row"><span className="k">Time</span><span className="v">{order.packaging?.timeHours ?? 0}h</span></div>
           </div>
         </div>
+
+        {order.components.length > 0 && (
+          <>
+            <h2 className="settings-section">Components</h2>
+            {order.components.map((c) => (
+              <div className="card" key={c.componentId} style={{ marginBottom: 10 }}>
+                <div className="toolbar">
+                  <strong>{c.label}</strong>
+                  <span className="muted">× {c.quantity}</span>
+                  <span className="spacer" />
+                  <span className="muted">₹{c.perUnitCost.toFixed(2)}/unit · ₹{c.totalCost.toFixed(2)} total</span>
+                </div>
+                <div className="row"><span className="k">Materials</span>
+                  <span className="v">
+                    {c.mandatoryItems.length === 0 ? "None" : c.mandatoryItems.map((m) => `${m.kind === "YARN" ? "Yarn" : "Needle"}: ${m.value}`).join(", ")}
+                  </span>
+                </div>
+                <div className="row"><span className="k">Add-ons</span>
+                  <span className="v">{c.addOns.length === 0 ? "None" : c.addOns.map((a) => a.name).join(", ")}</span>
+                </div>
+                <div className="row" style={{ alignItems: "center", flexWrap: "wrap" }}>
+                  <span className="k">Crochet time</span>
+                  <TimeStageControl
+                    icon="🧶"
+                    label={`Crochet — ${c.label}`}
+                    estimatedHours={c.perUnitTimeHours * c.quantity}
+                    entries={c.timeLogEntries}
+                    onLog={(hours) => logTime("CRAFTING", hours, undefined, c.componentId)}
+                  />
+                </div>
+              </div>
+            ))}
+          </>
+        )}
+
         <h2 className="settings-section">Processes</h2>
         <div className="card">
-          <div className="row" style={{ alignItems: "center", flexWrap: "wrap" }}>
-            <span className="k">Crochet time</span>
-            <TimeStageControl
-              icon="🧶"
-              label="Crochet"
-              estimatedHours={order.craftingTimeHours}
-              entries={order.timeLogEntries.filter((e) => e.stage === "CRAFTING")}
-              onLog={(hours) => logTime("CRAFTING", hours)}
-            />
-          </div>
+          {order.components.length === 0 && (
+            <div className="row" style={{ alignItems: "center", flexWrap: "wrap" }}>
+              <span className="k">Crochet time</span>
+              <TimeStageControl
+                icon="🧶"
+                label="Crochet"
+                estimatedHours={order.craftingTimeHours}
+                entries={order.timeLogEntries.filter((e) => e.stage === "CRAFTING")}
+                onLog={(hours) => logTime("CRAFTING", hours)}
+              />
+            </div>
+          )}
           <div className="row" style={{ alignItems: "center", marginTop: 8, flexWrap: "wrap" }}>
             <span className="k">Assembly time</span>
             <TimeStageControl
@@ -954,13 +1052,15 @@ export default function OrderDetailPage() {
                 <span title="Estimated">Total ~₹{v.totalCost.toFixed(2)}</span>
               </div>
               <div className="toolbar" style={{ marginTop: 8, flexWrap: "wrap", gap: 16 }}>
-                <TimeStageControl
-                  icon="🧶"
-                  label={`Crochet — ${v.label}`}
-                  estimatedHours={v.craftingTimeHours}
-                  entries={v.timeLogEntries.filter((e) => e.stage === "CRAFTING")}
-                  onLog={(hours) => logTime("CRAFTING", hours, v.variantId)}
-                />
+                {v.components.length === 0 && (
+                  <TimeStageControl
+                    icon="🧶"
+                    label={`Crochet — ${v.label}`}
+                    estimatedHours={v.craftingTimeHours}
+                    entries={v.timeLogEntries.filter((e) => e.stage === "CRAFTING")}
+                    onLog={(hours) => logTime("CRAFTING", hours, v.variantId)}
+                  />
+                )}
                 <TimeStageControl
                   icon="🪡"
                   label={`Assembly — ${v.label}`}
@@ -969,6 +1069,43 @@ export default function OrderDetailPage() {
                   onLog={(hours) => logTime("ASSEMBLY", hours, v.variantId)}
                 />
               </div>
+
+              {v.components.length > 0 && (
+                <div style={{ marginTop: 10 }}>
+                  <div className="muted" style={{ fontSize: 12, fontWeight: 600, marginBottom: 4 }}>
+                    Components
+                  </div>
+                  {v.components.map((c) => (
+                    <div className="card" key={c.componentId} style={{ background: "var(--bg-elev-2)", marginBottom: 8 }}>
+                      <div className="toolbar">
+                        <strong>{c.label}</strong>
+                        <span className="muted">× {c.quantity}</span>
+                        <span className="spacer" />
+                        <span className="muted">₹{c.perUnitCost.toFixed(2)}/unit · ₹{c.totalCost.toFixed(2)} total</span>
+                      </div>
+                      <div className="row"><span className="k">Materials</span>
+                        <span className="v">
+                          {c.mandatoryItems.length === 0 ? "None" : c.mandatoryItems.map((m) => `${m.kind === "YARN" ? "Yarn" : "Needle"}: ${m.value}`).join(", ")}
+                        </span>
+                      </div>
+                      <div className="row"><span className="k">Add-ons</span>
+                        <span className="v">{c.addOns.length === 0 ? "None" : c.addOns.map((a) => a.name).join(", ")}</span>
+                      </div>
+                      <div className="row" style={{ alignItems: "center", flexWrap: "wrap" }}>
+                        <span className="k">Crochet time</span>
+                        <TimeStageControl
+                          icon="🧶"
+                          label={`Crochet — ${v.label} — ${c.label}`}
+                          estimatedHours={c.perUnitTimeHours * c.quantity}
+                          entries={c.timeLogEntries}
+                          onLog={(hours) => logTime("CRAFTING", hours, v.variantId, c.componentId)}
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
               <div className="muted" style={{ fontSize: 12, fontWeight: 600, marginTop: 8, marginBottom: 4 }}>
                 Materials
               </div>
@@ -1272,6 +1409,7 @@ export default function OrderDetailPage() {
                       <th>Date</th>
                       <th>Stage</th>
                       <th>Variant</th>
+                      <th>Component</th>
                       <th>Hours</th>
                       <th>Logged by</th>
                       <th></th>
@@ -1283,6 +1421,7 @@ export default function OrderDetailPage() {
                         <td className="cell-subtitle">{new Date(e.date).toLocaleDateString()}</td>
                         <td>{stageLabel(e.stage)}</td>
                         <td className="muted">{e.variantLabel ?? "—"}</td>
+                        <td className="muted">{e.componentLabel ?? "—"}</td>
                         <td className="cell-order mono">{e.hours.toFixed(2)}h</td>
                         <td>{creatorName(e.loggedByCreatorId)}</td>
                         <td>

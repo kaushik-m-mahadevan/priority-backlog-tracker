@@ -16,6 +16,7 @@ public record OrderView(String id, String orderNumber, OrderType orderType, Stri
                         Instant actualDeliveryDate, PatternView pattern, List<ResearchItemView> researchItems,
                         double researchTimeHours, String assemblyPackagingInstructions,
                         String notes, List<MandatoryItemView> mandatoryItems, List<LineItemView> addOns,
+                        List<ComponentView> components,
                         PackagingView packaging, double craftingTimeHours, double assemblyTimeHours,
                         CostEstimateView costEstimate,
                         List<StageAssignmentView> stageAssignments, double completionPercentage,
@@ -137,15 +138,33 @@ public record OrderView(String id, String orderNumber, OrderType orderType, Stri
         }
     }
 
+    public record ComponentView(String componentId, String templateId, String label,
+                                double templateCraftingTimeHours, int quantity,
+                                List<MandatoryItemView> mandatoryItems, List<LineItemView> addOns,
+                                double craftingTimeHours, double perUnitCost, double totalCost,
+                                double perUnitTimeHours, double totalTimeHours,
+                                List<TimeLogEntryView> timeLogEntries) {
+        static ComponentView of(Order.Component c) {
+            return new ComponentView(c.getComponentId(), c.getTemplateId(), c.getLabel(),
+                    c.getTemplateCraftingTimeHours(), c.getQuantity(),
+                    c.getMandatoryItems().stream().map(MandatoryItemView::of).toList(),
+                    c.getAddOns().stream().map(LineItemView::of).toList(),
+                    c.getCraftingTimeHours(), c.getPerUnitCost(), c.getTotalCost(),
+                    c.getPerUnitTimeHours(), c.getTotalTimeHours(),
+                    c.getTimeLogEntries().stream().map(TimeLogEntryView::of).toList());
+        }
+    }
+
     public record VariantView(String variantId, String label, int quantity, List<MandatoryItemView> mandatoryItems,
-                              List<LineItemView> addOns, PackagingView packaging, double craftingTimeHours,
-                              double assemblyTimeHours,
+                              List<LineItemView> addOns, List<ComponentView> components, PackagingView packaging,
+                              double craftingTimeHours, double assemblyTimeHours,
                               double perUnitCost, double totalCost, double perUnitTimeHours, double totalTimeHours,
                               List<SplitLineView> splitAllocation, List<TimeLogEntryView> timeLogEntries) {
         static VariantView of(Order.Variant v) {
             return new VariantView(v.getVariantId(), v.getLabel(), v.getQuantity(),
                     v.getMandatoryItems().stream().map(MandatoryItemView::of).toList(),
                     v.getAddOns().stream().map(LineItemView::of).toList(),
+                    v.getComponents().stream().map(ComponentView::of).toList(),
                     PackagingView.of(v.getPackaging()), v.getCraftingTimeHours(), v.getAssemblyTimeHours(),
                     v.getPerUnitCost(), v.getTotalCost(), v.getPerUnitTimeHours(), v.getTotalTimeHours(),
                     v.getSplitAllocation().stream().map(SplitLineView::of).toList(),
@@ -183,7 +202,8 @@ public record OrderView(String id, String orderNumber, OrderType orderType, Stri
                 o.getResearchItems().stream().map(ResearchItemView::of).toList(), o.getResearchTimeHours(),
                 o.getAssemblyPackagingInstructions(), o.getNotes(),
                 o.getMandatoryItems().stream().map(MandatoryItemView::of).toList(),
-                o.getAddOns().stream().map(LineItemView::of).toList(), PackagingView.of(o.getPackaging()),
+                o.getAddOns().stream().map(LineItemView::of).toList(),
+                o.getComponents().stream().map(ComponentView::of).toList(), PackagingView.of(o.getPackaging()),
                 o.getCraftingTimeHours(), o.getAssemblyTimeHours(), CostEstimateView.of(o.getCostEstimate()),
                 o.getStageAssignments().stream().map(StageAssignmentView::of).toList(), completionPercentage,
                 o.getPayments().stream().map(PaymentView::of).toList(), o.getPaymentStatus(), netPaid, balanceAmount,

@@ -44,7 +44,7 @@ class OrderCalculatorTest {
         List<LineItem> addOns = List.of(lineItem(1, 40, 0.2));
         Packaging packaging = Packaging.builder().presetCost(60).presetTimeHours(0.5).itemizedList(List.of()).build();
 
-        Order.CostEstimate estimate = calc.estimateIndividual(mandatory, addOns, packaging, 4.0, 1.0, 0.0, 0.15, 0.20,
+        Order.CostEstimate estimate = calc.estimateIndividual(mandatory, addOns, List.of(), packaging, 4.0, 1.0, 0.0, 0.15, 0.20,
                 Instant.parse("2026-01-01T00:00:00Z"), 4.0);
 
         assertThat(estimate.getMandatoryItemsCost()).isEqualTo(120);
@@ -66,7 +66,7 @@ class OrderCalculatorTest {
         Packaging packaging = Packaging.builder().presetCost(0).presetTimeHours(0).itemizedList(List.of()).build();
         Instant received = Instant.parse("2026-01-01T00:00:00Z");
         // grossTimeHours = 7h crafting / 4h-per-day = 1.75 -> rounds up to 2 days
-        Order.CostEstimate estimate = calc.estimateIndividual(List.of(), List.of(), packaging, 7.0, 0, 0, 0, 0, received, 4.0);
+        Order.CostEstimate estimate = calc.estimateIndividual(List.of(), List.of(), List.of(), packaging, 7.0, 0, 0, 0, 0, received, 4.0);
         assertThat(estimate.getComputedDueDate()).isEqualTo(received.plusSeconds(2 * 24 * 3600));
     }
 
@@ -75,9 +75,50 @@ class OrderCalculatorTest {
         Packaging packaging = Packaging.builder().presetCost(0).presetTimeHours(0).itemizedList(List.of()).build();
         Instant received = Instant.parse("2026-01-01T00:00:00Z");
         // grossTimeHours = 4h crafting + 0 assembly + 0 packaging + 4h research = 8h / 4h-per-day = 2 days
-        Order.CostEstimate estimate = calc.estimateIndividual(List.of(), List.of(), packaging, 4.0, 0, 4.0, 0, 0, received, 4.0);
+        Order.CostEstimate estimate = calc.estimateIndividual(List.of(), List.of(), List.of(), packaging, 4.0, 0, 4.0, 0, 0, received, 4.0);
         assertThat(estimate.getGrossTimeHours()).isCloseTo(8.0, within(1e-9));
         assertThat(estimate.getComputedDueDate()).isEqualTo(received.plusSeconds(2 * 24 * 3600));
+    }
+
+    @Test
+    void priceComponentAppliesNoOverheadOrProfitAndScalesByQuantity() {
+        // materials 1*30 + addOns 1*5 = 35 per unit, crafting 0.75h per unit, quantity 3
+        Order.Component lily = Order.Component.builder()
+                .componentId("c1").quantity(3).craftingTimeHours(0.75)
+                .mandatoryItems(List.of(item(1, 30)))
+                .addOns(List.of(lineItem(1, 5, null)))
+                .build();
+
+        Order.Component priced = calc.priceComponent(lily);
+
+        assertThat(priced.getPerUnitCost()).isEqualTo(35);
+        assertThat(priced.getTotalCost()).isEqualTo(105);
+        assertThat(priced.getPerUnitTimeHours()).isEqualTo(0.75);
+        assertThat(priced.getTotalTimeHours()).isCloseTo(2.25, within(1e-9));
+    }
+
+    @Test
+    void estimateIndividualAddsComponentsCostAndTimeOnTopOfTheFlatFields() {
+        // base: mandatory 1*100, crafting 2h. Plus one component: materials 1*30, 0.75h/unit, qty 3.
+        List<MandatoryItem> mandatory = List.of(item(1, 100));
+        Packaging packaging = Packaging.builder().presetCost(0).presetTimeHours(0).itemizedList(List.of()).build();
+        Order.Component lily = calc.priceComponent(Order.Component.builder()
+                .componentId("c1").quantity(3).craftingTimeHours(0.75)
+                .mandatoryItems(List.of(item(1, 30))).addOns(List.of())
+                .build());
+
+        Order.CostEstimate estimate = calc.estimateIndividual(mandatory, List.of(), List.of(lily), packaging,
+                2.0, 0, 0, 0, 0, Instant.parse("2026-01-01T00:00:00Z"), 4.0);
+
+        // gross = mandatoryItemsCost(100) + componentsCost(3*30=90) = 190
+        assertThat(estimate.getMandatoryItemsCost()).isEqualTo(100);
+        assertThat(estimate.getGrossCost()).isEqualTo(190);
+        // time = craftingTimeHours(2) + componentsTimeHours(3*0.75=2.25) = 4.25
+        assertThat(estimate.getGrossTimeHours()).isCloseTo(4.25, within(1e-9));
+        assertThat(estimate.getItemizedBreakdown()).anySatisfy(b -> {
+            assertThat(b.getLabel()).isEqualTo("Components");
+            assertThat(b.getAmount()).isEqualTo(90);
+        });
     }
 
     @Test

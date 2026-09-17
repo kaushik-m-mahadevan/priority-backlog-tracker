@@ -196,13 +196,15 @@ public class OrderService {
         if (orderType == OrderType.INDIVIDUAL) {
             List<MandatoryItem> mandatoryItems = toMandatoryItems(request.mandatoryItems());
             List<LineItem> addOns = toLineItems(request.addOns());
+            List<Order.Component> components = toComponents(groupId, userId, request.components(), List.of());
             Order.Packaging packaging = buildPackaging(groupId, userId, request.packagingPresetId(), request.itemizedPackaging());
             builder.mandatoryItems(mandatoryItems)
                     .addOns(addOns)
+                    .components(components)
                     .packaging(packaging)
                     .craftingTimeHours(request.craftingTimeHours())
                     .assemblyTimeHours(request.assemblyTimeHours())
-                    .costEstimate(calculator.estimateIndividual(mandatoryItems, addOns, packaging,
+                    .costEstimate(calculator.estimateIndividual(mandatoryItems, addOns, components, packaging,
                             request.craftingTimeHours(), request.assemblyTimeHours(), request.researchTimeHours(),
                             cfg.getOverheadPercentage(), cfg.getProfitMarginPercentage(),
                             orderReceivedDate, createdBy.getHoursAvailablePerDay()))
@@ -266,13 +268,15 @@ public class OrderService {
         order.setNotes(request.notes());
         List<MandatoryItem> mandatoryItems = toMandatoryItems(request.mandatoryItems());
         List<LineItem> addOns = toLineItems(request.addOns());
+        List<Order.Component> components = toComponents(groupId, userId, request.components(), order.getComponents());
         Order.Packaging packaging = buildPackaging(groupId, userId, request.packagingPresetId(), request.itemizedPackaging());
         order.setMandatoryItems(mandatoryItems);
         order.setAddOns(addOns);
+        order.setComponents(components);
         order.setPackaging(packaging);
         order.setCraftingTimeHours(request.craftingTimeHours());
         order.setAssemblyTimeHours(request.assemblyTimeHours());
-        order.setCostEstimate(calculator.estimateIndividual(mandatoryItems, addOns, packaging,
+        order.setCostEstimate(calculator.estimateIndividual(mandatoryItems, addOns, components, packaging,
                 request.craftingTimeHours(), request.assemblyTimeHours(), request.researchTimeHours(),
                 cfg.getOverheadPercentage(), cfg.getProfitMarginPercentage(),
                 order.getOrderReceivedDate() == null ? clock.instant() : order.getOrderReceivedDate(),
@@ -328,6 +332,10 @@ public class OrderService {
                         }
                         // carry forward progress already recorded against unchanged stage keys
                         nv.setSplitAllocation(mergeProgress(ov.getSplitAllocation(), nv.getSplitAllocation()));
+                        // same idea one level down: a component that kept its id keeps its logged time
+                        nv.getComponents().forEach(nc -> ov.getComponents().stream()
+                                .filter(oc -> oc.getComponentId().equals(nc.getComponentId())).findFirst()
+                                .ifPresent(oc -> nc.setTimeLogEntries(new ArrayList<>(oc.getTimeLogEntries()))));
                     });
         }
 
@@ -488,15 +496,22 @@ public class OrderService {
                 .build();
 
         if (request.stage() == Order.TimeStage.RESEARCH) {
-            if (request.variantId() != null) {
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Research time is whole-order — variantId must not be set");
+            if (request.variantId() != null || request.componentId() != null) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Research time is whole-order — variantId/componentId must not be set");
             }
             order.getTimeLogEntries().add(entry);
         } else if (order.getOrderType() == OrderType.INDIVIDUAL) {
             if (request.variantId() != null) {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "This order has no variants");
             }
-            order.getTimeLogEntries().add(entry);
+            if (request.componentId() != null) {
+                if (request.stage() != Order.TimeStage.CRAFTING) {
+                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "componentId only applies to crafting time");
+                }
+                requireComponent(order.getComponents(), request.componentId()).getTimeLogEntries().add(entry);
+            } else {
+                order.getTimeLogEntries().add(entry);
+            }
         } else {
             requireBulk(order);
             if (request.variantId() == null) {
@@ -505,21 +520,48 @@ public class OrderService {
             Order.Variant variant = order.getBulkDetails().getVariants().stream()
                     .filter(v -> v.getVariantId().equals(request.variantId())).findFirst()
                     .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Variant not found"));
-            variant.getTimeLogEntries().add(entry);
+            if (request.componentId() != null) {
+                if (request.stage() != Order.TimeStage.CRAFTING) {
+                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "componentId only applies to crafting time");
+                }
+                requireComponent(variant.getComponents(), request.componentId()).getTimeLogEntries().add(entry);
+            } else {
+                variant.getTimeLogEntries().add(entry);
+            }
         }
         order.setUpdatedAt(clock.instant());
         return view(repository.save(order), userId);
+    }
+
+    private static Order.Component requireComponent(List<Order.Component> components, String componentId) {
+        return components.stream().filter(c -> c.getComponentId().equals(componentId)).findFirst()
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Component not found"));
     }
 
     public OrderView removeTimeLogEntry(String groupId, String userId, String orderId, String entryId) {
         groupService.requireMember(groupId, userId);
         Order order = requireById(groupId, orderId);
         boolean removed = order.getTimeLogEntries().removeIf(e -> e.getEntryId().equals(entryId));
+        if (!removed) {
+            for (Order.Component c : order.getComponents()) {
+                if (c.getTimeLogEntries().removeIf(e -> e.getEntryId().equals(entryId))) {
+                    removed = true;
+                    break;
+                }
+            }
+        }
         if (!removed && order.getBulkDetails() != null) {
+            outer:
             for (Order.Variant v : order.getBulkDetails().getVariants()) {
                 if (v.getTimeLogEntries().removeIf(e -> e.getEntryId().equals(entryId))) {
                     removed = true;
                     break;
+                }
+                for (Order.Component c : v.getComponents()) {
+                    if (c.getTimeLogEntries().removeIf(e -> e.getEntryId().equals(entryId))) {
+                        removed = true;
+                        break outer;
+                    }
                 }
             }
         }
@@ -596,6 +638,7 @@ public class OrderService {
                 .quantity(input.quantity())
                 .mandatoryItems(toMandatoryItems(input.mandatoryItems()))
                 .addOns(toLineItems(input.addOns()))
+                .components(toComponents(groupId, userId, input.components(), List.of()))
                 .packaging(packaging)
                 .craftingTimeHours(input.craftingTimeHours())
                 .assemblyTimeHours(input.assemblyTimeHours())
@@ -687,6 +730,39 @@ public class OrderService {
         return inputs.stream().map(i -> LineItem.builder().name(i.name()).category(i.category())
                 .attributes(i.attributes() == null ? java.util.Map.of() : i.attributes()).quantity(i.quantity())
                 .unitCost(i.unitCost()).unitTimeHours(i.unitTimeHours()).note(i.note()).build()).toList();
+    }
+
+    /** Builds this order/variant's components, snapshotting each referenced template's
+     *  label and crafting-time estimate at pick-time (same convention as a packaging
+     *  preset) and pricing the result — the caller still needs to fold the returned
+     *  components' cost/time into its own overall estimate. A component whose id matches
+     *  one in {@code existing} keeps its logged time history across the edit; a new or
+     *  re-generated id starts with none, same as a brand-new component. */
+    private List<Order.Component> toComponents(String groupId, String userId, List<CreateOrderRequest.ComponentInput> inputs,
+                                                List<Order.Component> existing) {
+        if (inputs == null) {
+            return new ArrayList<>();
+        }
+        return inputs.stream().map(i -> {
+            var template = masterDataService.requireComponentTemplate(groupId, userId, i.templateId());
+            String componentId = i.componentId() == null || i.componentId().isBlank()
+                    ? java.util.UUID.randomUUID().toString() : i.componentId();
+            List<Order.TimeLogEntry> carriedOverEntries = existing.stream()
+                    .filter(e -> e.getComponentId().equals(componentId)).findFirst()
+                    .map(e -> new ArrayList<>(e.getTimeLogEntries())).orElseGet(ArrayList::new);
+            Order.Component component = Order.Component.builder()
+                    .componentId(componentId)
+                    .templateId(i.templateId())
+                    .label(template.getLabel())
+                    .templateCraftingTimeHours(template.getBaseCraftingTimeHours())
+                    .quantity(i.quantity())
+                    .mandatoryItems(toMandatoryItems(i.mandatoryItems()))
+                    .addOns(toLineItems(i.addOns()))
+                    .craftingTimeHours(i.craftingTimeHours())
+                    .timeLogEntries(carriedOverEntries)
+                    .build();
+            return calculator.priceComponent(component);
+        }).collect(Collectors.toCollection(ArrayList::new));
     }
 
     private boolean sameAllocation(List<SplitLine> a, List<SplitLine> b) {

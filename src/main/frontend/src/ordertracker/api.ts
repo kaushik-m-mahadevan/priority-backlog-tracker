@@ -1,5 +1,5 @@
 import { api } from "../api/client";
-import type { BusinessConfig, ChangeLog, CostConfigChangeRequest, Creator, Customer, OrderFinalizationView, OrderView, PresetOption, TimeStage, WorkStageType } from "./types";
+import type { BusinessConfig, ChangeLog, ComponentTemplate, CostConfigChangeRequest, Creator, Customer, OrderFinalizationView, OrderView, Pattern, PresetOption, TimeStage, WorkStageType } from "./types";
 
 const base = (groupId: string) => `/ordertracker/groups/${groupId}`;
 
@@ -34,6 +34,14 @@ export const orderTrackerApi = {
     api.post<PresetOption>(`${base(groupId)}/packaging-presets`, body),
   removePackagingPreset: (groupId: string, presetId: string) =>
     api.delete<void>(`${base(groupId)}/packaging-presets/${presetId}`),
+
+  componentTemplates: (groupId: string) => api.get<ComponentTemplate[]>(`${base(groupId)}/component-templates`),
+  addComponentTemplate: (groupId: string, body: { label: string; pattern: Pattern | null; baseCraftingTimeHours: number; notes: string | null }) =>
+    api.post<ComponentTemplate>(`${base(groupId)}/component-templates`, body),
+  updateComponentTemplate: (groupId: string, templateId: string, body: { label: string; pattern: Pattern | null; baseCraftingTimeHours: number; notes: string | null }) =>
+    api.put<ComponentTemplate>(`${base(groupId)}/component-templates/${templateId}`, body),
+  removeComponentTemplate: (groupId: string, templateId: string) =>
+    api.delete<void>(`${base(groupId)}/component-templates/${templateId}`),
 
   customers: (groupId: string) => api.get<Customer[]>(`${base(groupId)}/customers`),
   createCustomer: (groupId: string, body: Partial<Customer>) => api.post<Customer>(`${base(groupId)}/customers`, body),
@@ -91,7 +99,7 @@ export const orderTrackerApi = {
   addTimeLogEntry: (
     groupId: string,
     orderId: string,
-    body: { stage: TimeStage; hours: number; date?: string | null; note?: string | null; variantId?: string | null }
+    body: { stage: TimeStage; hours: number; date?: string | null; note?: string | null; variantId?: string | null; componentId?: string | null }
   ) => api.post<OrderView>(`${base(groupId)}/orders/${orderId}/time-log`, body),
   removeTimeLogEntry: (groupId: string, orderId: string, entryId: string) =>
     api.delete<OrderView>(`${base(groupId)}/orders/${orderId}/time-log/${entryId}`),

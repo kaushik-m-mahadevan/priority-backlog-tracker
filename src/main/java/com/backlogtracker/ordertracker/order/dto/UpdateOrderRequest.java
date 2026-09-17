@@ -3,6 +3,7 @@ package com.backlogtracker.ordertracker.order.dto;
 import java.time.Instant;
 import java.util.List;
 
+import com.backlogtracker.ordertracker.order.dto.CreateOrderRequest.ComponentInput;
 import com.backlogtracker.ordertracker.order.dto.CreateOrderRequest.LineItemInput;
 import com.backlogtracker.ordertracker.order.dto.CreateOrderRequest.MandatoryItemInput;
 import com.backlogtracker.ordertracker.order.dto.CreateOrderRequest.PatternInput;
@@ -16,7 +17,8 @@ public record UpdateOrderRequest(String customerId, String itemName, Instant ord
                                  PatternInput pattern, List<ResearchItemInput> researchItems,
                                  double researchTimeHours, String assemblyPackagingInstructions, String notes,
                                  List<MandatoryItemInput> mandatoryItems,
-                                 List<LineItemInput> addOns, String packagingPresetId,
+                                 List<LineItemInput> addOns, List<ComponentInput> components,
+                                 String packagingPresetId,
                                  List<LineItemInput> itemizedPackaging, double craftingTimeHours,
                                  double assemblyTimeHours) {
 }
