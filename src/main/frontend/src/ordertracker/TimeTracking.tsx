@@ -1,14 +1,26 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import type { TimeLogEntryView } from "./types";
 
-const PX_PER_QUARTER_HOUR = 8;
 const STEP_HOURS = 0.25;
 const MAX_HOURS = 12;
-const LONG_PRESS_MS = 300;
-const MOVE_THRESHOLD_PX = 6;
+const TRACK_HEIGHT = 160;
+const KNOB_SIZE = 18;
+const POPOVER_HALF_WIDTH = 60;
+const VIEWPORT_MARGIN = 8;
 
 function roundToStep(hours: number): number {
   return Math.round(hours / STEP_HOURS) * STEP_HOURS;
+}
+
+function clampHours(hours: number): number {
+  return Math.min(MAX_HOURS, Math.max(0, roundToStep(hours)));
+}
+
+function isToday(dateIso: string): boolean {
+  const d = new Date(dateIso);
+  const now = new Date();
+  return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth() && d.getDate() === now.getDate();
 }
 
 export interface TimeStageControlProps {
@@ -19,144 +31,221 @@ export interface TimeStageControlProps {
   estimatedHours: number;
   /** Already-filtered to this stage (and variant, where relevant). */
   entries: TimeLogEntryView[];
+  /** The signed-in user's own Creator id for this group, so opening the slider on a stage
+   *  you've already logged today edits that entry instead of piling on a duplicate. */
+  myCreatorId: string | null;
   creatorName: (id: string) => React.ReactNode;
   onLog: (hours: number) => Promise<void>;
   onRemove: (entryId: string) => Promise<void>;
 }
 
-/** Long-press the icon, then drag up/down to set the number of hours — like a volume
- *  control, not a stepwise accumulator. The live value floats above the icon while
- *  dragging; releasing leaves it pending (nothing is sent yet), and a separate tap on ✓
- *  actually logs it. Only date (today), the current user, and the hours matter here — no
- *  notes, no backdating: log a whole week's worth in one entry whenever you get to it,
- *  not a running reconstruction of which day each session happened on. */
-export function TimeStageControl({ icon, label, estimatedHours, entries, creatorName, onLog, onRemove }: TimeStageControlProps) {
-  const [pending, setPending] = useState(0);
+/** Tap the icon to open a vertical slider — click the track or drag the knob to set the
+ *  number of hours, exactly like a volume control, with the value always visible next to
+ *  the knob rather than a hidden gesture. A separate confirm tap actually logs it; nothing
+ *  is sent while you're still adjusting. Only date (today), the current user, and the
+ *  hours matter here — no notes, no backdating: log a whole week's worth in one entry
+ *  whenever you get to it, not a running reconstruction of which day each session
+ *  happened on.
+ *
+ *  Opening the slider when you've already logged this stage today pre-fills it with that
+ *  entry's hours instead of starting from zero — confirming replaces it rather than
+ *  piling on a second entry for the same day (design decision: at most one entry per
+ *  person per stage per day; a different person logging the same stage still gets their
+ *  own entry). */
+export function TimeStageControl({ icon, label, estimatedHours, entries, myCreatorId, creatorName, onLog, onRemove }: TimeStageControlProps) {
+  const [open, setOpen] = useState(false);
+  const [anchor, setAnchor] = useState<{ left: number; bottom: number } | null>(null);
+  const [value, setValue] = useState(0);
+  const [editingIds, setEditingIds] = useState<string[]>([]);
   const [dragging, setDragging] = useState(false);
-  const [dragValue, setDragValue] = useState(0);
   const [showLog, setShowLog] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const armedRef = useRef(false);
-  const startYRef = useRef(0);
-  const baseValueRef = useRef(0);
-  const longPressTimerRef = useRef<number | null>(null);
+  const containerRef = useRef<HTMLSpanElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const popoverRef = useRef<HTMLDivElement>(null);
+  const trackRef = useRef<HTMLDivElement>(null);
 
-  const clearLongPressTimer = () => {
-    if (longPressTimerRef.current != null) {
-      window.clearTimeout(longPressTimerRef.current);
-      longPressTimerRef.current = null;
-    }
+  const openPopover = () => {
+    const rect = triggerRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const left = Math.min(
+      window.innerWidth - VIEWPORT_MARGIN - POPOVER_HALF_WIDTH,
+      Math.max(VIEWPORT_MARGIN + POPOVER_HALF_WIDTH, rect.left + rect.width / 2)
+    );
+    setAnchor({ left, bottom: window.innerHeight - rect.top });
+
+    // Editing today's own entry instead of piling on a duplicate — "today" is what "date
+    // doesn't matter, only the total does" collapses down to: at most one entry per person
+    // per stage per day.
+    const mine = myCreatorId
+      ? entries.filter((e) => e.loggedByCreatorId === myCreatorId && isToday(e.date))
+      : [];
+    setEditingIds(mine.map((e) => e.entryId));
+    setValue(clampHours(mine.reduce((sum, e) => sum + e.hours, 0)));
+    setOpen(true);
   };
 
-  const arm = () => {
-    armedRef.current = true;
-    setDragging(true);
-    setDragValue(baseValueRef.current);
+  useEffect(() => {
+    if (!open) return;
+    const onOutsideClick = (e: MouseEvent) => {
+      const target = e.target as Node;
+      if (
+        containerRef.current && !containerRef.current.contains(target) &&
+        popoverRef.current && !popoverRef.current.contains(target)
+      ) {
+        setOpen(false);
+      }
+    };
+    const onScrollOrResize = () => setOpen(false);
+    document.addEventListener("pointerdown", onOutsideClick);
+    window.addEventListener("scroll", onScrollOrResize, true);
+    window.addEventListener("resize", onScrollOrResize);
+    return () => {
+      document.removeEventListener("pointerdown", onOutsideClick);
+      window.removeEventListener("scroll", onScrollOrResize, true);
+      window.removeEventListener("resize", onScrollOrResize);
+    };
+  }, [open]);
+
+  const valueFromClientY = (clientY: number): number => {
+    const track = trackRef.current;
+    if (!track) return value;
+    const rect = track.getBoundingClientRect();
+    const fromBottom = rect.bottom - clientY;
+    return clampHours((fromBottom / rect.height) * MAX_HOURS);
   };
 
-  const handlePointerDown = (e: React.PointerEvent<HTMLButtonElement>) => {
+  const handleTrackPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     e.preventDefault();
     (e.target as HTMLElement).setPointerCapture(e.pointerId);
-    armedRef.current = false;
-    startYRef.current = e.clientY;
-    baseValueRef.current = pending;
-    clearLongPressTimer();
-    longPressTimerRef.current = window.setTimeout(arm, LONG_PRESS_MS);
+    setDragging(true);
+    setValue(valueFromClientY(e.clientY));
   };
 
-  const handlePointerMove = (e: React.PointerEvent<HTMLButtonElement>) => {
-    const deltaY = startYRef.current - e.clientY;
-    if (!armedRef.current) {
-      if (Math.abs(deltaY) < MOVE_THRESHOLD_PX) return;
-      clearLongPressTimer();
-      arm();
+  const handleTrackPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!dragging) return;
+    setValue(valueFromClientY(e.clientY));
+  };
+
+  const stopDragging = () => setDragging(false);
+
+  const handleTrackKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setValue((v) => clampHours(v + STEP_HOURS));
+    } else if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setValue((v) => clampHours(v - STEP_HOURS));
     }
-    const hoursFromDrag = deltaY / PX_PER_QUARTER_HOUR / 4;
-    const next = Math.min(MAX_HOURS, Math.max(0, roundToStep(baseValueRef.current + hoursFromDrag)));
-    setDragValue(next);
   };
 
-  const endGesture = () => {
-    clearLongPressTimer();
-    if (armedRef.current) {
-      setPending(dragValue);
+  const confirm = async () => {
+    if (value <= 0 && editingIds.length === 0) {
+      setOpen(false);
+      return;
     }
-    armedRef.current = false;
-    setDragging(false);
-  };
-
-  const commitPending = async () => {
-    if (pending <= 0) return;
     setError(null);
     try {
-      await onLog(pending);
-      setPending(0);
+      for (const id of editingIds) {
+        await onRemove(id);
+      }
+      if (value > 0) {
+        await onLog(value);
+      }
+      setValue(0);
+      setEditingIds([]);
+      setOpen(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to log time");
     }
   };
 
+  const cancel = () => {
+    setValue(0);
+    setEditingIds([]);
+    setOpen(false);
+  };
+
   const loggedTotal = entries.reduce((sum, e) => sum + e.hours, 0);
   const delta = loggedTotal - estimatedHours;
-  const displayValue = dragging ? dragValue : pending;
+  const knobOffset = (value / MAX_HOURS) * TRACK_HEIGHT;
 
   return (
-    <span style={{ display: "inline-flex", flexDirection: "column", gap: 4 }}>
-    <span style={{ display: "inline-flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-      <span style={{ position: "relative" }}>
-        {dragging && (
-          <span className="time-track-live-label mono" aria-hidden="true">
-            {dragValue.toFixed(2)}h
-          </span>
-        )}
-        <button
-          type="button"
-          aria-label={`Long-press and drag to set ${label} time`}
-          onPointerDown={handlePointerDown}
-          onPointerMove={handlePointerMove}
-          onPointerUp={endGesture}
-          onPointerCancel={endGesture}
-          className="time-track-button time-track-button-inline"
-          style={{ borderColor: dragging ? "var(--accent)" : undefined }}
-        >
-          <span
-            aria-hidden="true"
-            className="time-track-fill"
-            style={{ height: `${Math.min(100, (displayValue / MAX_HOURS) * 100)}%` }}
-          />
-          <span className="time-track-icon">{icon}</span>
-        </button>
-      </span>
-
-      <span className="muted" style={{ fontSize: 12 }}>
-        {loggedTotal.toFixed(2)}h logged
-        {estimatedHours > 0 && ` / ${estimatedHours.toFixed(2)}h estimated`}
-        {estimatedHours > 0 && delta !== 0 && (
-          <> · {delta > 0 ? `over by ${delta.toFixed(2)}h` : `under by ${Math.abs(delta).toFixed(2)}h`}</>
-        )}
-      </span>
-
-      {pending > 0 && !dragging && (
-        <span style={{ display: "inline-flex", gap: 4, alignItems: "center" }}>
-          <span className="mono">{pending.toFixed(2)}h</span>
-          <button type="button" aria-label={`Confirm ${label} time`} onClick={commitPending}>
-            ✓
+    <span ref={containerRef} style={{ display: "inline-flex", flexDirection: "column", gap: 4, position: "relative" }}>
+      <span style={{ display: "inline-flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+        <span style={{ position: "relative" }}>
+          <button
+            ref={triggerRef}
+            type="button"
+            aria-label={`Log ${label} time`}
+            aria-expanded={open}
+            onClick={() => (open ? setOpen(false) : openPopover())}
+            className="time-track-button time-track-button-inline"
+            style={{ borderColor: open ? "var(--accent)" : undefined }}
+          >
+            <span className="time-track-icon">{icon}</span>
           </button>
-          <button type="button" aria-label={`Cancel pending ${label} time`} onClick={() => setPending(0)}>
-            ×
-          </button>
+
+          {open && anchor && createPortal(
+            <div
+              ref={popoverRef}
+              className="time-slider-popover"
+              style={{ position: "fixed", left: anchor.left, bottom: anchor.bottom, transform: "translateX(-50%)" }}
+            >
+              <div className="time-slider-value mono">{value.toFixed(2)}h</div>
+              <div
+                ref={trackRef}
+                className="time-slider-track"
+                role="slider"
+                tabIndex={0}
+                aria-label={`${label} hours`}
+                aria-valuemin={0}
+                aria-valuemax={MAX_HOURS}
+                aria-valuenow={value}
+                onPointerDown={handleTrackPointerDown}
+                onPointerMove={handleTrackPointerMove}
+                onPointerUp={stopDragging}
+                onPointerCancel={stopDragging}
+                onKeyDown={handleTrackKeyDown}
+                style={{ height: TRACK_HEIGHT }}
+              >
+                <div className="time-slider-fill" style={{ height: knobOffset }} />
+                <div
+                  className="time-slider-knob"
+                  aria-hidden="true"
+                  style={{ bottom: knobOffset - KNOB_SIZE / 2, width: KNOB_SIZE, height: KNOB_SIZE }}
+                />
+              </div>
+              <div className="time-slider-actions">
+                <button type="button" aria-label={`Confirm ${label} time`} onClick={confirm}>
+                  ✓
+                </button>
+                <button type="button" aria-label={`Cancel ${label} time`} onClick={cancel}>
+                  ×
+                </button>
+              </div>
+            </div>,
+            document.body
+          )}
         </span>
-      )}
 
-      {error && <span className="error" style={{ fontSize: 12 }}>{error}</span>}
+        <span className="muted" style={{ fontSize: 12 }}>
+          {loggedTotal.toFixed(2)}h logged
+          {estimatedHours > 0 && ` / ${estimatedHours.toFixed(2)}h estimated`}
+          {estimatedHours > 0 && delta !== 0 && (
+            <> · {delta > 0 ? `over by ${delta.toFixed(2)}h` : `under by ${Math.abs(delta).toFixed(2)}h`}</>
+          )}
+        </span>
 
-      {entries.length > 0 && (
-        <button type="button" className="linkbtn" style={{ fontSize: 12 }} onClick={() => setShowLog((s) => !s)}>
-          {showLog ? "hide log" : `log (${entries.length})`}
-        </button>
-      )}
-    </span>
+        {error && <span className="error" style={{ fontSize: 12 }}>{error}</span>}
+
+        {entries.length > 0 && (
+          <button type="button" className="linkbtn" style={{ fontSize: 12 }} onClick={() => setShowLog((s) => !s)}>
+            {showLog ? "hide log" : `log (${entries.length})`}
+          </button>
+        )}
+      </span>
 
       {showLog && entries.length > 0 && (
         <ul style={{ margin: 0, paddingLeft: 18, fontSize: 12 }} className="muted">

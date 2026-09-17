@@ -530,7 +530,7 @@ label {
   transition: width 0.25s ease;
 }
 
-/* time tracker press-and-hold buttons */
+/* time tracker: tap-to-open icon + volume-style slider popover */
 .time-track-button {
   position: relative;
   width: 56px;
@@ -542,18 +542,7 @@ label {
   display: flex;
   align-items: center;
   justify-content: center;
-  touch-action: none;
   user-select: none;
-}
-.time-track-fill {
-  position: absolute;
-  left: 0;
-  bottom: 0;
-  width: 100%;
-  background: var(--accent);
-  opacity: 0.28;
-  transition: height 0.15s linear;
-  pointer-events: none;
 }
 .time-track-icon {
   position: relative;
@@ -568,20 +557,60 @@ label {
 .time-track-button-inline .time-track-icon {
   font-size: 18px;
 }
-.time-track-live-label {
-  position: absolute;
-  bottom: 100%;
-  left: 50%;
-  transform: translateX(-50%);
-  margin-bottom: 6px;
-  padding: 2px 8px;
-  border-radius: 6px;
-  background: var(--accent);
-  color: var(--bg);
-  font-size: 13px;
+
+.time-slider-popover {
+  /* position/left/bottom/transform are set inline (fixed, anchored to the trigger button's
+     on-screen position) — this renders through a portal so it isn't clipped by an
+     ancestor's overflow:hidden (e.g. .order-section, needed there for rounded corners). */
+  margin-bottom: 10px;
+  padding: 10px;
+  border-radius: 10px;
+  background: var(--bg-elev-3, var(--bg-elev-2));
+  border: 1px solid var(--border-soft);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  z-index: 1000;
+}
+.time-slider-value {
+  font-size: 14px;
   font-weight: 600;
-  white-space: nowrap;
+}
+.time-slider-track {
+  position: relative;
+  width: 36px;
+  border-radius: 18px;
+  background: var(--bg-elev-1, rgba(255, 255, 255, 0.06));
+  touch-action: none;
+  cursor: pointer;
+}
+.time-slider-fill {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 100%;
+  border-radius: 18px;
+  background: var(--accent);
+  opacity: 0.35;
   pointer-events: none;
+}
+.time-slider-knob {
+  position: absolute;
+  left: 50%;
+  border-radius: 50%;
+  background: var(--accent);
+  transform: translateX(-50%);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
+  pointer-events: none;
+}
+.time-slider-actions {
+  display: flex;
+  gap: 6px;
+}
+.time-slider-actions button {
+  padding: 2px 10px;
 }
 
 .card h2 {

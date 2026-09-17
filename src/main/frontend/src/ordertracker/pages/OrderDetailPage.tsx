@@ -570,6 +570,7 @@ function EditBulkDetailsForm({
 export default function OrderDetailPage() {
   const { orderId } = useParams<{ orderId: string }>();
   const { currentGroupId } = useBusiness();
+  const { user } = useAuth();
   const groupId = currentGroupId!;
   const linkedYarnTypes = useLinkedYarnTypes(groupId);
   const linkedNeedleTypes = useLinkedNeedleTypes(groupId);
@@ -606,6 +607,7 @@ export default function OrderDetailPage() {
   if (!order || !config) return <p className="muted">Loading…</p>;
 
   const customer = customers.find((c) => c.id === order.customerId);
+  const myCreatorId = creators.find((c) => c.userId === user?.id)?.id ?? null;
   const creatorName = (id: string | null | undefined) => {
     if (!id) return <span className="muted">Unassigned</span>;
     return creators.find((c) => c.id === id)?.name ?? <span className="muted">Unknown creator</span>;
@@ -763,6 +765,7 @@ export default function OrderDetailPage() {
               estimatedHours={order.researchTimeHours}
               entries={order.timeLogEntries.filter((e) => e.stage === "RESEARCH")}
               creatorName={creatorName}
+              myCreatorId={myCreatorId}
               onLog={(hours) => logTime("RESEARCH", hours)}
               onRemove={removeTime}
             />
@@ -904,6 +907,7 @@ export default function OrderDetailPage() {
               estimatedHours={order.craftingTimeHours}
               entries={order.timeLogEntries.filter((e) => e.stage === "CRAFTING")}
               creatorName={creatorName}
+              myCreatorId={myCreatorId}
               onLog={(hours) => logTime("CRAFTING", hours)}
               onRemove={removeTime}
             />
@@ -916,6 +920,7 @@ export default function OrderDetailPage() {
               estimatedHours={order.assemblyTimeHours}
               entries={order.timeLogEntries.filter((e) => e.stage === "ASSEMBLY")}
               creatorName={creatorName}
+              myCreatorId={myCreatorId}
               onLog={(hours) => logTime("ASSEMBLY", hours)}
               onRemove={removeTime}
             />
@@ -943,6 +948,7 @@ export default function OrderDetailPage() {
                   estimatedHours={v.craftingTimeHours}
                   entries={v.timeLogEntries.filter((e) => e.stage === "CRAFTING")}
                   creatorName={creatorName}
+              myCreatorId={myCreatorId}
                   onLog={(hours) => logTime("CRAFTING", hours, v.variantId)}
                   onRemove={removeTime}
                 />
@@ -952,6 +958,7 @@ export default function OrderDetailPage() {
                   estimatedHours={v.assemblyTimeHours}
                   entries={v.timeLogEntries.filter((e) => e.stage === "ASSEMBLY")}
                   creatorName={creatorName}
+              myCreatorId={myCreatorId}
                   onLog={(hours) => logTime("ASSEMBLY", hours, v.variantId)}
                   onRemove={removeTime}
                 />
