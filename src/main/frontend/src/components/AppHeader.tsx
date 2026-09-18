@@ -1,6 +1,7 @@
 import { ReactNode } from "react";
 import { Link } from "react-router-dom";
 import Bell from "./Bell";
+import Connections from "./Connections";
 import NavMenu, { type NavMenuLink } from "./NavMenu";
 import { HomeIcon } from "./icons";
 
@@ -14,6 +15,8 @@ export default function AppHeader({
   navLinks,
   rightSlot,
   extraMenuLinks,
+  appletKey,
+  groupId,
 }: {
   /** Decorative glyph shown before the applet name, e.g. "◆", "✂", "⚙", "◇". */
   appletIcon?: string;
@@ -27,6 +30,12 @@ export default function AppHeader({
   rightSlot?: ReactNode;
   /** Applet-specific quick links inside the account-menu dropdown, e.g. "Completed". */
   extraMenuLinks?: NavMenuLink[];
+  /** This applet's own Group.APPLET_* key — together with `groupId`, shows the shared
+   *  Connections widget. Omitted on the launcher/settings/admin shells, which have no
+   *  single current applet+group to show connections for. */
+  appletKey?: string;
+  /** The currently-selected group/business/etc. in this applet, if any. */
+  groupId?: string | null;
 }) {
   return (
     <nav className="nav">
@@ -48,6 +57,7 @@ export default function AppHeader({
       {navLinks}
       <span className="spacer" />
       {rightSlot}
+      {appletKey && <Connections appletKey={appletKey} groupId={groupId ?? null} />}
       <Bell />
       <NavMenu extraLinks={extraMenuLinks} />
     </nav>

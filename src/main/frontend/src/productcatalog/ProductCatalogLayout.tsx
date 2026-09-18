@@ -74,6 +74,8 @@ export default function ProductCatalogLayout() {
           )
         }
         rightSlot={<CatalogGroupSwitcher />}
+        appletKey="productcatalog"
+        groupId={currentGroupId}
       />
 
       <div className="container">

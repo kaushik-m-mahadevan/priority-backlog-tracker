@@ -85,6 +85,8 @@ export default function OrderTrackerLayout() {
           )
         }
         rightSlot={<BusinessSwitcher />}
+        appletKey="ordertracker"
+        groupId={currentGroupId}
       />
 
       <div className="container">

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { orderTrackerApi } from "../api";
 import { useBusiness } from "../BusinessContext";
 import type { AcquisitionChannel, Customer } from "../types";
@@ -157,7 +158,9 @@ export default function CustomersPage() {
             <tbody>
               {customers.map((c) => (
                 <tr key={c.id}>
-                  <td className="cell-title">{c.name}</td>
+                  <td className="cell-title">
+                    <Link to={`/ordertracker/customers/${c.id}`}>{c.name}</Link>
+                  </td>
                   <td className="cell-subtitle">{c.contactNumber || <span className="muted">No contact number</span>}</td>
                   <td className="cell-type">
                     <span className="badge">{c.acquisitionChannel.replace(/_/g, " ")}</span>

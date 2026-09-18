@@ -78,6 +78,8 @@ export default function FinanceTrackerLayout() {
           )
         }
         rightSlot={<FinanceGroupSwitcher />}
+        appletKey="financetracker"
+        groupId={currentGroupId}
       />
 
       <div className="container">

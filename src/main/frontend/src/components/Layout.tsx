@@ -38,6 +38,8 @@ export default function Layout() {
         }
         rightSlot={<GroupSwitcher />}
         extraMenuLinks={[{ to: "/backlog/archive", label: "Completed" }]}
+        appletKey="backlogtracker"
+        groupId={currentGroupId}
       />
 
       {/* Only the "show panels" affordance floats off the edge — nothing to show when

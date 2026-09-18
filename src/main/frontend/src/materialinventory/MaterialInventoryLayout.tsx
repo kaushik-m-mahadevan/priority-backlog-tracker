@@ -75,6 +75,8 @@ export default function MaterialInventoryLayout() {
           )
         }
         rightSlot={<InventoryGroupSwitcher />}
+        appletKey="materialinventory"
+        groupId={currentGroupId}
       />
 
       <div className="container">

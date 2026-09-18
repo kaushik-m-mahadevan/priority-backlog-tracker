@@ -44,6 +44,7 @@ export const orderTrackerApi = {
     api.delete<void>(`${base(groupId)}/component-templates/${templateId}`),
 
   customers: (groupId: string) => api.get<Customer[]>(`${base(groupId)}/customers`),
+  customer: (groupId: string, customerId: string) => api.get<Customer>(`${base(groupId)}/customers/${customerId}`),
   createCustomer: (groupId: string, body: Partial<Customer>) => api.post<Customer>(`${base(groupId)}/customers`, body),
   updateCustomer: (groupId: string, customerId: string, body: Partial<Customer>) =>
     api.put<Customer>(`${base(groupId)}/customers/${customerId}`, body),

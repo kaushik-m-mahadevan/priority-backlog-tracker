@@ -20,6 +20,7 @@ import GroupsPage from "./pages/GroupsPage";
 import { QuickWinsPage, AttentionPage, TeamPage } from "./pages/RailPages";
 import OrderTrackerRoot from "./ordertracker/OrderTrackerRoot";
 import CustomersPage from "./ordertracker/pages/CustomersPage";
+import CustomerDetailPage from "./ordertracker/pages/CustomerDetailPage";
 import OrdersPage from "./ordertracker/pages/OrdersPage";
 import MyWorkPage from "./ordertracker/pages/MyWorkPage";
 import NewOrderPage from "./ordertracker/pages/NewOrderPage";
@@ -98,6 +99,7 @@ export default function App() {
                   <Route path="orders/new" element={<NewOrderPage />} />
                   <Route path="orders/:orderId" element={<OrderDetailPage />} />
                   <Route path="customers" element={<CustomersPage />} />
+                  <Route path="customers/:id" element={<CustomerDetailPage />} />
                   <Route path="manage-business" element={<ManageBusinessPage />} />
                   <Route path="business-settings" element={<BusinessSettingsPage />} />
                 </Route>
