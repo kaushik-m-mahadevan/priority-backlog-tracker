@@ -47,7 +47,8 @@ export default function ArchivePage() {
     <div>
       <h1 className="page-title">Completed Items</h1>
       <p className="page-sub">
-        Resolved, rejected, and archived items — {total} total. Read-only (§24).
+        Resolved, rejected, and archived items — {total} total. Read-only — once an item lands
+        here it can't be edited or brought back to the active list.
       </p>
       {error && <div className="error">{error}</div>}
 

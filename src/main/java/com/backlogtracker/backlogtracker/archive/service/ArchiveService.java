@@ -3,9 +3,13 @@ package com.backlogtracker.backlogtracker.archive.service;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.List;
+import java.util.function.Supplier;
 
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.data.mongodb.MongoTransactionManager;
+import org.springframework.data.mongodb.core.MongoOperations;
+import org.springframework.data.mongodb.core.query.Criteria;
+import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -38,17 +42,20 @@ public class ArchiveService {
     private final ArchivedItemRepository archived;
     private final GroupService groupService;
     private final Clock clock;
+    private final MongoOperations mongo;
     private final TransactionTemplate tx; // null when transactions are not available
 
     public ArchiveService(ItemRepository items,
                           ArchivedItemRepository archived,
                           GroupService groupService,
                           Clock clock,
+                          MongoOperations mongo,
                           ObjectProvider<MongoTransactionManager> txManager) {
         this.items = items;
         this.archived = archived;
         this.groupService = groupService;
         this.clock = clock;
+        this.mongo = mongo;
         MongoTransactionManager txm = txManager.getIfAvailable();
         this.tx = txm != null ? new TransactionTemplate(txm) : null;
         if (this.tx == null) {
@@ -81,18 +88,23 @@ public class ArchiveService {
         return move(item, TerminalStatus.ARCHIVED, actorId);
     }
 
+    /** Removes the item from {@code items} via an atomic {@code findAndRemove} first, and
+     *  only archives it if that removal actually found something — so if this same item is
+     *  being completed twice at once (e.g. the last approval on an archive request is
+     *  double-submitted), only the caller that actually wins the removal creates an
+     *  {@link ArchivedItem}; the loser's {@code findAndRemove} returns {@code null} instead
+     *  of racing a second, duplicate archived copy into existence. */
     private ArchivedItem move(Item item, TerminalStatus terminal, String actorId) {
         Instant now = clock.instant();
-        ArchivedItem toArchive = ArchivedItem.from(item, terminal, actorId, now);
-        Runnable move = () -> {
-            archived.save(toArchive);
-            items.deleteById(item.getId());
+        Supplier<ArchivedItem> move = () -> {
+            Item removed = mongo.findAndRemove(Query.query(Criteria.where("id").is(item.getId())), Item.class);
+            if (removed == null) {
+                throw new ResponseStatusException(HttpStatus.CONFLICT,
+                        "This item was already completed by someone else");
+            }
+            return archived.save(ArchivedItem.from(removed, terminal, actorId, now));
         };
-        if (tx != null) {
-            tx.executeWithoutResult(status -> move.run());
-        } else {
-            move.run();
-        }
+        ArchivedItem toArchive = tx != null ? tx.execute(status -> move.get()) : move.get();
         log.info("Item {} ({}) -> {} archived", item.getItemId(), item.getId(), terminal);
         return toArchive;
     }

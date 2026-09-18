@@ -55,4 +55,27 @@ export const imagesApi = {
     const blob = await res.blob();
     return URL.createObjectURL(blob);
   },
+
+  /** The "attach a file at create time, but don't fail the whole save if the attachment
+   *  itself fails" dance — the record it belongs to is already saved by the time this
+   *  runs, so a failed upload is reported back as a soft warning message rather than an
+   *  exception, instead of every caller re-writing the same try/catch (e.g. Finance
+   *  Tracker's Expenses/Income pages both attach a bill this exact way). Returns `null` on
+   *  success (or when there's no file to upload), or a ready-to-display warning string. */
+  uploadIfAny: async (
+    groupId: string,
+    ownerType: string,
+    ownerId: string,
+    file: File | null,
+    recordedLabel: string,
+  ): Promise<string | null> => {
+    if (!file) return null;
+    try {
+      await imagesApi.upload(groupId, ownerType, ownerId, file);
+      return null;
+    } catch (err) {
+      const detail = err instanceof Error ? `: ${err.message}` : "";
+      return `${recordedLabel}, but the bill didn't upload${detail}`;
+    }
+  },
 };

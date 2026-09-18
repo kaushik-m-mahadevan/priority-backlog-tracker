@@ -1,17 +1,13 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "../../auth/AuthContext";
+import { BillFileInput, BillPreview, LEDGER_ENTRY_OWNER_TYPE } from "../../components/BillAttachmentField";
 import BillSideBySide from "../../components/BillSideBySide";
-import FilePreview from "../../components/FilePreview";
-import ImageGallery from "../../components/ImageGallery";
 import { imagesApi } from "../../components/imagesApi";
 import { financeTrackerApi } from "../api";
 import { useFinanceGroup } from "../FinanceGroupContext";
 import type { LedgerEntryView, ShareInput } from "../types";
 
 type SplitMode = "business" | "split";
-
-const BILL_ACCEPT = "image/jpeg,image/png,image/webp,application/pdf";
-const LEDGER_ENTRY_OWNER_TYPE = "ledgerEntry";
 
 /** Logging a personal expenditure or a business-attributed one (which is how a
  *  reimbursement is modeled here — see LedgerEntry's own doc comment) is the same form:
@@ -113,13 +109,9 @@ export default function ExpensesPage() {
         await financeTrackerApi.updateLedgerEntry(currentGroupId, editingId, body);
       } else {
         const created = await financeTrackerApi.logLedgerEntry(currentGroupId, body);
-        if (billFile) {
-          try {
-            await imagesApi.upload(currentGroupId, LEDGER_ENTRY_OWNER_TYPE, created.id, billFile);
-          } catch (err) {
-            setError(err instanceof Error ? `Expense logged, but the bill didn't upload: ${err.message}` : "Expense logged, but the bill didn't upload");
-          }
-        }
+        const uploadWarning = await imagesApi.uploadIfAny(
+          currentGroupId, LEDGER_ENTRY_OWNER_TYPE, created.id, billFile, "Expense logged");
+        if (uploadWarning) setError(uploadWarning);
       }
       resetForm();
       load();
@@ -146,17 +138,7 @@ export default function ExpensesPage() {
 
       <form className="card" onSubmit={submit} style={{ marginBottom: 16 }}>
         {error && <div className="error">{error}</div>}
-        <BillSideBySide
-          preview={
-            editingId ? (
-              <ImageGallery groupId={currentGroupId!} ownerType={LEDGER_ENTRY_OWNER_TYPE} ownerId={editingId} accept={BILL_ACCEPT} />
-            ) : billFile ? (
-              <FilePreview file={billFile} />
-            ) : (
-              <p className="muted" style={{ fontSize: 12 }}>No bill attached yet.</p>
-            )
-          }
-        >
+        <BillSideBySide preview={<BillPreview editingId={editingId} groupId={currentGroupId!} billFile={billFile} />}>
           <div className="form-row">
             <label htmlFor="exp-description">Description</label>
             <input id="exp-description" value={description} onChange={(e) => setDescription(e.target.value)} required />
@@ -213,17 +195,7 @@ export default function ExpensesPage() {
             </div>
           )}
 
-          {!editingId && (
-            <div className="form-row">
-              <label htmlFor="exp-bill">Attach a bill (optional)</label>
-              <input
-                id="exp-bill"
-                type="file"
-                accept={BILL_ACCEPT}
-                onChange={(e) => setBillFile(e.target.files?.[0] ?? null)}
-              />
-            </div>
-          )}
+          <BillFileInput id="exp-bill" editingId={editingId} onChange={setBillFile} />
 
           <div className="toolbar">
             <button className="primary" type="submit" disabled={submitting}>

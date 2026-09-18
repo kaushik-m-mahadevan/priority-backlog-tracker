@@ -150,6 +150,29 @@ class ArchiveRequestApiTest {
     }
 
     @Test
+    void aMemberLeavingMidVoteInvalidatesThePendingRequestInsteadOfImplicitlyApprovingIt() throws Exception {
+        addB();
+        String id = createItem("member leaves mid-vote", tokenA);
+        String rqId = mapper.readTree(mvc.perform(post("/api/items/" + id + "/archive-requests")
+                        .header("Authorization", "Bearer " + tokenA)
+                        .contentType(MediaType.APPLICATION_JSON).content("{}"))
+                .andReturn().getResponse().getContentAsString()).get("id").asText();
+
+        // B leaves without ever approving/rejecting.
+        mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                        .delete("/api/groups/" + groupId + "/members/me").header("Authorization", "Bearer " + tokenB))
+                .andExpect(status().isNoContent());
+
+        // The request is invalidated, not silently resolved as unanimous among the
+        // now-single-member group.
+        mvc.perform(get("/api/items/" + id).header("Authorization", "Bearer " + tokenA))
+                .andExpect(status().isOk());
+        mvc.perform(post("/api/archive-requests/" + rqId + "/approve").header("Authorization", "Bearer " + tokenA))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.message").value("This request is already INVALIDATED"));
+    }
+
+    @Test
     void directArchiveIsBlockedForMultiMemberGroups() throws Exception {
         addB();
         String id = createItem("no shortcut", tokenA);

@@ -97,6 +97,32 @@ class ProfitDistributionServiceTest {
                 .containsExactlyInAnyOrder(new BigDecimal("200.00"), new BigDecimal("100.00"));
     }
 
+    /** Regression test for the documented remainder-absorption rule in computeAmounts():
+     *  the last proportional recipient gets `remaining.subtract(allocated)` instead of its
+     *  own division, specifically to absorb a non-terminating remainder. The 2:1-on-300
+     *  test above is evenly divisible and never exercises that branch — a 1:1:1 split on
+     *  100.00 forces a real remainder (100/3 = 33.333...) so a future "simplification" that
+     *  makes every recipient divide independently would be caught here (it would produce
+     *  33.33 + 33.33 + 33.33 = 99.99, a penny short). */
+    @Test
+    void anUnevenThreeWaySplitAbsorbsTheRoundingRemainderOnTheLastRecipient() {
+        ProposeProfitDistributionRequest request = new ProposeProfitDistributionRequest(
+                "Order #uneven-split", new BigDecimal("100.00"), List.of(
+                        new RecipientInput(coordinatorId, 1, null),
+                        new RecipientInput(creatorAId, 1, null),
+                        new RecipientInput(creatorBId, 1, null)));
+
+        ProfitDistributionView proposed = profitDistributionService.propose(financeGroup.getId(), coordinatorId, request);
+        profitDistributionService.approve(financeGroup.getId(), creatorAId, proposed.requestId());
+        ProfitDistributionView resolved = profitDistributionService.approve(financeGroup.getId(), creatorBId, proposed.requestId());
+
+        assertThat(resolved.recipients()).extracting(ProfitDistributionView.RecipientAmountView::amount)
+                .containsExactlyInAnyOrder(new BigDecimal("33.33"), new BigDecimal("33.33"), new BigDecimal("33.34"));
+        BigDecimal total = resolved.recipients().stream().map(ProfitDistributionView.RecipientAmountView::amount)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        assertThat(total).isEqualByComparingTo("100.00");
+    }
+
     @Test
     void aManualOverrideTakesThatRecipientOutOfTheProportionalPool() {
         var request = new ProposeProfitDistributionRequest("Order #124", new BigDecimal("300.00"), List.of(

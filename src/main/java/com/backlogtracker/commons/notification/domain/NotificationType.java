@@ -17,5 +17,8 @@ public enum NotificationType {
     ORDER_FINALIZATION_INVALIDATED,
     /** Informational: your pending profit-distribution proposal was auto-cancelled because
      *  a member left the group mid-approval — you can re-propose. */
-    PROFIT_DISTRIBUTION_INVALIDATED
+    PROFIT_DISTRIBUTION_INVALIDATED,
+    /** Informational: your pending archive request was auto-cancelled because a member
+     *  left the group mid-approval — you can re-raise it. */
+    ARCHIVE_REQUEST_INVALIDATED
 }

@@ -6,9 +6,20 @@ import { useGroups } from "../groups/GroupContext";
 import { BellIcon } from "./icons";
 import { formatDateTime } from "../lib/format";
 
+/** Every purely-informational, message-only notification type — rendered identically,
+ *  regardless of which applet's workflow raised it (see the render logic below). */
+const INFO_ONLY_TYPES = [
+  "ARCHIVE_RESULT",
+  "PASSWORD_RESULT",
+  "COST_CONFIG_INVALIDATED",
+  "ORDER_FINALIZATION_INVALIDATED",
+  "PROFIT_DISTRIBUTION_INVALIDATED",
+  "ARCHIVE_REQUEST_INVALIDATED",
+] as const;
+
 interface NotificationView {
   id: string;
-  type: "GROUP_INVITE" | "ARCHIVE_REQUEST" | "ARCHIVE_RESULT" | "PASSWORD_RESULT" | "COST_CONFIG_INVALIDATED";
+  type: "GROUP_INVITE" | "ARCHIVE_REQUEST" | (typeof INFO_ONLY_TYPES)[number];
   status: "PENDING" | "ACCEPTED" | "DECLINED";
   createdAt: string | null;
   groupId: string;
@@ -153,7 +164,7 @@ export default function Bell() {
                 </>
               )}
 
-              {(n.type === "ARCHIVE_RESULT" || n.type === "PASSWORD_RESULT" || n.type === "COST_CONFIG_INVALIDATED") && (
+              {(INFO_ONLY_TYPES as readonly string[]).includes(n.type) && (
                 <>
                   <div>{n.message}</div>
                   <div className="sub">{formatDateTime(n.createdAt)}</div>

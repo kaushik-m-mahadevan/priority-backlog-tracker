@@ -74,7 +74,7 @@ export default function Layout() {
         <NavLink to="/backlog/attention" aria-label="Needs attention">
           <AttentionGlyph size={22} />
         </NavLink>
-        <NavLink to="/backlog/groups" aria-label="Groups">
+        <NavLink to="/backlog/team" aria-label="Team workload">
           <TeamGlyph size={22} />
         </NavLink>
         <NavLink to="/backlog/items" aria-label="Items">

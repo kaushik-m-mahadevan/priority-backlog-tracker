@@ -68,7 +68,7 @@ export function PriorityMark({ priority }: { priority: string }) {
   const config = useConfig();
   const shape = shapeFor(ratioOf(priority, config?.priorityValues));
   return (
-    <span className="pmark" title={priority}>
+    <span className="pmark" title={priority} role="img" aria-label={`Priority: ${priority}`}>
       <Glyph shape={shape} />
     </span>
   );

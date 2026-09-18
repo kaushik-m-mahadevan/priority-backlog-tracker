@@ -34,7 +34,7 @@ that are quietly stalling, and gives a lightweight view of who owns what.
 | `ownerId` | ObjectId (ref `users`) | Assignee, shown in Owner Workload (§6) |
 | `scope` | String | `shared` or `personal` — see §13 |
 | `notes` | Embedded object | `{ content, format: "markdown", updatedAt }` — see §17 |
-| `editLock` | Embedded object, nullable | `{ lockedBy, lockedAt }` — see §19 |
+| `version` | Long | Optimistic-locking version — see §19 (not the `editLock` field originally specced there) |
 | `archivalRequests` | Array of objects | Non-destructive request history — see §18 |
 | `createdAt`, `updatedAt` | Date | |
 
@@ -256,7 +256,8 @@ Every Settings save writes to `configHistory`:
 ## 16. Notes
 
 Single embedded editable object per item (`content`, `format: markdown`, `updatedAt`), no
-history. Protected from concurrent overwrite by the edit lock (§19).
+history. Protected from concurrent overwrite by the item's optimistic-locking version
+(§19), not a pessimistic edit lock.
 
 ---
 
@@ -294,7 +295,22 @@ whether pending, approved, or rejected.
 
 ---
 
-## 19. Edit Locking (Concurrency Control)
+## 19. Edit Locking (Concurrency Control) — superseded by optimistic locking
+
+**Implementation note (added in the round 4 review, 2026-09-18): this pessimistic
+`editLock` design was never built.** What actually shipped is simpler — a Mongo `@Version`
+field on `Item` (optimistic locking): a save carrying a stale version is rejected outright
+(`409`) rather than a would-be second editor being pre-emptively blocked from opening the
+item at all. `ItemFormModal` surfaces that `409` with a plain-language message ("Someone
+else changed this item since you opened it — your edits weren't saved. Close and reopen to
+get the latest.") rather than a proactive read-only mode. This is a legitimate, simpler
+alternative — genuinely concurrent edits on a personal backlog tracker are rare enough that
+losing a conflicting edit and being told to retry is an acceptable trade for not having to
+build and maintain lock acquisition/expiry/refresh at all. Left here for the historical
+record of what was originally specced, not as a description of the current app.
+
+<details>
+<summary>Original spec (not implemented)</summary>
 
 Guarantees two people are never editing the same document at once, via **atomic
 conditional acquisition** rather than a check-then-set race:
@@ -308,6 +324,8 @@ conditional acquisition** rather than a check-then-set race:
 - Refreshing the lock based on continued activity (so a long edit session doesn't lose
   its lock mid-edit) is a real usability improvement but is explicitly deferred — flat
   15-minute expiry is the MVP behavior, refresh-on-activity is a fast-follow.
+
+</details>
 
 ---
 

@@ -6,6 +6,7 @@ import java.util.List;
 
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.Id;
+import org.springframework.data.annotation.Version;
 import org.springframework.data.mongodb.core.index.Indexed;
 import org.springframework.data.mongodb.core.mapping.Document;
 
@@ -28,7 +29,7 @@ import lombok.Setter;
 @AllArgsConstructor
 public class ArchiveRequest {
 
-    public enum Status { PENDING, APPROVED, REJECTED }
+    public enum Status { PENDING, APPROVED, REJECTED, INVALIDATED }
 
     @Id
     private String id;
@@ -55,6 +56,12 @@ public class ArchiveRequest {
     @CreatedDate
     private Instant createdAt;
     private Instant decidedAt;
+
+    /** Guards the read-modify-write on {@code approvedByUserIds} — two members approving
+     *  at once retry on a lost-update race instead of one silently overwriting the other's
+     *  vote (same pattern as {@code CostConfigChangeRequest}/{@code TransferRequest}). */
+    @Version
+    private Long version;
 
     public boolean hasApproval(String userId) {
         return approvedByUserIds.contains(userId);

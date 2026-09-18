@@ -65,7 +65,7 @@ const STAGES = [
 export function EffortIcon({ effort, size = 22 }: { effort: Effort | null; size?: number }) {
   const stage = growthStage(effort);
   return (
-    <span className="eff" title={effortLabel(effort)} aria-label={effortLabel(effort)}>
+    <span className="eff" title={effortLabel(effort)} role="img" aria-label={effortLabel(effort)}>
       <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
         {STAGES[stage]}
       </svg>

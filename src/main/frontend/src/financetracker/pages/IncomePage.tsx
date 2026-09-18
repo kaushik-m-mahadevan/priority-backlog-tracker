@@ -1,16 +1,12 @@
 import { useEffect, useState } from "react";
+import { BillFileInput, BillPreview, LEDGER_ENTRY_OWNER_TYPE } from "../../components/BillAttachmentField";
 import BillSideBySide from "../../components/BillSideBySide";
-import FilePreview from "../../components/FilePreview";
-import ImageGallery from "../../components/ImageGallery";
 import { imagesApi } from "../../components/imagesApi";
 import { financeTrackerApi } from "../api";
 import { useFinanceGroup } from "../FinanceGroupContext";
 import type { LedgerEntryView } from "../types";
 
 type CreditedTo = "business" | "person";
-
-const BILL_ACCEPT = "image/jpeg,image/png,image/webp,application/pdf";
-const LEDGER_ENTRY_OWNER_TYPE = "ledgerEntry";
 
 /** Income (an order payment, an investment from a specific person) reuses the same
  *  LedgerEntry ledger as expenses (type: INCOME) - no new backend, just this form. Unlike
@@ -100,13 +96,9 @@ export default function IncomePage() {
         await financeTrackerApi.updateLedgerEntry(currentGroupId, editingId, body);
       } else {
         const created = await financeTrackerApi.logLedgerEntry(currentGroupId, body);
-        if (billFile) {
-          try {
-            await imagesApi.upload(currentGroupId, LEDGER_ENTRY_OWNER_TYPE, created.id, billFile);
-          } catch (err) {
-            setError(err instanceof Error ? `Income logged, but the bill didn't upload: ${err.message}` : "Income logged, but the bill didn't upload");
-          }
-        }
+        const uploadWarning = await imagesApi.uploadIfAny(
+          currentGroupId, LEDGER_ENTRY_OWNER_TYPE, created.id, billFile, "Income logged");
+        if (uploadWarning) setError(uploadWarning);
       }
       resetForm();
       load();
@@ -130,17 +122,7 @@ export default function IncomePage() {
 
       <form className="card" onSubmit={submit} style={{ marginBottom: 16 }}>
         {error && <div className="error">{error}</div>}
-        <BillSideBySide
-          preview={
-            editingId ? (
-              <ImageGallery groupId={currentGroupId!} ownerType={LEDGER_ENTRY_OWNER_TYPE} ownerId={editingId} accept={BILL_ACCEPT} />
-            ) : billFile ? (
-              <FilePreview file={billFile} />
-            ) : (
-              <p className="muted" style={{ fontSize: 12 }}>No bill attached yet.</p>
-            )
-          }
-        >
+        <BillSideBySide preview={<BillPreview editingId={editingId} groupId={currentGroupId!} billFile={billFile} />}>
           <div className="form-row">
             <label htmlFor="inc-description">Description</label>
             <input
@@ -209,17 +191,7 @@ export default function IncomePage() {
             )}
           </div>
 
-          {!editingId && (
-            <div className="form-row">
-              <label htmlFor="inc-bill">Attach a bill (optional)</label>
-              <input
-                id="inc-bill"
-                type="file"
-                accept={BILL_ACCEPT}
-                onChange={(e) => setBillFile(e.target.files?.[0] ?? null)}
-              />
-            </div>
-          )}
+          <BillFileInput id="inc-bill" editingId={editingId} onChange={setBillFile} />
 
           <div className="toolbar">
             <button className="primary" type="submit" disabled={submitting}>
