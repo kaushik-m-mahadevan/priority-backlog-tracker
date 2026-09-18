@@ -207,7 +207,7 @@ export function TimeStageControl({ icon, label, estimatedHours, entries, onLog }
         {loggedTotal.toFixed(2)}h logged
         {estimatedHours > 0 && ` / ${estimatedHours.toFixed(2)}h estimated`}
         {estimatedHours > 0 && delta !== 0 && (
-          <> · {delta > 0 ? `over by ${delta.toFixed(2)}h` : `under by ${Math.abs(delta).toFixed(2)}h`}</>
+          <> · {delta > 0 ? `${delta.toFixed(2)}h over estimate` : `${Math.abs(delta).toFixed(2)}h remaining`}</>
         )}
       </span>
 

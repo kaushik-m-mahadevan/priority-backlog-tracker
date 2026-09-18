@@ -76,26 +76,35 @@ public class ProfitDistributionService {
 
     public ProfitDistributionView propose(String groupId, String userId, ProposeProfitDistributionRequest request) {
         Group group = groupService.requireMember(groupId, userId);
-        if (request.orderReference() == null || request.orderReference().isBlank()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "orderReference is required");
-        }
+        List<String> orderReferences = normalizeReferences(request.orderReferences());
         if (request.totalProfit() == null || request.totalProfit().signum() < 0) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "totalProfit must be zero or positive");
         }
         Map<String, BigDecimal> amounts = computeAmounts(group, request);
 
         Map<String, Object> payload = new LinkedHashMap<>();
-        payload.put("orderReference", request.orderReference().trim());
+        payload.put("orderReferences", orderReferences);
         payload.put("totalProfit", request.totalProfit());
         payload.put("recipients", request.recipients().stream()
                 .map(r -> Map.of("personId", (Object) r.personId(), "amount", (Object) amounts.get(r.personId())))
                 .toList());
 
-        ApprovalRequest approval = approvalService.propose(groupId, userId, kind(request.orderReference()), payload);
+        ApprovalRequest approval = approvalService.propose(groupId, userId, kind(orderReferences), payload);
         if (approval.getStatus() == ApprovalStatus.APPROVED) {
             applyDistribution(groupId, userId, approval);
         }
         return view(approval, group);
+    }
+
+    /** Trims and drops blanks; an empty result is a valid "general settlement" not tied to
+     *  any specific order, not an error (design decision, round 5 review) — the proposer
+     *  might genuinely be splitting profit across several orders they don't want to type
+     *  out individually, or not remember which order this covers at all. */
+    private static List<String> normalizeReferences(List<String> raw) {
+        if (raw == null) {
+            return List.of();
+        }
+        return raw.stream().filter(s -> s != null && !s.isBlank()).map(String::trim).toList();
     }
 
     public ProfitDistributionView approve(String groupId, String userId, String requestId) {
@@ -118,7 +127,8 @@ public class ProfitDistributionService {
      *  check, regardless of who cast the final approving vote). */
     @SuppressWarnings("unchecked")
     private void applyDistribution(String groupId, String proposedByUserId, ApprovalRequest approval) {
-        String orderReference = (String) approval.getPayload().get("orderReference");
+        List<String> orderReferences = (List<String>) approval.getPayload().getOrDefault("orderReferences", List.of());
+        String label = orderReferences.isEmpty() ? "General settlement" : String.join(", ", orderReferences);
         List<Map<String, Object>> recipients = (List<Map<String, Object>>) approval.getPayload().get("recipients");
         for (Map<String, Object> recipient : recipients) {
             String personId = (String) recipient.get("personId");
@@ -128,7 +138,7 @@ public class ProfitDistributionService {
             }
             ledgerEntryService.create(groupId, proposedByUserId, new CreateLedgerEntryRequest(
                     LedgerEntryType.INCOME,
-                    "Profit distribution: " + orderReference,
+                    "Profit distribution: " + label,
                     amount,
                     proposedByUserId,
                     List.of(new ShareInput(SplitPartyType.PERSON, personId, BigDecimal.ONE))));
@@ -223,13 +233,13 @@ public class ProfitDistributionService {
 
     @SuppressWarnings("unchecked")
     private ProfitDistributionView view(ApprovalRequest approval, Group group) {
-        String orderReference = (String) approval.getPayload().get("orderReference");
+        List<String> orderReferences = (List<String>) approval.getPayload().getOrDefault("orderReferences", List.of());
         BigDecimal totalProfit = toBigDecimal(approval.getPayload().get("totalProfit"));
         List<Map<String, Object>> recipients = (List<Map<String, Object>>) approval.getPayload().get("recipients");
         List<RecipientAmountView> recipientViews = recipients.stream()
                 .map(r -> new RecipientAmountView((String) r.get("personId"), toBigDecimal(r.get("amount"))))
                 .toList();
-        return new ProfitDistributionView(approval.getId(), approval.getStatus(), orderReference, totalProfit,
+        return new ProfitDistributionView(approval.getId(), approval.getStatus(), orderReferences, totalProfit,
                 recipientViews, approval.getProposedByUserId(), approval.getApprovedByUserIds(),
                 group.getMemberIds(), approval.getCreatedAt(), approval.getResolvedAt());
     }
@@ -243,7 +253,15 @@ public class ProfitDistributionService {
         return request;
     }
 
-    private String kind(String orderReference) {
-        return KIND_PREFIX + orderReference.trim();
+    /** Order-reference proposals dedup on the same set of references (so you can't have two
+     *  pending proposals covering the identical order(s) at once) — sorted so the same set
+     *  in a different typing order still collides. A general settlement (no references) has
+     *  nothing to dedup against, so each one gets its own random key and any number can be
+     *  pending at once. */
+    private String kind(List<String> orderReferences) {
+        if (orderReferences.isEmpty()) {
+            return KIND_PREFIX + "general:" + java.util.UUID.randomUUID();
+        }
+        return KIND_PREFIX + orderReferences.stream().sorted().reduce((a, b) -> a + "," + b).orElseThrow();
     }
 }

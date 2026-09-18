@@ -71,7 +71,7 @@ class ProfitDistributionServiceTest {
     }
 
     private ProposeProfitDistributionRequest proportionalRequest() {
-        return new ProposeProfitDistributionRequest("Order #123", new BigDecimal("300.00"), List.of(
+        return new ProposeProfitDistributionRequest(List.of("Order #123"), new BigDecimal("300.00"), List.of(
                 new RecipientInput(creatorAId, 2, null),
                 new RecipientInput(creatorBId, 1, null)));
     }
@@ -107,7 +107,7 @@ class ProfitDistributionServiceTest {
     @Test
     void anUnevenThreeWaySplitAbsorbsTheRoundingRemainderOnTheLastRecipient() {
         ProposeProfitDistributionRequest request = new ProposeProfitDistributionRequest(
-                "Order #uneven-split", new BigDecimal("100.00"), List.of(
+                List.of("Order #uneven-split"), new BigDecimal("100.00"), List.of(
                         new RecipientInput(coordinatorId, 1, null),
                         new RecipientInput(creatorAId, 1, null),
                         new RecipientInput(creatorBId, 1, null)));
@@ -125,7 +125,7 @@ class ProfitDistributionServiceTest {
 
     @Test
     void aManualOverrideTakesThatRecipientOutOfTheProportionalPool() {
-        var request = new ProposeProfitDistributionRequest("Order #124", new BigDecimal("300.00"), List.of(
+        var request = new ProposeProfitDistributionRequest(List.of("Order #124"), new BigDecimal("300.00"), List.of(
                 new RecipientInput(creatorAId, 2, new BigDecimal("50.00")),
                 new RecipientInput(creatorBId, 1, null)));
 
@@ -141,7 +141,7 @@ class ProfitDistributionServiceTest {
 
     @Test
     void rejectsOverridesThatExceedTheTotalProfit() {
-        var request = new ProposeProfitDistributionRequest("Order #125", new BigDecimal("100.00"), List.of(
+        var request = new ProposeProfitDistributionRequest(List.of("Order #125"), new BigDecimal("100.00"), List.of(
                 new RecipientInput(creatorAId, 0, new BigDecimal("80.00")),
                 new RecipientInput(creatorBId, 0, new BigDecimal("50.00"))));
 
@@ -183,10 +183,45 @@ class ProfitDistributionServiceTest {
     void differentOrderReferencesDoNotBlockEachOther() {
         profitDistributionService.propose(financeGroup.getId(), coordinatorId, proportionalRequest());
 
-        var otherOrder = new ProposeProfitDistributionRequest("Order #999", new BigDecimal("50.00"), List.of(
+        var otherOrder = new ProposeProfitDistributionRequest(List.of("Order #999"), new BigDecimal("50.00"), List.of(
                 new RecipientInput(creatorAId, 1, null)));
         ProfitDistributionView other = profitDistributionService.propose(financeGroup.getId(), coordinatorId, otherOrder);
 
         assertThat(other.status()).isEqualTo(ApprovalStatus.PENDING);
+    }
+
+    @Test
+    void aProposalCanCoverSeveralOrdersAtOnce() {
+        var request = new ProposeProfitDistributionRequest(
+                List.of("Order #201", "Order #202", "Order #203"), new BigDecimal("300.00"), List.of(
+                        new RecipientInput(creatorAId, 2, null),
+                        new RecipientInput(creatorBId, 1, null)));
+
+        ProfitDistributionView proposed = profitDistributionService.propose(financeGroup.getId(), coordinatorId, request);
+
+        assertThat(proposed.orderReferences()).containsExactly("Order #201", "Order #202", "Order #203");
+    }
+
+    @Test
+    void anEmptyOrderReferenceListIsAGeneralSettlementNotAnError() {
+        var request = new ProposeProfitDistributionRequest(List.of(), new BigDecimal("90.00"), List.of(
+                new RecipientInput(creatorAId, 1, null)));
+
+        ProfitDistributionView proposed = profitDistributionService.propose(financeGroup.getId(), coordinatorId, request);
+
+        assertThat(proposed.orderReferences()).isEmpty();
+    }
+
+    @Test
+    void multipleGeneralSettlementsCanBePendingAtOnceSinceNoneAreTiedToASpecificOrder() {
+        var first = new ProposeProfitDistributionRequest(List.of(), new BigDecimal("90.00"), List.of(
+                new RecipientInput(creatorAId, 1, null)));
+        var second = new ProposeProfitDistributionRequest(List.of(), new BigDecimal("40.00"), List.of(
+                new RecipientInput(creatorBId, 1, null)));
+
+        profitDistributionService.propose(financeGroup.getId(), coordinatorId, first);
+        ProfitDistributionView secondProposed = profitDistributionService.propose(financeGroup.getId(), coordinatorId, second);
+
+        assertThat(secondProposed.status()).isEqualTo(ApprovalStatus.PENDING);
     }
 }

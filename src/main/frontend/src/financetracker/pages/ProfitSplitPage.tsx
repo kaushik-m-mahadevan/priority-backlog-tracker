@@ -24,7 +24,8 @@ export default function ProfitSplitPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
-  const [orderReference, setOrderReference] = useState("");
+  const [generalSettlement, setGeneralSettlement] = useState(false);
+  const [orderRefs, setOrderRefs] = useState<string[]>([""]);
   const [totalProfit, setTotalProfit] = useState("");
   const [recipients, setRecipients] = useState<RecipientDraft[]>([blankRecipient(), blankRecipient()]);
   const [submitting, setSubmitting] = useState(false);
@@ -48,7 +49,8 @@ export default function ProfitSplitPage() {
     .sort((a, b) => (b.resolvedAt ?? b.createdAt).localeCompare(a.resolvedAt ?? a.createdAt));
 
   const resetForm = () => {
-    setOrderReference("");
+    setGeneralSettlement(false);
+    setOrderRefs([""]);
     setTotalProfit("");
     setRecipients([blankRecipient(), blankRecipient()]);
     setShowForm(false);
@@ -59,8 +61,13 @@ export default function ProfitSplitPage() {
     if (!currentGroupId) return;
     setError(null);
     const profit = Number(totalProfit);
-    if (!orderReference.trim() || !profit || profit < 0) {
-      setError("Enter an order reference and a total profit of zero or more");
+    if (!profit || profit < 0) {
+      setError("Enter a total profit of zero or more");
+      return;
+    }
+    const references = generalSettlement ? [] : orderRefs.map((r) => r.trim()).filter(Boolean);
+    if (!generalSettlement && references.length === 0) {
+      setError("Enter at least one order reference, or check \"General settlement\"");
       return;
     }
     const usable = recipients.filter((r) => r.personId);
@@ -77,7 +84,7 @@ export default function ProfitSplitPage() {
     setSubmitting(true);
     try {
       await financeTrackerApi.proposeProfitDistribution(currentGroupId, {
-        orderReference: orderReference.trim(),
+        orderReferences: references,
         totalProfit: profit,
         recipients: body,
       });
@@ -89,6 +96,11 @@ export default function ProfitSplitPage() {
       setSubmitting(false);
     }
   };
+
+  const updateOrderRef = (index: number, value: string) =>
+    setOrderRefs(orderRefs.map((r, i) => (i === index ? value : r)));
+
+  const orderLabel = (refs: string[]) => (refs.length > 0 ? refs.join(", ") : "General settlement");
 
   const respond = async (requestId: string, approve: boolean) => {
     if (!currentGroupId) return;
@@ -126,7 +138,7 @@ export default function ProfitSplitPage() {
             const haveApproved = d.approvedByUserIds.includes(user?.id ?? "");
             return (
               <div className="card" key={d.requestId} style={{ background: "var(--bg-elev-2)", marginBottom: 10 }}>
-                <div className="row"><span className="k">Order</span><span className="v">{d.orderReference}</span></div>
+                <div className="row"><span className="k">Order</span><span className="v">{orderLabel(d.orderReferences)}</span></div>
                 <div className="row"><span className="k">Total profit</span><span className="v">{fmt(d.totalProfit)}</span></div>
                 {d.recipients.map((r) => (
                   <div className="row" key={r.personId}>
@@ -143,14 +155,14 @@ export default function ProfitSplitPage() {
                   <div className="toolbar">
                     <button
                       className="primary"
-                      aria-label={`Approve profit split for ${d.orderReference}`}
+                      aria-label={`Approve profit split for ${orderLabel(d.orderReferences)}`}
                       disabled={respondingId === d.requestId}
                       onClick={() => respond(d.requestId, true)}
                     >
                       Approve
                     </button>
                     <button
-                      aria-label={`Reject profit split for ${d.orderReference}`}
+                      aria-label={`Reject profit split for ${orderLabel(d.orderReferences)}`}
                       disabled={respondingId === d.requestId}
                       onClick={() => respond(d.requestId, false)}
                     >
@@ -177,19 +189,51 @@ export default function ProfitSplitPage() {
 
         {showForm && (
           <form onSubmit={submitPropose} style={{ marginTop: 12 }}>
+            <div className="form-row">
+              <label style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                <input
+                  type="checkbox"
+                  checked={generalSettlement}
+                  onChange={(e) => setGeneralSettlement(e.target.checked)}
+                />
+                General settlement (not tied to a specific order — e.g. you don't remember which one)
+              </label>
+            </div>
+
+            {!generalSettlement && (
+              <div className="form-row">
+                <label>Order reference(s)</label>
+                <p className="hint" style={{ marginTop: 0 }}>
+                  One split can cover several orders — add another row to settle them together.
+                </p>
+                {orderRefs.map((r, i) => (
+                  <div key={i} style={{ display: "flex", gap: 8, marginBottom: 6 }}>
+                    <input
+                      aria-label={`Order reference ${i + 1}`}
+                      placeholder="e.g. Order #94561842000001"
+                      value={r}
+                      onChange={(e) => updateOrderRef(i, e.target.value)}
+                      style={{ flex: 1 }}
+                    />
+                    <button
+                      type="button"
+                      aria-label={`Remove order reference ${i + 1}`}
+                      onClick={() => setOrderRefs(orderRefs.filter((_, idx) => idx !== i))}
+                      disabled={orderRefs.length <= 1}
+                    >
+                      Remove
+                    </button>
+                  </div>
+                ))}
+                <button type="button" onClick={() => setOrderRefs([...orderRefs, ""])}>
+                  + Add order reference
+                </button>
+              </div>
+            )}
+
             <div className="form-grid">
               <div className="form-row">
-                <label htmlFor="ps-order-ref">Order reference</label>
-                <input
-                  id="ps-order-ref"
-                  placeholder="e.g. Order #94561842000001"
-                  value={orderReference}
-                  onChange={(e) => setOrderReference(e.target.value)}
-                  required
-                />
-              </div>
-              <div className="form-row">
-                <label htmlFor="ps-total-profit">Total profit</label>
+                <label htmlFor="ps-total-profit">Total profit *</label>
                 <input
                   id="ps-total-profit"
                   type="number"
@@ -289,7 +333,7 @@ export default function ProfitSplitPage() {
               <tbody>
                 {resolved.map((d) => (
                   <tr key={d.requestId}>
-                    <td className="cell-title">{d.orderReference}</td>
+                    <td className="cell-title">{orderLabel(d.orderReferences)}</td>
                     <td className="cell-order mono">{fmt(d.totalProfit)}</td>
                     <td className="cell-type">{d.status}</td>
                   </tr>

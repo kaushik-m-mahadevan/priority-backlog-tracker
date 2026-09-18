@@ -56,9 +56,9 @@ export default function ItemFormModal({ existing, onClose, onSaved, onComplete }
   const { categories } = useGroupCategories();
   const editing = !!existing;
 
-  const plus30 = () => {
+  const defaultDueDate = () => {
     const d = new Date();
-    d.setDate(d.getDate() + 30);
+    d.setDate(d.getDate() + (config?.defaultDueDateOffsetDays ?? 30));
     return d.toISOString().slice(0, 10);
   };
 
@@ -68,7 +68,7 @@ export default function ItemFormModal({ existing, onClose, onSaved, onComplete }
     priority: existing?.priority ?? "",
     unit: (existing?.effort?.unit ?? "MINUTES") as Unit,
     value: String(existing?.effort?.value ?? 30),
-    dueDate: existing?.dueDate ? existing.dueDate.slice(0, 10) : plus30(),
+    dueDate: existing?.dueDate ? existing.dueDate.slice(0, 10) : defaultDueDate(),
     ownerId: existing?.ownerId ?? "",
     notes: existing?.notes?.content ?? "",
   };
@@ -213,16 +213,17 @@ export default function ItemFormModal({ existing, onClose, onSaved, onComplete }
           )}
         </div>
         {error && <div className="error">{error}</div>}
+        <p className="muted" style={{ fontSize: 12, marginBottom: 8 }}>* Required — everything else can be filled in later.</p>
 
         <form onSubmit={submit}>
           <div className="form-row">
-            <label htmlFor="item-title">Title</label>
+            <label htmlFor="item-title">Title *</label>
             <input id="item-title" value={title} onChange={(e) => setTitle(e.target.value)} required autoFocus />
           </div>
 
           <div className="form-grid">
             <div className="form-row">
-              <label htmlFor="item-category">Category</label>
+              <label htmlFor="item-category">Category *</label>
               <select id="item-category" value={category} onChange={(e) => setCategory(e.target.value)} required>
                 <option value="" disabled>
                   Select…
@@ -235,7 +236,7 @@ export default function ItemFormModal({ existing, onClose, onSaved, onComplete }
               </select>
             </div>
             <div className="form-row">
-              <label htmlFor="item-priority">Priority</label>
+              <label htmlFor="item-priority">Priority *</label>
               <select id="item-priority" value={priority} onChange={(e) => setPriority(e.target.value)} required>
                 <option value="" disabled>
                   Select…

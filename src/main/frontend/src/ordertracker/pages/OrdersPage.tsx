@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { formatDate } from "../../lib/format";
 import { orderTrackerApi } from "../api";
 import { useBusiness } from "../BusinessContext";
+import { OrderDueDate } from "../OrderDueDate";
 import type { Customer, OrderView } from "../types";
 
 export default function OrdersPage() {
@@ -74,17 +74,17 @@ export default function OrdersPage() {
                     <span className="badge">{o.orderType}</span>
                   </td>
                   <td className="cell-status">
-                    <span className="badge">{o.status}</span>
+                    <span className="badge">{o.status.replace(/_/g, " ")}</span>
                   </td>
                   <td className="cell-completion">{o.completionPercentage.toFixed(0)}%</td>
                   <td className="cell-due">
-                    {(() => {
-                      const due = o.orderType === "INDIVIDUAL" ? o.costEstimate?.computedDueDate : o.bulkDetails?.computedDueDate;
-                      return formatDate(due ?? null);
-                    })()}
+                    <OrderDueDate
+                      iso={(o.orderType === "INDIVIDUAL" ? o.costEstimate?.computedDueDate : o.bulkDetails?.computedDueDate) ?? null}
+                      status={o.status}
+                    />
                   </td>
                   <td className="cell-payment">
-                    <span className="badge">{o.paymentStatus}</span>
+                    <span className="badge">{o.paymentStatus.replace(/_/g, " ")}</span>
                   </td>
                 </tr>
               ))}

@@ -264,7 +264,7 @@ export default function RequestsPage() {
                     <td className="cell-subtitle">{memberName(r.requesterId)}</td>
                     <td className="cell-title">{yarnLabel(r.yarnTypeId)}</td>
                     <td className="cell-order mono">{r.fulfilledQuantity} / {r.requestedQuantity}</td>
-                    <td className="cell-type">{r.status}</td>
+                    <td className="cell-type">{r.status.replace(/_/g, " ")}</td>
                   </tr>
                 ))}
               </tbody>

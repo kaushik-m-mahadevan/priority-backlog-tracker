@@ -227,6 +227,7 @@ export default function NewOrderPage() {
       <h1 className="page-title">New order</h1>
       <form className="card" onSubmit={submit}>
         {error && <div className="error">{error}</div>}
+        <p className="muted" style={{ fontSize: 12, marginBottom: 12 }}>* Required — everything else can be filled in later.</p>
 
         <div style={{ marginBottom: 16 }}>
           <SlideToggle
@@ -247,7 +248,7 @@ export default function NewOrderPage() {
         <div className="form-grid">
           {customerMode === "existing" ? (
             <div className="form-row">
-              <label htmlFor="no-customer">Customer</label>
+              <label htmlFor="no-customer">Customer *</label>
               <select id="no-customer" value={customerId} onChange={(e) => setCustomerId(e.target.value)} required>
                 <option value="" disabled>
                   Select…
@@ -261,12 +262,12 @@ export default function NewOrderPage() {
             </div>
           ) : (
             <div className="form-row">
-              <label htmlFor="no-customer-name">Customer name</label>
+              <label htmlFor="no-customer-name">Customer name *</label>
               <input id="no-customer-name" value={newCustomerName} onChange={(e) => setNewCustomerName(e.target.value)} required />
             </div>
           )}
           <div className="form-row">
-            <label htmlFor="no-logged-by">Logged by (creator)</label>
+            <label htmlFor="no-logged-by">Logged by (creator) *</label>
             <select id="no-logged-by" value={createdByCreatorId} onChange={(e) => setCreatedByCreatorId(e.target.value)} required>
               {creators.map((c) => (
                 <option key={c.id} value={c.id}>
@@ -319,13 +320,13 @@ export default function NewOrderPage() {
         )}
 
         <div className="form-row">
-          <label htmlFor="no-item-name">Item name</label>
+          <label htmlFor="no-item-name">Item name *</label>
           <input id="no-item-name" value={itemName} onChange={(e) => setItemName(e.target.value)} placeholder="e.g. Amigurumi bear" required />
         </div>
 
         <div className="form-grid">
           <div className="form-row">
-            <label htmlFor="no-order-received">Order received</label>
+            <label htmlFor="no-order-received">Order received *</label>
             <input id="no-order-received" type="date" value={orderReceivedDate} onChange={(e) => setOrderReceivedDate(e.target.value)} required />
           </div>
           <div className="form-row">

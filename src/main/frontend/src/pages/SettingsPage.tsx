@@ -263,7 +263,7 @@ export default function SettingsPage() {
             </select>
           </div>
           <p className="hint" style={{ marginTop: 8 }}>
-            Instants are stored in UTC; this only changes how they read here (§22).
+            Times are stored in a single global format behind the scenes; this only changes how they're displayed to you here.
           </p>
         </div>
       </div>

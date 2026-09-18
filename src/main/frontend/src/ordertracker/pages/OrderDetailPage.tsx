@@ -5,6 +5,7 @@ import { orderTrackerApi } from "../api";
 import { useAuth } from "../../auth/AuthContext";
 import { useBusiness } from "../BusinessContext";
 import AddToGroupModal from "../AddToGroupModal";
+import { OrderDueDate } from "../OrderDueDate";
 import ImageGallery from "../../components/ImageGallery";
 import { TimeStageControl } from "../TimeTracking";
 import { useLinkedNeedleTypes } from "../useLinkedNeedleTypes";
@@ -822,7 +823,7 @@ export default function OrderDetailPage() {
             </option>
           ))}
         </select>
-        <span className="badge">{order.paymentStatus}</span>
+        <span className="badge">{order.paymentStatus.replace(/_/g, " ")}</span>
         <span className="spacer" />
         <button onClick={() => setAddingToGroup(true)}>Add to Priority Tracker</button>
         {!editing && (
@@ -1388,10 +1389,10 @@ export default function OrderDetailPage() {
             </>
           )}
           <div className="row"><span className="k">Estimated delivery</span>
-            <span className="v">{formatDate(dueDate ?? null)}</span></div>
+            <span className="v"><OrderDueDate iso={dueDate ?? null} status={order.status} /></span></div>
           {order.quotedDeliveryDate && (
             <div className="row"><span className="k">Quoted to customer</span>
-              <span className="v">{formatDate(order.quotedDeliveryDate)}</span></div>
+              <span className="v"><OrderDueDate iso={order.quotedDeliveryDate} status={order.status} /></span></div>
           )}
         </div>
       </Section>

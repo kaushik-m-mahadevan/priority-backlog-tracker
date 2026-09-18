@@ -6,7 +6,7 @@ import java.util.List;
 
 import com.backlogtracker.commons.approval.domain.ApprovalStatus;
 
-public record ProfitDistributionView(String requestId, ApprovalStatus status, String orderReference,
+public record ProfitDistributionView(String requestId, ApprovalStatus status, List<String> orderReferences,
                                      BigDecimal totalProfit, List<RecipientAmountView> recipients,
                                      String proposedByUserId, List<String> approvedByUserIds,
                                      List<String> groupMemberIds, Instant createdAt, Instant resolvedAt) {

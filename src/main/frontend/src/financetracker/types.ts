@@ -62,7 +62,8 @@ export interface ProfitDistributionRecipientInput {
 }
 
 export interface ProposeProfitDistributionRequest {
-  orderReference: string;
+  /** Empty means a "general settlement" not tied to any specific order. */
+  orderReferences: string[];
   totalProfit: number;
   recipients: ProfitDistributionRecipientInput[];
 }
@@ -75,7 +76,7 @@ export interface ProfitDistributionRecipientAmount {
 export interface ProfitDistributionView {
   requestId: string;
   status: ApprovalStatus;
-  orderReference: string;
+  orderReferences: string[];
   totalProfit: number;
   recipients: ProfitDistributionRecipientAmount[];
   proposedByUserId: string;
