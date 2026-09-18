@@ -168,12 +168,12 @@ class TransferRequestServiceTest {
     }
 
     /** Regression test for a lost-update race: fulfilledQuantity used to be a plain
-     *  read-modify-write with no @Version, so two concurrent partial fulfillments of the
-     *  same request could both read the same starting fulfilledQuantity and one save could
-     *  silently overwrite the other, undercounting how much was actually handed over. It's
-     *  now guarded by @Version with retry-on-conflict, so N concurrent 0.25-skein
-     *  fulfillments must all be recorded — fulfilledQuantity lands on exactly their sum,
-     *  never short. */
+     *  read-modify-write, so two concurrent partial fulfillments of the same request could
+     *  both read the same starting fulfilledQuantity and one save could silently overwrite
+     *  the other, undercounting how much was actually handed over. It's now a single atomic
+     *  conditional increment (see {@code reserveFulfillment}), so N concurrent 0.25-skein
+     *  fulfillments, all comfortably within the requested budget, must all be recorded —
+     *  fulfilledQuantity lands on exactly their sum, never short. */
     @Test
     void concurrentPartialFulfillmentsAreAllRecordedNotLost() throws Exception {
         inventoryService.setMyQuantity(inventoryGroup.getId(), targetId, wool.id(), 10.0);
@@ -200,5 +200,53 @@ class TransferRequestServiceTest {
                 .filter(t -> t.id().equals(created.id())).findFirst().orElseThrow();
         assertThat(finalState.fulfilledQuantity()).isEqualTo(n * 0.25);
         assertThat(inventoryService.mine(inventoryGroup.getId(), requesterId).get(0).quantity()).isEqualTo(n * 0.25);
+    }
+
+    /** Regression test for the round 4 review's flagged residual risk: fulfill()'s
+     *  "no more than requested" check used to read `remaining` once, before any retry
+     *  protection, so a stale read could in principle let concurrent fulfillments push
+     *  fulfilledQuantity past requestedQuantity. The cap is now enforced by the same atomic
+     *  findAndModify that increments fulfilledQuantity (see reserveFulfillment), so of 20
+     *  concurrent 1.0-skein fulfillment attempts against a 10.0-skein request, exactly 10
+     *  must succeed and 10 must be rejected — fulfilledQuantity can never land above 10.0,
+     *  under any interleaving. */
+    @Test
+    void concurrentFulfillmentsCanNeverPushFulfilledQuantityPastWhatWasRequested() throws Exception {
+        inventoryService.setMyQuantity(inventoryGroup.getId(), targetId, wool.id(), 20.0);
+        TransferRequestView created = transferRequestService.create(inventoryGroup.getId(), requesterId,
+                new CreateTransferRequestRequest(targetId, wool.id(), 10.0));
+
+        int n = 20;
+        ExecutorService pool = Executors.newFixedThreadPool(10);
+        try {
+            List<Callable<Boolean>> tasks = IntStream.range(0, n)
+                    .<Callable<Boolean>>mapToObj(i -> () -> {
+                        try {
+                            transferRequestService.fulfill(inventoryGroup.getId(), targetId, created.id(), 1.0);
+                            return true;
+                        } catch (ResponseStatusException e) {
+                            return false;
+                        }
+                    })
+                    .toList();
+            long succeeded = pool.invokeAll(tasks).stream().map(TransferRequestServiceTest::get).filter(Boolean::booleanValue).count();
+            assertThat(succeeded).isEqualTo(10);
+        } finally {
+            pool.shutdownNow();
+        }
+
+        TransferRequestView finalState = transferRequestService.list(inventoryGroup.getId(), requesterId).stream()
+                .filter(t -> t.id().equals(created.id())).findFirst().orElseThrow();
+        assertThat(finalState.fulfilledQuantity()).isEqualTo(10.0);
+        assertThat(inventoryService.mine(inventoryGroup.getId(), requesterId).get(0).quantity()).isEqualTo(10.0);
+        assertThat(inventoryService.mine(inventoryGroup.getId(), targetId).get(0).quantity()).isEqualTo(10.0);
+    }
+
+    private static <T> T get(java.util.concurrent.Future<T> f) {
+        try {
+            return f.get();
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
     }
 }

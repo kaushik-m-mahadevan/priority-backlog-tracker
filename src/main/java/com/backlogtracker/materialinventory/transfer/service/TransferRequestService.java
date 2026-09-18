@@ -4,7 +4,11 @@ import java.time.Clock;
 import java.time.Instant;
 import java.util.List;
 
-import org.springframework.dao.OptimisticLockingFailureException;
+import org.springframework.data.mongodb.core.FindAndModifyOptions;
+import org.springframework.data.mongodb.core.MongoOperations;
+import org.springframework.data.mongodb.core.query.Criteria;
+import org.springframework.data.mongodb.core.query.Query;
+import org.springframework.data.mongodb.core.query.Update;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
@@ -34,12 +38,9 @@ import lombok.extern.slf4j.Slf4j;
 public class TransferRequestService {
 
     private static final double QUARTER_STEP_EPSILON = 1e-9;
-    // Higher than CostConfigChangeService's equivalent retry cap: that request is contended
-    // by at most a handful of group members approving once each, while a transfer request
-    // can legitimately be fulfilled in many small installments in quick succession.
-    private static final int MAX_RESERVE_RETRIES = 20;
 
     private final TransferRequestRepository repository;
+    private final MongoOperations mongo;
     private final GroupService groupService;
     private final YarnTypeService yarnTypeService;
     private final InventoryService inventoryService;
@@ -85,13 +86,18 @@ public class TransferRequestService {
      *  (design decision: allow partial fulfillment, one or more installments). This moves
      *  the given quantity out of the target's own on-hand inventory into the requester's.
      *
-     *  <p>{@code request.fulfilledQuantity} is bumped in {@link #recordFulfillment} with
-     *  optimistic-lock retry (same pattern as {@code CostConfigChangeService.approve}), so
-     *  two concurrent fulfillments of the same request can't lose one another's update. The
-     *  actual inventory movement runs through {@link InventoryService#adjustQuantity}, which
-     *  is independently atomic against the physical stock ever going negative — that's the
-     *  one invariant that must never break, so it isn't retried here alongside the request
-     *  bookkeeping (retrying it would double-move yarn on a request-side retry). */
+     *  <p>The "no more than requested" cap is enforced by {@link #reserveFulfillment} as a
+     *  single atomic conditional update — not a read-then-write — so two concurrent
+     *  fulfillments of the same request can never together push {@code fulfilledQuantity}
+     *  past {@code requestedQuantity}, closing the race an earlier version of this method
+     *  left open (round 4 review flagged it as needing a real database transaction to fix;
+     *  it doesn't, since {@code requestedQuantity} is never mutated after creation — that
+     *  makes "not too much left" a plain atomic range filter, the same technique
+     *  {@code InventoryService.adjustQuantity} already uses for the physical quantity
+     *  itself). The reservation runs before the physical inventory move: if the inventory
+     *  move then fails (e.g. the target's on-hand quantity changed in the interim via some
+     *  other concurrent action), the reservation is rolled back so the request's own
+     *  bookkeeping never claims more was handed over than actually was. */
     public TransferRequestView fulfill(String groupId, String userId, String requestId, double quantity) {
         groupService.requireMember(groupId, userId);
         TransferRequest request = requireOpenRequest(groupId, requestId);
@@ -102,35 +108,53 @@ public class TransferRequestService {
         if (amount <= 0) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "quantity must be greater than zero");
         }
-        double remaining = request.getRequestedQuantity() - request.getFulfilledQuantity();
-        if (amount - remaining > QUARTER_STEP_EPSILON) {
+
+        TransferRequest reserved = reserveFulfillment(groupId, requestId, amount, request.getRequestedQuantity());
+        try {
+            inventoryService.adjustQuantity(groupId, request.getTargetUserId(), request.getYarnTypeId(), -amount);
+            inventoryService.adjustQuantity(groupId, request.getRequesterId(), request.getYarnTypeId(), amount);
+        } catch (RuntimeException e) {
+            unreserve(groupId, requestId, amount);
+            throw e;
+        }
+        return TransferRequestView.of(reserved);
+    }
+
+    /** Atomically increments {@code fulfilledQuantity} only if doing so wouldn't exceed
+     *  {@code requestedQuantity} — the query filter itself encodes the cap
+     *  ({@code fulfilledQuantity <= requestedQuantity - amount}), so a concurrent call that
+     *  would blow the budget simply doesn't match and gets a clean rejection instead of a
+     *  lost-update race. {@code requestedQuantity} is passed in from the caller's own
+     *  already-fresh read rather than re-fetched, since it's immutable after {@link #create}
+     *  ever sets it. */
+    private TransferRequest reserveFulfillment(String groupId, String requestId, double amount, double requestedQuantity) {
+        double maxFulfilledBefore = requestedQuantity - amount + QUARTER_STEP_EPSILON;
+        Query query = Query.query(Criteria.where("id").is(requestId).and("groupId").is(groupId)
+                .and("status").in(TransferStatus.PENDING, TransferStatus.PARTIALLY_FULFILLED)
+                .and("fulfilledQuantity").lte(maxFulfilledBefore));
+        Update update = new Update().inc("fulfilledQuantity", amount).set("status", TransferStatus.PARTIALLY_FULFILLED);
+        TransferRequest updated = mongo.findAndModify(query, update,
+                FindAndModifyOptions.options().returnNew(true), TransferRequest.class);
+        if (updated == null) {
+            // requireOpenRequest() throws its own (already-resolved) error if that's why the
+            // update above didn't match, so this message is only reached when the real cause
+            // is "not enough left".
+            TransferRequest current = requireOpenRequest(groupId, requestId);
+            double remaining = current.getRequestedQuantity() - current.getFulfilledQuantity();
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                     "That's more than is still requested (" + remaining + " remaining)");
         }
-
-        inventoryService.adjustQuantity(groupId, request.getTargetUserId(), request.getYarnTypeId(), -amount);
-        inventoryService.adjustQuantity(groupId, request.getRequesterId(), request.getYarnTypeId(), amount);
-
-        return TransferRequestView.of(recordFulfillment(groupId, requestId, amount));
+        return updated;
     }
 
-    private TransferRequest recordFulfillment(String groupId, String requestId, double amount) {
-        for (int attempt = 1; attempt <= MAX_RESERVE_RETRIES; attempt++) {
-            TransferRequest request = requireOpenRequest(groupId, requestId);
-            request.setFulfilledQuantity(request.getFulfilledQuantity() + amount);
-            if (request.getStatus() == TransferStatus.PENDING) {
-                request.setStatus(TransferStatus.PARTIALLY_FULFILLED);
-            }
-            try {
-                return repository.save(request);
-            } catch (OptimisticLockingFailureException e) {
-                if (attempt == MAX_RESERVE_RETRIES) {
-                    throw e;
-                }
-                log.info("Transfer fulfillment race on request {} — retrying (attempt {})", requestId, attempt);
-            }
-        }
-        throw new IllegalStateException("unreachable");
+    /** Compensates a successful reservation when the physical inventory move that was
+     *  supposed to follow it fails — without this, a failed transfer would still show as
+     *  partially fulfilled on the request even though no yarn actually moved. Not itself
+     *  atomic with the reservation (no real transaction backs this), but this is the rare
+     *  failure path, not the contended common case the atomic reservation above protects. */
+    private void unreserve(String groupId, String requestId, double amount) {
+        Query query = Query.query(Criteria.where("id").is(requestId).and("groupId").is(groupId));
+        mongo.updateFirst(query, new Update().inc("fulfilledQuantity", -amount), TransferRequest.class);
     }
 
     /** Only the target may mark a request complete (design decision), whether or not it

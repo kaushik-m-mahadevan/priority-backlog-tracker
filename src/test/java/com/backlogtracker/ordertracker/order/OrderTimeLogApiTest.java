@@ -206,6 +206,58 @@ class OrderTimeLogApiTest {
                 .andExpect(jsonPath("$.timeLogEntries.length()").value(0));
     }
 
+    /** Regression coverage for a gap the round 4 review flagged: this codebase documents
+     *  (in OrderService.toComponents's own comment) that omitting a component from a
+     *  resubmitted order drops it — and its logged time — entirely, matching the same
+     *  full-replace semantics already used for variants/envelope fields. That was a design
+     *  decision, not a bug, but nothing actually exercised it. Verifies the documented
+     *  behavior really happens: a component with real logged time against it, once left out
+     *  of an edit, is gone from the response with no error and no orphaned data. */
+    @Test
+    void removingAComponentInAnEditDropsItAndItsLoggedTimeWithoutError() throws Exception {
+        String templateBody = mvc.perform(auth(post("/api/ordertracker/groups/" + groupId + "/component-templates"), token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"label":"Vase base","baseCraftingTimeHours":2.5}"""))
+                .andReturn().getResponse().getContentAsString();
+        String templateId = mapper.readTree(templateBody).get("id").asText();
+
+        String orderBody = mvc.perform(auth(post("/api/ordertracker/groups/" + groupId + "/orders"), token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"customerId":"%s","orderType":"INDIVIDUAL","createdByCreatorId":"%s",
+                                 "itemName":"Spring bouquet vase","orderReceivedDate":"2026-01-01T00:00:00Z",
+                                 "components":[{"componentId":"comp-1","templateId":"%s","quantity":1,
+                                   "mandatoryItems":[],"addOns":[],"craftingTimeHours":2.5}]}"""
+                                .formatted(customerId, creatorAId, templateId)))
+                .andReturn().getResponse().getContentAsString();
+        String orderId = mapper.readTree(orderBody).get("id").asText();
+
+        mvc.perform(auth(post(timeLogUrl(orderId)), token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"stage":"CRAFTING","hours":1.5,"componentId":"comp-1"}"""))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.components[0].timeLogEntries.length()").value(1));
+
+        // Re-submit the order with no components at all — the documented full-replace drop.
+        mvc.perform(auth(put("/api/ordertracker/groups/" + groupId + "/orders/" + orderId), token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"itemName":"Spring bouquet vase","orderReceivedDate":"2026-01-01T00:00:00Z",
+                                 "mandatoryItems":[],"addOns":[],"components":[],"craftingTimeHours":0}"""))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.components.length()").value(0));
+
+        // Logging time against the now-gone componentId is a clean 404, not a server error
+        // or a silent no-op that would leave a phantom entry somewhere.
+        mvc.perform(auth(post(timeLogUrl(orderId)), token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"stage":"CRAFTING","hours":1,"componentId":"comp-1"}"""))
+                .andExpect(status().isNotFound());
+    }
+
     private String timeLogUrl(String orderId) {
         return "/api/ordertracker/groups/" + groupId + "/orders/" + orderId + "/time-log";
     }

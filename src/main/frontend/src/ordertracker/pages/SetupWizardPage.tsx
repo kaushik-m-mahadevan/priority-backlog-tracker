@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { api, ApiError } from "../../api/client";
 import { orderTrackerApi } from "../api";
 import { useBusiness } from "../BusinessContext";
@@ -30,6 +30,14 @@ export default function SetupWizardPage({ onDone }: { onDone: () => void }) {
   const [setUpInventory, setSetUpInventory] = useState(true);
   const [finishing, setFinishing] = useState(false);
   const [finishError, setFinishError] = useState<string | null>(null);
+  const stepRef = useRef<HTMLDivElement>(null);
+
+  // Move focus to the new step on every advance, so a screen-reader user isn't left
+  // focused on a button that just unmounted (round 4 review) — the container's own
+  // aria-label announces which step they've landed on even before its content is read.
+  useEffect(() => {
+    stepRef.current?.focus();
+  }, [step]);
 
   useEffect(() => {
     orderTrackerApi.businessConfig(groupId).then((cfg) => {
@@ -111,6 +119,7 @@ export default function SetupWizardPage({ onDone }: { onDone: () => void }) {
         ))}
       </div>
 
+      <div ref={stepRef} tabIndex={-1} aria-label={`Step ${step}: ${STEP_LABELS[step - 1]}`} style={{ outline: "none" }}>
       {step === 1 && config && (
         <div className="card">
           <h2>Business settings</h2>
@@ -202,6 +211,7 @@ export default function SetupWizardPage({ onDone }: { onDone: () => void }) {
           </div>
         </div>
       )}
+      </div>
     </div>
   );
 }

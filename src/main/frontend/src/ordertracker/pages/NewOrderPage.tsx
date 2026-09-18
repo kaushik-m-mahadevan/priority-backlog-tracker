@@ -4,11 +4,11 @@ import { orderTrackerApi } from "../api";
 import { useBusiness } from "../BusinessContext";
 import { useLinkedNeedleTypes } from "../useLinkedNeedleTypes";
 import { useLinkedYarnTypes } from "../useLinkedYarnTypes";
+import { SlideToggle } from "../../components/SlideToggle";
 import {
   AddOnsFields,
   ComponentsFields,
   MandatoryItemsFields,
-  SlideToggle,
   blankComponent,
   blankMandatoryItems,
   blankVariant,

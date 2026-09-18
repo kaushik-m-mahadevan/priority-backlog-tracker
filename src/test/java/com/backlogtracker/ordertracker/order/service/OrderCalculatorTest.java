@@ -202,6 +202,48 @@ class OrderCalculatorTest {
         assertThat(priced.getTotalTimeHours()).isCloseTo((1.2 + 0.3 + 0.1) * 26, within(1e-9));
     }
 
+    /** Regression test for a real gap the round 4 review found: estimateIndividual's
+     *  components-on-top-of-flat-fields additivity was tested, but priceVariant's — the
+     *  bulk path, which folds a *variant's own* components in exactly the same way — never
+     *  was. Verifies a bulk variant with one component priced per unit still multiplies out
+     *  correctly by the variant's own quantity, on top of the variant's flat mandatory
+     *  items/crafting time, with overhead/profit applied exactly once on the combined
+     *  per-unit total (never inside priceComponent itself). */
+    @Test
+    void bulkVariantPricingFoldsInAComponentsCostAndTimeOnTopOfTheFlatFields() {
+        Order.Component vaseBase = Order.Component.builder()
+                .componentId("c1").quantity(1).craftingTimeHours(2.5)
+                .mandatoryItems(List.of(item(1, 150))).addOns(List.of())
+                .build();
+        Variant variant = Variant.builder()
+                .variantId("v1").label("Spring vase").quantity(4)
+                .mandatoryItems(List.of()) // fully decomposed into components for this variant
+                .addOns(List.of())
+                .components(List.of(vaseBase))
+                .packaging(Packaging.builder().itemizedList(List.of()).build())
+                .craftingTimeHours(0)
+                .assemblyTimeHours(1.5)
+                .splitAllocation(List.of())
+                .build();
+
+        Variant priced = calc.priceVariant(variant, 0.15, 0.20);
+
+        // componentCost = 1*150 = 150; gross = mandatory(0) + components(150) + addOns(0) + packaging(0) = 150
+        double gross = 150;
+        double overhead = gross * 0.15;
+        double profit = (gross + overhead) * 0.20;
+        double perUnitCost = gross + overhead + profit;
+        assertThat(priced.getPerUnitCost()).isCloseTo(perUnitCost, within(1e-9));
+        assertThat(priced.getTotalCost()).isCloseTo(perUnitCost * 4, within(1e-9));
+        // componentTime = 1*2.5 = 2.5; perUnitTime = crafting(0) + componentsTime(2.5) + assembly(1.5) + packaging(0)
+        double perUnitTimeHours = 0 + 2.5 + 1.5 + 0;
+        assertThat(priced.getPerUnitTimeHours()).isCloseTo(perUnitTimeHours, within(1e-9));
+        assertThat(priced.getTotalTimeHours()).isCloseTo(perUnitTimeHours * 4, within(1e-9));
+        // the component itself carries no overhead/profit — only its raw scaled cost/time
+        assertThat(priced.getComponents().get(0).getTotalCost()).isEqualTo(150);
+        assertThat(priced.getComponents().get(0).getTotalTimeHours()).isCloseTo(2.5, within(1e-9));
+    }
+
     @Test
     void bulkDueDateIsDrivenByTheSlowestLoadedCreatorAcrossAllTheirVariants() {
         Variant v1 = calc.priceVariant(Variant.builder().variantId("v1").quantity(20)
