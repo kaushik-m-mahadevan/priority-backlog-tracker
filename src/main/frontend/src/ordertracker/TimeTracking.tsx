@@ -152,6 +152,7 @@ export function TimeStageControl({ icon, label, estimatedHours, entries, onLog }
           ref={triggerRef}
           type="button"
           aria-label={`Log ${label} time`}
+          title={`Log ${label} time — click, then drag the slider to set hours`}
           aria-expanded={open}
           onClick={() => (open ? setOpen(false) : openPopover())}
           className="time-track-button time-track-button-inline"
