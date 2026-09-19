@@ -27,7 +27,7 @@ class RegisterApiTest {
 
     @AfterEach
     void cleanUp() {
-        for (String e : new String[] {"reg@demo.test", "reg2@demo.test"}) {
+        for (String e : new String[] {"reg@demo.test", "reg2@demo.test", "tiny@demo.test", "tiny2@demo.test"}) {
             users.findByEmailIgnoreCase(e).ifPresent(users::delete);
         }
     }
@@ -64,25 +64,47 @@ class RegisterApiTest {
     }
 
     @Test
-    void rejectsDuplicateEmailAndHandle() throws Exception {
+    void rejectsDuplicateEmail() throws Exception {
         mvc.perform(register("Reg One", "dupe", "reg@demo.test", "changeme123"))
                 .andExpect(status().isCreated());
         mvc.perform(register("Reg Two", "dupe2", "reg@demo.test", "changeme123"))
                 .andExpect(status().isConflict());
+    }
+
+    @Test
+    void rejectsDuplicateHandle() throws Exception {
+        mvc.perform(register("Reg One", "dupe", "reg@demo.test", "changeme123"))
+                .andExpect(status().isCreated());
         mvc.perform(register("Reg Two", "dupe", "reg2@demo.test", "changeme123"))
                 .andExpect(status().isConflict());
     }
 
     @Test
-    void rejectsABadHandleOrShortPassword() throws Exception {
+    void rejectsAHandleContainingASpace() throws Exception {
         mvc.perform(register("X", "has space", "reg@demo.test", "changeme123"))
                 .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void rejectsAnUppercaseHandle() throws Exception {
         mvc.perform(register("X", "Upper", "reg@demo.test", "changeme123"))
                 .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void rejectsAnEmptyHandle() throws Exception {
         mvc.perform(register("X", "", "reg@demo.test", "changeme123"))
                 .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void rejectsAHandleLongerThanThirtyCharacters() throws Exception {
         mvc.perform(register("X", "x".repeat(31), "reg@demo.test", "changeme123"))
                 .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void rejectsAPasswordShorterThanTheMinimum() throws Exception {
         mvc.perform(register("X", "okhandle", "reg@demo.test", "short"))
                 .andExpect(status().isBadRequest());
     }
@@ -104,7 +126,12 @@ class RegisterApiTest {
     void acceptsAOneCharacterHandle() throws Exception {
         mvc.perform(register("Tiny", "q", "tiny@demo.test", "changeme123"))
                 .andExpect(status().isCreated());
-        // and it persisted — a second account can't take the same handle
+    }
+
+    @Test
+    void aOneCharacterHandlePersistsSoASecondAccountCannotTakeIt() throws Exception {
+        mvc.perform(register("Tiny", "q", "tiny@demo.test", "changeme123"))
+                .andExpect(status().isCreated());
         mvc.perform(register("Tiny Two", "q", "tiny2@demo.test", "changeme123"))
                 .andExpect(status().isConflict());
     }

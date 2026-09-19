@@ -84,17 +84,24 @@ class GroupLinkServiceTest {
     }
 
     @Test
-    void enforcesOneFinanceGroupPerBusinessAndOneBusinessPerFinanceGroup() {
+    void enforcesOneFinanceGroupPerBusiness() {
         Group business = groupService.create("Business", userId, Group.APPLET_ORDER_TRACKER);
         Group finance1 = groupService.create("Finance 1", userId, Group.APPLET_FINANCE_TRACKER);
         Group finance2 = groupService.create("Finance 2", userId, Group.APPLET_FINANCE_TRACKER);
-        Group business2 = groupService.create("Business 2", userId, Group.APPLET_ORDER_TRACKER);
-
         linkService.link(business.getId(), userId, finance1.getId());
 
         assertThatThrownBy(() -> linkService.link(business.getId(), userId, finance2.getId()))
                 .isInstanceOf(ResponseStatusException.class)
                 .hasMessageContaining("already linked");
+    }
+
+    @Test
+    void enforcesOneBusinessPerFinanceGroup() {
+        Group business = groupService.create("Business", userId, Group.APPLET_ORDER_TRACKER);
+        Group business2 = groupService.create("Business 2", userId, Group.APPLET_ORDER_TRACKER);
+        Group finance1 = groupService.create("Finance 1", userId, Group.APPLET_FINANCE_TRACKER);
+        linkService.link(business.getId(), userId, finance1.getId());
+
         assertThatThrownBy(() -> linkService.link(business2.getId(), userId, finance1.getId()))
                 .isInstanceOf(ResponseStatusException.class)
                 .hasMessageContaining("already linked");
