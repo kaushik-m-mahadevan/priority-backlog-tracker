@@ -216,6 +216,54 @@ class OrderApiTest {
                 .isEqualTo(java.time.Instant.parse("2026-01-05T00:00:00Z"));
     }
 
+    /** Regression coverage: hourlyWageConfirmed's effect on a real order's price was never
+     *  verified — only the confirm/unconfirm flag itself was tested (CostConfigChangeApiTest),
+     *  never that effectiveHourlyWage() actually changes what a re-priced order quotes. */
+    @Test
+    void confirmingANewHourlyWageChangesARepricedOrdersLaborCost() throws Exception {
+        String orderId = mvc.perform(auth(post("/api/ordertracker/groups/" + groupId + "/orders"), token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"customerId":"%s","orderType":"INDIVIDUAL","createdByCreatorId":"%s",
+                                 "itemName":"Wage test bear","orderReceivedDate":"2026-01-01T00:00:00Z",
+                                 "mandatoryItems":[],"addOns":[],"craftingTimeHours":4}"""
+                                .formatted(customerId, creatorAId)))
+                .andExpect(status().isOk())
+                // default unconfirmed wage is ₹100/h (BusinessConfig.DEFAULT_HOURLY_WAGE)
+                .andExpect(jsonPath("$.costEstimate.laborCost").value(400.0))
+                .andReturn().getResponse().getContentAsString();
+        orderId = mapper.readTree(orderId).get("id").asText();
+
+        String proposeBody = mvc.perform(auth(post(
+                        "/api/ordertracker/groups/" + groupId + "/business-config/change-requests"), token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"overheadPercentage":0.15,"profitMarginPercentage":0.20,"hourlyWage":150}"""))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+        String requestId = mapper.readTree(proposeBody).get("id").asText();
+
+        String tokenB = jwt.issue(users.findByEmailIgnoreCase("orderapitest-b@ot.test").orElseThrow());
+        mvc.perform(auth(post("/api/ordertracker/groups/" + groupId
+                        + "/business-config/change-requests/" + requestId + "/approve"), tokenB))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("APPROVED"));
+
+        mvc.perform(auth(get("/api/ordertracker/groups/" + groupId + "/business-config"), token))
+                .andExpect(jsonPath("$.hourlyWageConfirmed").value(true))
+                .andExpect(jsonPath("$.hourlyWage").value(150.0));
+
+        // Re-pricing the same order (any edit recomputes costEstimate against the live
+        // config) now uses the confirmed ₹150/h, not the old default.
+        mvc.perform(auth(put("/api/ordertracker/groups/" + groupId + "/orders/" + orderId), token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"itemName":"Wage test bear","orderReceivedDate":"2026-01-01T00:00:00Z",
+                                 "mandatoryItems":[],"addOns":[],"craftingTimeHours":4}"""))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.costEstimate.laborCost").value(600.0)); // 4h * ₹150
+    }
+
     @Test
     void individualOrderCanBeFullyEditedAndRecomputesCost() throws Exception {
         String orderId = createBasicIndividualOrder();
