@@ -18,6 +18,7 @@ import {
   ComponentsFields,
   MandatoryItemsFields,
   blankMandatoryItems,
+  blankVariant,
   duplicateVariant,
   validateSplits,
   type ComponentDraft,
@@ -634,7 +635,7 @@ function EditBulkDetailsForm({
           </div>
         );
       })}
-      <button type="button" onClick={() => setVariants((prev) => [...prev, duplicateVariant(prev[prev.length - 1])])}>
+      <button type="button" onClick={() => setVariants((prev) => [...prev, duplicateVariant(prev[prev.length - 1] ?? blankVariant())])}>
         + Add variant (copies the last one)
       </button>
 
