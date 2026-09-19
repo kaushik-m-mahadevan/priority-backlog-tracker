@@ -1,8 +1,10 @@
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { api, ApiError } from "../api/client";
 import { useGroups } from "../groups/GroupContext";
 import { useAuth } from "../auth/AuthContext";
 import { Creature } from "../components/Creature";
+import { formatDateTime } from "../lib/format";
+import type { PendingInvite } from "../types";
 
 export default function GroupsPage() {
   const { groups, currentGroupId, setCurrentGroup, refresh } = useGroups();
@@ -14,6 +16,17 @@ export default function GroupsPage() {
   const [invite, setInvite] = useState<Record<string, string>>({});
   const [renaming, setRenaming] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState("");
+  const [pendingInvites, setPendingInvites] = useState<Record<string, PendingInvite[]>>({});
+
+  const loadPendingInvites = (groupId: string) => {
+    api.get<PendingInvite[]>(`/groups/${groupId}/invites`).then((invites) =>
+      setPendingInvites((m) => ({ ...m, [groupId]: invites })));
+  };
+
+  useEffect(() => {
+    groups.forEach((g) => loadPendingInvites(g.id));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [groups.map((g) => g.id).join(",")]);
 
   function startRename(id: string, current: string) {
     setRenaming(id);
@@ -49,6 +62,7 @@ export default function GroupsPage() {
       await api.post(`/groups/${groupId}/invites`, { to });
       setInvite((m) => ({ ...m, [groupId]: "" }));
       setMsg(`Invite sent to ${to}.`);
+      loadPendingInvites(groupId);
     } catch (e2) {
       setErr(e2 instanceof ApiError ? e2.message : "Could not send the invite");
     } finally {
@@ -221,6 +235,21 @@ export default function GroupsPage() {
                   Invite
                 </button>
               </div>
+              {(pendingInvites[g.id]?.length ?? 0) > 0 && (
+                <div style={{ marginTop: 10 }}>
+                  <p className="muted" style={{ fontSize: 12, marginBottom: 6 }}>
+                    Pending invites
+                  </p>
+                  <div className="kv">
+                    {pendingInvites[g.id].map((inv) => (
+                      <span className="chip" key={inv.id}>
+                        {inv.invitedDisplay}
+                        <span className="muted"> — invited by {inv.invitedByName}, {formatDateTime(inv.createdAt)}</span>
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           );
         })

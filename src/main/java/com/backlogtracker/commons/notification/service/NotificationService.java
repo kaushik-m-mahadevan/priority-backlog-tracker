@@ -15,6 +15,7 @@ import com.backlogtracker.commons.group.service.GroupService;
 import com.backlogtracker.commons.notification.domain.Notification;
 import com.backlogtracker.commons.notification.domain.NotificationStatus;
 import com.backlogtracker.commons.notification.domain.NotificationType;
+import com.backlogtracker.commons.notification.dto.PendingInviteView;
 import com.backlogtracker.commons.notification.repository.NotificationRepository;
 import com.backlogtracker.commons.security.AuthUser;
 import com.backlogtracker.commons.user.domain.AccountStatus;
@@ -150,6 +151,23 @@ public class NotificationService {
                 .invitedByUserId(inviter.id())
                 .invitedByName(inviter.name())
                 .build());
+    }
+
+    /** View-only list of a group's outstanding invites — no cancel/revoke action yet
+     *  (design decision, revisit once real email delivery exists). */
+    public List<PendingInviteView> pendingInvites(String groupId, String userId) {
+        groupService.requireMember(groupId, userId);
+        return notifications.findByGroupIdAndTypeAndStatusOrderByCreatedAtDesc(
+                        groupId, NotificationType.GROUP_INVITE, NotificationStatus.PENDING)
+                .stream()
+                .map(n -> {
+                    User invitee = users.findById(n.getUserId()).orElse(null);
+                    String display = invitee == null ? "(unknown)"
+                            : invitee.getHandle() != null && !invitee.getHandle().isBlank()
+                                    ? "@" + invitee.getHandle() : invitee.getEmail();
+                    return new PendingInviteView(n.getId(), display, n.getInvitedByName(), n.getCreatedAt());
+                })
+                .toList();
     }
 
     /** A one-line informational notice (no action). Never counts toward the badge. */

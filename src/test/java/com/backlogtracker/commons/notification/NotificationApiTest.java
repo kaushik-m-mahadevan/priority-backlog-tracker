@@ -147,6 +147,26 @@ class NotificationApiTest {
     }
 
     @Test
+    void pendingInvitesListsWhoWasInvitedByWhomAndDropsOffOnceAccepted() throws Exception {
+        invite(annToken, "bo", 201);
+
+        mvc.perform(get("/api/groups/" + groupId + "/invites").header("Authorization", "Bearer " + annToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].invitedDisplay").value("@bo"))
+                .andExpect(jsonPath("$[0].invitedByName").value("Ann"));
+
+        String nid = notifications.findByUserIdOrderByCreatedAtDesc(
+                users.findByEmailIgnoreCase("bo@n.test").orElseThrow().getId()).get(0).getId();
+        mvc.perform(post("/api/notifications/" + nid + "/accept").header("Authorization", "Bearer " + boToken))
+                .andExpect(status().isOk());
+
+        mvc.perform(get("/api/groups/" + groupId + "/invites").header("Authorization", "Bearer " + annToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(0));
+    }
+
+    @Test
     void cannotAcceptSomeoneElsesNotification() throws Exception {
         invite(annToken, "bo", 201);
         String nid = notifications.findByUserIdOrderByCreatedAtDesc(

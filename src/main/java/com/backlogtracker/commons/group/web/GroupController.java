@@ -22,6 +22,7 @@ import com.backlogtracker.commons.group.dto.GroupView;
 import com.backlogtracker.commons.group.dto.RenameGroupRequest;
 import com.backlogtracker.commons.group.service.GroupService;
 import com.backlogtracker.commons.notification.dto.InviteRequest;
+import com.backlogtracker.commons.notification.dto.PendingInviteView;
 import com.backlogtracker.commons.notification.service.NotificationService;
 import com.backlogtracker.commons.security.AuthUser;
 import com.backlogtracker.commons.security.RequiresUser;
@@ -91,6 +92,13 @@ public class GroupController {
                        @Valid @RequestBody InviteRequest request,
                        @AuthenticationPrincipal AuthUser actor) {
         notificationService.createGroupInvite(id, request.to(), actor);
+    }
+
+    /** View-only list of this group's outstanding invites — who was invited, by whom,
+     *  and when. No cancel/revoke action yet. */
+    @GetMapping("/{id}/invites")
+    public List<PendingInviteView> pendingInvites(@PathVariable String id, @AuthenticationPrincipal AuthUser actor) {
+        return notificationService.pendingInvites(id, actor.id());
     }
 
     /** Leave. If the caller was the last member the group and its items are deleted. */

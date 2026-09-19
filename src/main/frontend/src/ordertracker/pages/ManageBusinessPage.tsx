@@ -3,7 +3,8 @@ import { api, ApiError } from "../../api/client";
 import { orderTrackerApi } from "../api";
 import { useBusiness } from "../BusinessContext";
 import { Creature } from "../../components/Creature";
-import type { GroupView } from "../../types";
+import { formatDateTime } from "../../lib/format";
+import type { GroupView, PendingInvite } from "../../types";
 
 const FINANCE_APPLET_KEY = "financetracker";
 
@@ -24,6 +25,14 @@ export default function ManageBusinessPage() {
   const [selectedFinanceGroupId, setSelectedFinanceGroupId] = useState("");
   const [linkLoading, setLinkLoading] = useState(true);
   const [membersWithoutProfile, setMembersWithoutProfile] = useState<string[]>([]);
+  const [pendingInvites, setPendingInvites] = useState<PendingInvite[]>([]);
+
+  const loadPendingInvites = () => {
+    if (!currentGroupId) return;
+    api.get<PendingInvite[]>(`/groups/${currentGroupId}/invites`).then(setPendingInvites);
+  };
+
+  useEffect(loadPendingInvites, [currentGroupId]);
 
   useEffect(() => {
     if (!currentGroupId || !currentBusiness) return;
@@ -116,6 +125,7 @@ export default function ManageBusinessPage() {
       await api.post(`/groups/${currentGroupId}/invites`, { to });
       setInvite("");
       setMsg(`Invite sent to ${to}.`);
+      loadPendingInvites();
     } catch (e) {
       setErr(e instanceof ApiError ? e.message : "Could not send the invite");
     } finally {
@@ -195,6 +205,22 @@ export default function ManageBusinessPage() {
             Invite
           </button>
         </form>
+
+        {pendingInvites.length > 0 && (
+          <div style={{ marginTop: 12 }}>
+            <p className="muted" style={{ fontSize: 13, marginBottom: 6 }}>
+              Pending invites
+            </p>
+            <div className="kv">
+              {pendingInvites.map((inv) => (
+                <span className="chip" key={inv.id}>
+                  {inv.invitedDisplay}
+                  <span className="muted"> — invited by {inv.invitedByName}, {formatDateTime(inv.createdAt)}</span>
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="card">

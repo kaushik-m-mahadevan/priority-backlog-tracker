@@ -17,6 +17,15 @@ export interface GroupView {
   members: UserSummary[];
 }
 
+/** One outstanding invite on a group's "Pending invites" list — view-only, no cancel/
+ *  revoke action yet. */
+export interface PendingInvite {
+  id: string;
+  invitedDisplay: string;
+  invitedByName: string;
+  createdAt: string;
+}
+
 export interface User {
   id: string;
   name: string;

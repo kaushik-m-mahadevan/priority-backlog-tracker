@@ -24,4 +24,7 @@ public interface NotificationRepository extends MongoRepository<Notification, St
             String userId, String groupId, NotificationType type, NotificationStatus status);
 
     List<Notification> findByGroupIdAndStatus(String groupId, NotificationStatus status);
+
+    List<Notification> findByGroupIdAndTypeAndStatusOrderByCreatedAtDesc(
+            String groupId, NotificationType type, NotificationStatus status);
 }
