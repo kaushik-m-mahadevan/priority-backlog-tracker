@@ -90,6 +90,12 @@ export function formatDateTime(iso: string | null): string {
   });
 }
 
+/** "ARCHIVED" -> "Archived", "in_progress" -> "In_progress" — first letter up, rest down.
+ *  Does not split on underscores/spaces (nothing here has needed that yet). */
+export function capitalize(s: string): string {
+  return s.length === 0 ? s : s[0].toUpperCase() + s.slice(1).toLowerCase();
+}
+
 /** "5d", "3w", "2mo" — bare magnitude, for ages in Needs Attention. */
 export function ageShort(days: number): string {
   if (days < 14) return `${days}d`;

@@ -5,7 +5,7 @@ import { useUsers } from "../users/UsersContext";
 import { useGroups } from "../groups/GroupContext";
 import { useGroupCategories } from "../groups/GroupCategoriesContext";
 import { notifyItemsChanged } from "../lib/events";
-import { formatDateTime } from "../lib/format";
+import { capitalize, formatDateTime } from "../lib/format";
 import MarkdownField from "./MarkdownField";
 import { TERMINAL_STATUSES } from "../types";
 import type { Item } from "../types";
@@ -337,7 +337,7 @@ export default function ItemFormModal({ existing, onClose, onSaved, onComplete }
               <span>Mark as</span>
               {TERMINAL_STATUSES.map((t) => (
                 <button key={t} type="button" onClick={() => onComplete(t)} disabled={busy}>
-                  {t === "ARCHIVED" ? "Request archive…" : t[0] + t.slice(1).toLowerCase()}
+                  {t === "ARCHIVED" ? "Request archive…" : capitalize(t)}
                 </button>
               ))}
             </div>

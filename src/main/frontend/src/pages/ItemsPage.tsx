@@ -13,7 +13,7 @@ import { useGroups } from "../groups/GroupContext";
 import { useGroupCategories } from "../groups/GroupCategoriesContext";
 import { useConfig } from "../config/ConfigContext";
 import { useItemsChanged, notifyItemsChanged } from "../lib/events";
-import { effortLabel, formatDate } from "../lib/format";
+import { capitalize, effortLabel, formatDate } from "../lib/format";
 import { TERMINAL_STATUSES } from "../types";
 import type { Item, Page } from "../types";
 
@@ -234,9 +234,7 @@ export default function ItemsPage() {
                                 style={{ display: "block", width: "100%", textAlign: "left" }}
                                 onClick={() => complete(i, t)}
                               >
-                                {t === "ARCHIVED"
-                                  ? "Request archive…"
-                                  : t[0] + t.slice(1).toLowerCase()}
+                                {t === "ARCHIVED" ? "Request archive…" : capitalize(t)}
                               </button>
                             ))}
                           </div>

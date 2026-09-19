@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { api, ApiError } from "../api/client";
+import { capitalize } from "../lib/format";
 
 interface Row {
   id: string;
@@ -165,8 +166,8 @@ export default function AdminPage() {
                 </div>
                 <div className="muted" style={{ fontSize: 12 }}>{u.email}</div>
               </div>
-              <span className="muted">{u.role[0] + u.role.slice(1).toLowerCase()}</span>
-              <span className="muted">{u.status[0] + u.status.slice(1).toLowerCase()}</span>
+              <span className="muted">{capitalize(u.role)}</span>
+              <span className="muted">{capitalize(u.status)}</span>
             </div>
           ))}
         </div>
