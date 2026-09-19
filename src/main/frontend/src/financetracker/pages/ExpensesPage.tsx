@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "../../auth/AuthContext";
+import { AsyncSection } from "../../components/AsyncSection";
 import { BillFileInput, BillPreview, LEDGER_ENTRY_OWNER_TYPE } from "../../components/BillAttachmentField";
 import BillSideBySide from "../../components/BillSideBySide";
 import { imagesApi } from "../../components/imagesApi";
@@ -211,11 +212,7 @@ export default function ExpensesPage() {
         </BillSideBySide>
       </form>
 
-      {loading ? (
-        <p className="muted">Loading…</p>
-      ) : entries.length === 0 ? (
-        <p className="empty">No expenses logged yet.</p>
-      ) : (
+      <AsyncSection loading={loading} isEmpty={entries.length === 0} empty={<p className="empty">No expenses logged yet.</p>}>
         <div className="table-wrap">
           <table className="ot-table">
             <thead>
@@ -244,7 +241,7 @@ export default function ExpensesPage() {
             </tbody>
           </table>
         </div>
-      )}
+      </AsyncSection>
     </div>
   );
 }

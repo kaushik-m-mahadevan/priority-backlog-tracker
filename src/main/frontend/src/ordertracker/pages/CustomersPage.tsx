@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import { AsyncSection } from "../../components/AsyncSection";
 import { orderTrackerApi } from "../api";
 import { useBusiness } from "../BusinessContext";
 import { NewCustomerFields, blankNewCustomerFieldsDraft, type NewCustomerFieldsDraft } from "../NewCustomerFields";
@@ -92,11 +93,7 @@ export default function CustomersPage() {
         </form>
       )}
 
-      {loading ? (
-        <p className="muted">Loading…</p>
-      ) : customers.length === 0 ? (
-        <p className="empty">No customers yet.</p>
-      ) : (
+      <AsyncSection loading={loading} isEmpty={customers.length === 0} empty={<p className="empty">No customers yet.</p>}>
         <div className="table-wrap">
           <table className="ot-table">
             <thead>
@@ -121,7 +118,7 @@ export default function CustomersPage() {
             </tbody>
           </table>
         </div>
-      )}
+      </AsyncSection>
     </div>
   );
 }
