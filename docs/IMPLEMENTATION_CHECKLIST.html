@@ -363,7 +363,7 @@
       <div class="item"><input type="checkbox" id="cln-1" checked><label for="cln-1">Reference a shared stage-key constant instead of hardcoded "crocheting"/"assembly" literals</label></div>
       <div class="item"><input type="checkbox" id="cln-2"><label for="cln-2">Share a digit-width constant across CreatorService/LocationCodeService/OrderNumberService</label></div>
       <div class="item"><input type="checkbox" id="cln-3"><label for="cln-3">Unify BusinessConfigService.seed()'s random-code generator with RandomCodeAssigner</label></div>
-      <div class="item"><input type="checkbox" id="cln-4"><label for="cln-4">Deduplicate finalCost derivation in OrderService.java</label></div>
+      <div class="item"><input type="checkbox" id="cln-4" checked><label for="cln-4">Deduplicate finalCost derivation in OrderService.java</label></div>
       <div class="item"><input type="checkbox" id="cln-5"><label for="cln-5">Extract a shared CustomerService.applyFields helper</label></div>
       <div class="item"><input type="checkbox" id="cln-6" checked><label for="cln-6">Reference shared Mongo collection-name constants instead of string literals <span class="note">Item/ArchivedItem now expose a COLLECTION constant; the 3 commons-side files (GroupService, GroupBackfill, LegacyDataMigration) keep raw strings on purpose — importing Item/ArchivedItem there would violate the commons-never-imports-an-applet rule fixed in arch-1</span></label></div>
       <div class="item"><input type="checkbox" id="cln-7"><label for="cln-7">Move CounterService.nextSharedItemId() into the backlogtracker.item package</label></div>

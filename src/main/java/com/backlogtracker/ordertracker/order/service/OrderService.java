@@ -467,9 +467,7 @@ public class OrderService {
                 .mode(EncryptedString.of(request.mode()))
                 .note(EncryptedString.of(request.note()))
                 .build());
-        double finalCost = order.getOrderType() == OrderType.INDIVIDUAL
-                ? (order.getCostEstimate() == null ? 0 : order.getCostEstimate().getFinalCost())
-                : (order.getBulkDetails() == null ? 0 : order.getBulkDetails().getTotalFinalCost());
+        double finalCost = finalCost(order);
         PaymentStatusHolder oldStatus = new PaymentStatusHolder(order.getPaymentStatus());
         order.setPaymentStatus(calculator.derivePaymentStatus(order.getPayments(), finalCost));
         if (oldStatus.value != order.getPaymentStatus()) {
@@ -859,12 +857,20 @@ public class OrderService {
         double completion = order.getOrderType() == OrderType.INDIVIDUAL
                 ? calculator.individualCompletionFraction(order.getStageAssignments()) * 100
                 : calculator.bulkCompletionFraction(order.getBulkDetails(), cfg.getWorkStages()) * 100;
-        double finalCost = order.getOrderType() == OrderType.INDIVIDUAL
-                ? (order.getCostEstimate() == null ? 0 : order.getCostEstimate().getFinalCost())
-                : (order.getBulkDetails() == null ? 0 : order.getBulkDetails().getTotalFinalCost());
+        double finalCost = finalCost(order);
         double netPaid = calculator.netPaid(order.getPayments());
         double balance = calculator.balanceAmount(order.getPayments(), finalCost);
         return OrderView.of(order, completion, netPaid, balance);
+    }
+
+    /** An individual order's final cost lives on its own CostEstimate; a bulk order's is
+     *  the sum across variants on BulkDetails — same "which side of the union has the
+     *  number" branch, needed wherever a payment/balance calculation needs a single figure
+     *  regardless of order type. */
+    private static double finalCost(Order order) {
+        return order.getOrderType() == OrderType.INDIVIDUAL
+                ? (order.getCostEstimate() == null ? 0 : order.getCostEstimate().getFinalCost())
+                : (order.getBulkDetails() == null ? 0 : order.getBulkDetails().getTotalFinalCost());
     }
 
     private Order requireById(String groupId, String orderId) {
