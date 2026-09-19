@@ -674,6 +674,8 @@ export default function OrderDetailPage() {
   const [editing, setEditing] = useState(false);
   const [paymentAmount, setPaymentAmount] = useState(0);
   const [paymentType, setPaymentType] = useState<PaymentType>("ADVANCE");
+  const [paymentMode, setPaymentMode] = useState("UPI");
+  const [paymentModeOther, setPaymentModeOther] = useState("");
   const [addingToGroup, setAddingToGroup] = useState(false);
   const [historyCreatorFilter, setHistoryCreatorFilter] = useState("all");
   const [historyStageFilter, setHistoryStageFilter] = useState("all");
@@ -1456,12 +1458,26 @@ export default function OrderDetailPage() {
               <option value="REFUND">Refund</option>
             </select>
             <input aria-label="Payment amount" type="number" placeholder="Amount" value={paymentAmount || ""} onChange={(e) => setPaymentAmount(Number(e.target.value))} />
+            <select aria-label="Payment mode" value={paymentMode} onChange={(e) => setPaymentMode(e.target.value)}>
+              <option value="UPI">UPI</option>
+              <option value="CASH">Cash</option>
+              <option value="BANK_TRANSFER">Bank transfer</option>
+              <option value="CARD">Card</option>
+              <option value="OTHER">Other</option>
+            </select>
+            {paymentMode === "OTHER" && (
+              <input aria-label="Payment mode (other)" placeholder="Describe how" value={paymentModeOther}
+                onChange={(e) => setPaymentModeOther(e.target.value)} />
+            )}
             <button
               className="primary"
+              disabled={paymentMode === "OTHER" && !paymentModeOther.trim()}
               onClick={async () => {
                 if (!paymentAmount) return;
-                setOrder(await orderTrackerApi.addPayment(groupId, order.id, { type: paymentType, amount: paymentAmount, mode: "UPI" }));
+                const mode = paymentMode === "OTHER" ? paymentModeOther.trim() : paymentMode;
+                setOrder(await orderTrackerApi.addPayment(groupId, order.id, { type: paymentType, amount: paymentAmount, mode }));
                 setPaymentAmount(0);
+                setPaymentModeOther("");
               }}
             >
               Record
