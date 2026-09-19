@@ -9,6 +9,7 @@ import { OrderDueDate } from "../OrderDueDate";
 import ImageGallery from "../../components/ImageGallery";
 import { ProgressRing } from "../../components/ProgressRing";
 import { TimeStageControl } from "../TimeTracking";
+import { assemblyHoursForBulk, assemblyHoursForIndividual, bulkCreatorEtas, craftHoursForBulk, craftHoursForIndividual, hoursPct } from "../orderProgress";
 import { useLinkedNeedleTypes } from "../useLinkedNeedleTypes";
 import { useLinkedYarnTypes } from "../useLinkedYarnTypes";
 import { useMyNeedleInventory } from "../useMyNeedleInventory";
@@ -743,24 +744,16 @@ export default function OrderDetailPage() {
 
   // Hours-based completion for crocheting/assembly (the two stages with real time
   // tracking) — packaging/shipment have no hour estimate, so they stay on the existing
-  // units-completed/total-units mechanism instead.
-  const hoursPct = (logged: number, estimated: number) => (estimated > 0 ? (logged / estimated) * 100 : 0);
-  const craftLoggedIndividual = order.timeLogEntries.filter((e) => e.stage === "CRAFTING").reduce((s, e) => s + e.hours, 0)
-    + order.components.flatMap((c) => c.timeLogEntries).reduce((s, e) => s + e.hours, 0);
-  const craftEstimatedIndividual = order.craftingTimeHours + order.components.reduce((s, c) => s + c.totalTimeHours, 0);
+  // units-completed/total-units mechanism instead. Math lives in orderProgress.ts (tf-4)
+  // so it's testable without rendering this page.
+  const { logged: craftLoggedIndividual, estimated: craftEstimatedIndividual } = craftHoursForIndividual(order);
   const craftPctIndividual = hoursPct(craftLoggedIndividual, craftEstimatedIndividual);
-  const assemblyLoggedIndividual = order.timeLogEntries.filter((e) => e.stage === "ASSEMBLY").reduce((s, e) => s + e.hours, 0);
+  const { logged: assemblyLoggedIndividual } = assemblyHoursForIndividual(order);
   const assemblyPctIndividual = hoursPct(assemblyLoggedIndividual, order.assemblyTimeHours);
 
-  const craftLoggedBulk = (order.bulkDetails?.variants ?? []).reduce((sum, v) =>
-    sum + v.timeLogEntries.filter((e) => e.stage === "CRAFTING").reduce((s, e) => s + e.hours, 0)
-      + v.components.flatMap((c) => c.timeLogEntries).reduce((s, e) => s + e.hours, 0), 0);
-  const craftEstimatedBulk = (order.bulkDetails?.variants ?? []).reduce((sum, v) =>
-    sum + v.craftingTimeHours * v.quantity + v.components.reduce((s, c) => s + c.totalTimeHours, 0), 0);
+  const { logged: craftLoggedBulk, estimated: craftEstimatedBulk } = craftHoursForBulk(order);
   const craftPctBulk = hoursPct(craftLoggedBulk, craftEstimatedBulk);
-  const assemblyLoggedBulk = (order.bulkDetails?.variants ?? []).reduce((sum, v) =>
-    sum + v.timeLogEntries.filter((e) => e.stage === "ASSEMBLY").reduce((s, e) => s + e.hours, 0), 0);
-  const assemblyEstimatedBulk = (order.bulkDetails?.variants ?? []).reduce((sum, v) => sum + v.assemblyTimeHours * v.quantity, 0);
+  const { logged: assemblyLoggedBulk, estimated: assemblyEstimatedBulk } = assemblyHoursForBulk(order);
   const assemblyPctBulk = hoursPct(assemblyLoggedBulk, assemblyEstimatedBulk);
 
   const logTime = async (stage: TimeStage, hours: number, variantId?: string, componentId?: string) => {
@@ -1325,31 +1318,19 @@ export default function OrderDetailPage() {
               Each creator's own target finish date, based on their assigned hours and their own pace.
             </p>
             {(() => {
-              const variants = order.bulkDetails?.variants ?? [];
-              const creatorIds = [...new Set(variants.flatMap((v) => v.splitAllocation.map((s) => s.creatorId)))];
-              if (creatorIds.length === 0) {
+              const etas = bulkCreatorEtas(order, creators);
+              if (etas.length === 0) {
                 return <p className="empty">Nobody assigned yet.</p>;
               }
-              return creatorIds.map((creatorId) => {
-                const hours = variants.reduce((sum, v) => {
-                  const split = v.splitAllocation.find((s) => s.creatorId === creatorId);
-                  return sum + (split ? split.quantityAssigned * v.perUnitTimeHours : 0);
-                }, 0);
-                const hoursPerDay = creators.find((c) => c.id === creatorId)?.hoursAvailablePerDay ?? 0;
-                const days = hoursPerDay > 0 ? Math.max(1, Math.ceil(hours / hoursPerDay)) : null;
-                const target = days !== null && order.orderReceivedDate
-                  ? new Date(new Date(order.orderReceivedDate).getTime() + days * 86400000)
-                  : null;
-                return (
-                  <div className="row" key={creatorId}>
-                    <span className="k">{creatorName(creatorId)}</span>
-                    <span className="v">
-                      {hours.toFixed(1)}h at {hoursPerDay}h/day
-                      {target && <> — target {formatDate(target.toISOString())}</>}
-                    </span>
-                  </div>
-                );
-              });
+              return etas.map(({ creatorId, hours, hoursPerDay, targetDate }) => (
+                <div className="row" key={creatorId}>
+                  <span className="k">{creatorName(creatorId)}</span>
+                  <span className="v">
+                    {hours.toFixed(1)}h at {hoursPerDay}h/day
+                    {targetDate && <> — target {formatDate(targetDate.toISOString())}</>}
+                  </span>
+                </div>
+              ));
             })()}
           </div>
         </Section>
