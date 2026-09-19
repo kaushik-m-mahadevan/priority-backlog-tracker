@@ -16,7 +16,9 @@ import com.backlogtracker.backlogtracker.archive.dto.ArchivedItemView;
 import com.backlogtracker.backlogtracker.archive.dto.CompleteItemRequest;
 import com.backlogtracker.backlogtracker.archive.repository.ArchivedItemRepository;
 import com.backlogtracker.backlogtracker.archive.service.ArchiveService;
+import com.backlogtracker.commons.web.EnumParam;
 import com.backlogtracker.commons.web.PageResponse;
+import com.backlogtracker.commons.web.Pagination;
 import com.backlogtracker.commons.group.service.GroupService;
 import com.backlogtracker.commons.security.AuthUser;
 import com.backlogtracker.commons.security.RequiresUser;
@@ -38,14 +40,7 @@ public class ArchiveController {
     public ArchivedItemView complete(@PathVariable String id,
                                      @Valid @RequestBody CompleteItemRequest request,
                                      @AuthenticationPrincipal AuthUser actor) {
-        TerminalStatus terminal;
-        try {
-            terminal = TerminalStatus.valueOf(request.terminalStatus().trim().toUpperCase());
-        } catch (IllegalArgumentException e) {
-            throw new IllegalArgumentException(
-                    "terminalStatus must be RESOLVED, REJECTED or ARCHIVED (got '"
-                            + request.terminalStatus() + "')");
-        }
+        TerminalStatus terminal = EnumParam.parse(TerminalStatus.class, request.terminalStatus(), "terminalStatus");
         return ArchivedItemView.of(archiveService.complete(id, terminal, actor));
     }
 
@@ -57,8 +52,8 @@ public class ArchiveController {
             @RequestParam(defaultValue = "50") int size,
             @AuthenticationPrincipal AuthUser actor) {
         groupService.requireMember(groupId, actor.id());
-        int p = Math.max(0, page);
-        int s = Math.min(Math.max(1, size), 200);
+        int p = Pagination.page(page);
+        int s = Pagination.size(size);
         Page<ArchivedItem> found =
                 archivedItems.findByGroupIdOrderByMovedAtDesc(groupId, PageRequest.of(p, s));
         return PageResponse.of(

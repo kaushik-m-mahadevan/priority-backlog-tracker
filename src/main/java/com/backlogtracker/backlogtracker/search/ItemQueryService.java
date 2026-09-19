@@ -12,6 +12,7 @@ import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.stereotype.Service;
 
 import com.backlogtracker.commons.web.PageResponse;
+import com.backlogtracker.commons.web.Pagination;
 import com.backlogtracker.backlogtracker.item.domain.Item;
 import com.backlogtracker.backlogtracker.item.domain.ItemStatus;
 
@@ -32,8 +33,8 @@ public class ItemQueryService {
 
     public PageResponse<Item> search(String groupId, String q, String owner, String category,
                                      String priority, ItemStatus status, int page, int size) {
-        int p = Math.max(0, page);
-        int s = Math.min(Math.max(1, size), 200);
+        int p = Pagination.page(page);
+        int s = Pagination.size(size);
 
         List<Criteria> and = new ArrayList<>();
         and.add(Criteria.where("groupId").is(groupId));

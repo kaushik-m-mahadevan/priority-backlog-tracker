@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.backlogtracker.commons.web.EnumParam;
 import com.backlogtracker.commons.web.PageResponse;
 import com.backlogtracker.commons.group.service.GroupService;
 import com.backlogtracker.backlogtracker.item.domain.Item;
@@ -56,12 +57,7 @@ public class ItemController {
             @RequestParam(defaultValue = "50") int size,
             @AuthenticationPrincipal AuthUser actor) {
         groupService.requireMember(groupId, actor.id());
-        ItemStatus st;
-        try {
-            st = status == null || status.isBlank() ? null : ItemStatus.valueOf(status.trim().toUpperCase());
-        } catch (IllegalArgumentException e) {
-            throw new IllegalArgumentException("status must be BACKLOG or IN_PROGRESS (got '" + status + "')");
-        }
+        ItemStatus st = status == null || status.isBlank() ? null : EnumParam.parse(ItemStatus.class, status, "status");
         var res = itemQueryService.search(groupId, q, owner, category, priority, st, page, size);
         return PageResponse.of(res.content().stream().map(ItemView::of).toList(),
                 res.page(), res.size(), res.total());
@@ -103,13 +99,7 @@ public class ItemController {
     public ItemView changeStatus(@PathVariable String id,
                                  @Valid @RequestBody StatusChangeRequest request,
                                  @AuthenticationPrincipal AuthUser actor) {
-        ItemStatus status;
-        try {
-            status = ItemStatus.valueOf(request.status().trim().toUpperCase());
-        } catch (IllegalArgumentException e) {
-            throw new IllegalArgumentException(
-                    "status must be BACKLOG or IN_PROGRESS (got '" + request.status() + "')");
-        }
+        ItemStatus status = EnumParam.parse(ItemStatus.class, request.status(), "status");
         return ItemView.of(itemService.changeStatus(id, status, actor));
     }
 
