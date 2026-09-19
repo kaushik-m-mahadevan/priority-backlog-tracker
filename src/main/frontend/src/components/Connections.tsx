@@ -1,8 +1,9 @@
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ApiError } from "../api/client";
 import { groupLinkApi } from "../api/groupLinks";
 import { otherApplets, type AppletMeta } from "../api/applets";
+import { useDismissableMenu } from "../lib/useDismissableMenu";
 import type { GroupView } from "../types";
 
 interface RowState {
@@ -24,27 +25,10 @@ const blankRow = (): RowState => ({ linkedGroupId: undefined, groups: undefined,
  *  (round 5 review). Shows every other applet's link status at a glance and lets you
  *  link/unlink right here. */
 export default function Connections({ appletKey, groupId }: { appletKey: string; groupId: string | null }) {
-  const [open, setOpen] = useState(false);
+  const { open, setOpen, ref } = useDismissableMenu<HTMLDivElement>();
   const [rows, setRows] = useState<Record<string, RowState>>({});
-  const ref = useRef<HTMLDivElement>(null);
   const nav = useNavigate();
   const others = otherApplets(appletKey);
-
-  useEffect(() => {
-    if (!open) return;
-    function onDoc(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
-    }
-    function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") setOpen(false);
-    }
-    document.addEventListener("mousedown", onDoc);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("mousedown", onDoc);
-      document.removeEventListener("keydown", onKey);
-    };
-  }, [open]);
 
   const load = () => {
     if (!groupId) return;

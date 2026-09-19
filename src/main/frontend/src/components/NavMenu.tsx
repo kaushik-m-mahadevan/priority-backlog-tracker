@@ -1,6 +1,6 @@
-import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
+import { useDismissableMenu } from "../lib/useDismissableMenu";
 
 export interface NavMenuLink {
   to: string;
@@ -11,24 +11,7 @@ export interface NavMenuLink {
  *  Backlog Tracker's "Completed") plus account info and sign out. */
 export default function NavMenu({ extraLinks }: { extraLinks?: NavMenuLink[] }) {
   const { user, logout } = useAuth();
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    function onDoc(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
-    }
-    function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") setOpen(false);
-    }
-    document.addEventListener("mousedown", onDoc);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("mousedown", onDoc);
-      document.removeEventListener("keydown", onKey);
-    };
-  }, [open]);
+  const { open, setOpen, ref } = useDismissableMenu<HTMLDivElement>();
 
   const name = user?.name ?? "";
   const initial = name.trim().slice(0, 1).toUpperCase() || "?";

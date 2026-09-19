@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useLocation } from "react-router-dom";
 import { api } from "../api/client";
 import { useItemsChanged, notifyItemsChanged } from "../lib/events";
+import { useDismissableMenu } from "../lib/useDismissableMenu";
 import { useGroups } from "../groups/GroupContext";
 import { BellIcon } from "./icons";
 import { formatDateTime } from "../lib/format";
@@ -36,9 +37,8 @@ export default function Bell() {
   const { refresh: refreshGroups, setCurrentGroup } = useGroups();
   const [items, setItems] = useState<NotificationView[]>([]);
   const [pending, setPending] = useState(0);
-  const [open, setOpen] = useState(false);
+  const { open, setOpen, ref } = useDismissableMenu<HTMLDivElement>();
   const [busy, setBusy] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
   const loc = useLocation();
 
   const load = useCallback(() => {
@@ -56,14 +56,6 @@ export default function Bell() {
 
   useEffect(load, [load, loc.pathname]);
   useItemsChanged(load);
-
-  useEffect(() => {
-    function onDoc(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
-    }
-    document.addEventListener("mousedown", onDoc);
-    return () => document.removeEventListener("mousedown", onDoc);
-  }, []);
 
   async function act(n: NotificationView, what: "accept" | "decline") {
     setBusy(true);
