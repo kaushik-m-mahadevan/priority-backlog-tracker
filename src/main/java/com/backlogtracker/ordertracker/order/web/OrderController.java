@@ -53,10 +53,10 @@ public class OrderController {
 
     @GetMapping("/my-work")
     public List<OrderView> myWork(@PathVariable String groupId, @AuthenticationPrincipal AuthUser actor,
-                                  @RequestParam(required = false) String status,
+                                  @RequestParam(required = false) String completionFilter,
                                   @RequestParam(required = false) Instant from,
                                   @RequestParam(required = false) Instant to) {
-        return orderService.myWork(groupId, actor.id(), status, from, to);
+        return orderService.myWork(groupId, actor.id(), completionFilter, from, to);
     }
 
     @GetMapping("/{orderId}")

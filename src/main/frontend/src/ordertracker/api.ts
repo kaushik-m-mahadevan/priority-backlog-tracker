@@ -65,9 +65,9 @@ export const orderTrackerApi = {
   },
 
   orders: (groupId: string) => api.get<OrderView[]>(`${base(groupId)}/orders`),
-  myWork: (groupId: string, params: { status?: "pending" | "done" | "all"; from?: string; to?: string }) => {
+  myWork: (groupId: string, params: { completionFilter?: "pending" | "done" | "all"; from?: string; to?: string }) => {
     const query = new URLSearchParams();
-    if (params.status) query.set("status", params.status);
+    if (params.completionFilter) query.set("completionFilter", params.completionFilter);
     if (params.from) query.set("from", params.from);
     if (params.to) query.set("to", params.to);
     const qs = query.toString();

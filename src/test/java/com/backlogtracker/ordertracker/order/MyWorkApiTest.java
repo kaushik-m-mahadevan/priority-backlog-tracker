@@ -140,10 +140,10 @@ class MyWorkApiTest {
     void completingEveryStageForMeMovesTheOrderFromPendingToDone() throws Exception {
         String orderId = createIndividualOrder(tokenA, creatorAId, "2026-01-01T00:00:00Z");
 
-        mvc.perform(get("/api/ordertracker/groups/" + groupId + "/orders/my-work?status=pending")
+        mvc.perform(get("/api/ordertracker/groups/" + groupId + "/orders/my-work?completionFilter=pending")
                         .header("Authorization", "Bearer " + tokenA))
                 .andExpect(jsonPath("$.length()").value(1));
-        mvc.perform(get("/api/ordertracker/groups/" + groupId + "/orders/my-work?status=done")
+        mvc.perform(get("/api/ordertracker/groups/" + groupId + "/orders/my-work?completionFilter=done")
                         .header("Authorization", "Bearer " + tokenA))
                 .andExpect(jsonPath("$.length()").value(0));
 
@@ -156,10 +156,10 @@ class MyWorkApiTest {
                     .andExpect(status().isOk());
         }
 
-        mvc.perform(get("/api/ordertracker/groups/" + groupId + "/orders/my-work?status=pending")
+        mvc.perform(get("/api/ordertracker/groups/" + groupId + "/orders/my-work?completionFilter=pending")
                         .header("Authorization", "Bearer " + tokenA))
                 .andExpect(jsonPath("$.length()").value(0));
-        mvc.perform(get("/api/ordertracker/groups/" + groupId + "/orders/my-work?status=done")
+        mvc.perform(get("/api/ordertracker/groups/" + groupId + "/orders/my-work?completionFilter=done")
                         .header("Authorization", "Bearer " + tokenA))
                 .andExpect(jsonPath("$.length()").value(1));
     }
@@ -177,7 +177,7 @@ class MyWorkApiTest {
                     .andExpect(status().isOk());
         }
 
-        String body = mvc.perform(get("/api/ordertracker/groups/" + groupId + "/orders/my-work?status=all")
+        String body = mvc.perform(get("/api/ordertracker/groups/" + groupId + "/orders/my-work?completionFilter=all")
                         .header("Authorization", "Bearer " + tokenA))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.length()").value(2))
@@ -224,7 +224,7 @@ class MyWorkApiTest {
         String orderId = created.get("id").asText();
         String variantId = created.get("bulkDetails").get("variants").get(0).get("variantId").asText();
 
-        mvc.perform(get("/api/ordertracker/groups/" + groupId + "/orders/my-work?status=pending")
+        mvc.perform(get("/api/ordertracker/groups/" + groupId + "/orders/my-work?completionFilter=pending")
                         .header("Authorization", "Bearer " + tokenA))
                 .andExpect(jsonPath("$.length()").value(1));
 
@@ -239,10 +239,10 @@ class MyWorkApiTest {
                     .andExpect(status().isOk());
         }
 
-        mvc.perform(get("/api/ordertracker/groups/" + groupId + "/orders/my-work?status=pending")
+        mvc.perform(get("/api/ordertracker/groups/" + groupId + "/orders/my-work?completionFilter=pending")
                         .header("Authorization", "Bearer " + tokenA))
                 .andExpect(jsonPath("$.length()").value(0));
-        mvc.perform(get("/api/ordertracker/groups/" + groupId + "/orders/my-work?status=done")
+        mvc.perform(get("/api/ordertracker/groups/" + groupId + "/orders/my-work?completionFilter=done")
                         .header("Authorization", "Bearer " + tokenA))
                 .andExpect(jsonPath("$.length()").value(1));
     }

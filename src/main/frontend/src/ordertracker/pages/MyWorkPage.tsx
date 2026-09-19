@@ -21,7 +21,7 @@ export default function MyWorkPage() {
     setLoading(true);
     Promise.all([
       orderTrackerApi.myWork(groupId, {
-        status: completionFilter,
+        completionFilter,
         from: from ? new Date(from).toISOString() : undefined,
         to: to ? new Date(to).toISOString() : undefined,
       }),
