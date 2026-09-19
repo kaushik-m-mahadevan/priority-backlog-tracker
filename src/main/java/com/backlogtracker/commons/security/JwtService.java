@@ -1,5 +1,6 @@
 package com.backlogtracker.commons.security;
 
+import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Date;
@@ -27,14 +28,16 @@ public class JwtService {
 
     private final SecretKey key;
     private final Duration ttl;
+    private final Clock clock;
 
-    public JwtService(JwtProperties props) {
+    public JwtService(JwtProperties props, Clock clock) {
         this.key = Keys.hmacShaKeyFor(Sha256.digest(props.secret()));
         this.ttl = Duration.ofMinutes(props.expirationMinutes());
+        this.clock = clock;
     }
 
     public String issue(User user) {
-        Instant now = Instant.now();
+        Instant now = Instant.now(clock);
         return Jwts.builder()
                 .subject(user.getId())
                 .claim("email", user.getEmail())

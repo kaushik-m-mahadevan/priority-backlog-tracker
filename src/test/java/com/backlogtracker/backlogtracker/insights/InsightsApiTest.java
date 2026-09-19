@@ -85,6 +85,58 @@ class InsightsApiTest {
                 .andExpect(jsonPath("$.buriedLowPriority[0].item.itemId").value("ITM-BURIED"));
     }
 
+    /** Boundary test: exact threshold values (staleThresholdDays=14, buriedThresholdDays=30)
+     *  were never exercised — existing coverage used values comfortably far from the edge on
+     *  both sides. Both filters require strictly-greater-than the threshold, so the boundary
+     *  value itself must NOT be flagged. Deterministic despite using real Instant.now(): a
+     *  whole-day offset in UTC always lands on the calendar date exactly that many days
+     *  earlier, regardless of time-of-day. */
+    @Test
+    void staleAndBuriedThresholdsAreExclusiveAtTheExactBoundary() throws Exception {
+        seed("ITM-STALE-EXACT", "High", ItemStatus.BACKLOG, 5, -14);   // exactly at threshold -> not stale
+        seed("ITM-STALE-OVER", "High", ItemStatus.BACKLOG, 5, -15);    // one day past -> stale
+        seed("ITM-BURIED-EXACT", "Low", ItemStatus.BACKLOG, 30, 60);   // exactly at threshold -> not buried
+        seed("ITM-BURIED-OVER", "Low", ItemStatus.BACKLOG, 31, 60);    // one day past -> buried
+
+        mvc.perform(get("/api/insights/needs-attention").param("groupId", groupId).header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.staleAndOverdue.length()").value(1))
+                .andExpect(jsonPath("$.staleAndOverdue[0].item.itemId").value("ITM-STALE-OVER"))
+                .andExpect(jsonPath("$.buriedLowPriority.length()").value(1))
+                .andExpect(jsonPath("$.buriedLowPriority[0].item.itemId").value("ITM-BURIED-OVER"));
+    }
+
+    /** Boundary test for health()'s neglect->stage mapping (0/1/2/3/4 at neglect
+     *  0/1/3/6/10) — previously only exercised with values that happened to land inside
+     *  each band, never at the exact edges. */
+    @Test
+    void healthStageAdvancesExactlyAtTheNeglectThresholds() throws Exception {
+        assertStage(0);
+        seed("ITM-N1", "High", ItemStatus.BACKLOG, 3, -1);
+        assertStage(1);
+        seed("ITM-N2", "High", ItemStatus.BACKLOG, 3, -1);
+        assertStage(1); // still below 3
+        seed("ITM-N3", "High", ItemStatus.BACKLOG, 3, -1);
+        assertStage(2);
+        seed("ITM-N4", "High", ItemStatus.BACKLOG, 3, -1);
+        seed("ITM-N5", "High", ItemStatus.BACKLOG, 3, -1);
+        assertStage(2); // still below 6
+        seed("ITM-N6", "High", ItemStatus.BACKLOG, 3, -1);
+        assertStage(3);
+        seed("ITM-N7", "High", ItemStatus.BACKLOG, 3, -1);
+        seed("ITM-N8", "High", ItemStatus.BACKLOG, 3, -1);
+        seed("ITM-N9", "High", ItemStatus.BACKLOG, 3, -1);
+        assertStage(3); // still below 10
+        seed("ITM-N10", "High", ItemStatus.BACKLOG, 3, -1);
+        assertStage(4);
+    }
+
+    private void assertStage(int expected) throws Exception {
+        mvc.perform(get("/api/insights/health").param("groupId", groupId).header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.stage").value(expected));
+    }
+
     @Test
     void workloadGroupsByOwnerWithUnassignedBucket() throws Exception {
         String uid = mapper.readTree(mvc.perform(get("/api/auth/me")
