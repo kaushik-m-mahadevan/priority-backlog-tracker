@@ -101,7 +101,7 @@ public class ConfigService {
 
     // ---- priorities -----------------------------------------------------------
 
-    public AppConfig addPriority(String name, Integer valueWeight) {
+    public AppConfig addPriority(String name, Integer valueWeight, String actorId) {
         AppConfig cfg = getConfig();
         String n = require(name, "priority");
         if (cfg.getPriorities().contains(n)) {
@@ -114,7 +114,7 @@ public class ConfigService {
         cfg.getPriorities().add(n);
         cfg.getPriorityValues().put(n, valueWeight);
         AppConfig saved = repository.save(cfg);
-        record(null, "added priority '" + n + "' = " + valueWeight, before, snapshot(saved));
+        record(actorId, "added priority '" + n + "' = " + valueWeight, before, snapshot(saved));
         return saved;
     }
 

@@ -50,8 +50,8 @@ public class ConfigController {
 
     @PostMapping("/priorities")
     @RequiresAdmin
-    public AppConfig addPriority(@RequestBody PriorityRequest body) {
-        return configService.addPriority(body.name(), body.value());
+    public AppConfig addPriority(@RequestBody PriorityRequest body, @AuthenticationPrincipal AuthUser actor) {
+        return configService.addPriority(body.name(), body.value(), actor == null ? null : actor.id());
     }
 
     @DeleteMapping("/priorities/{name}")

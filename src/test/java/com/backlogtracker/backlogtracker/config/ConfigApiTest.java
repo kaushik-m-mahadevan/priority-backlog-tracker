@@ -75,6 +75,24 @@ class ConfigApiTest {
     }
 
     @Test
+    void addingAPriorityRecordsTheRealActorInHistory() throws Exception {
+        String actorId = mapper.readTree(mvc.perform(auth(get("/api/auth/me")))
+                        .andReturn().getResponse().getContentAsString())
+                .get("id").asText();
+
+        mvc.perform(auth(post("/api/config/priorities")).contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"name":"Blocker","value":5}"""))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.priorities", org.hamcrest.Matchers.hasItem("Blocker")));
+
+        mvc.perform(auth(get("/api/config/history")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].summary").value("added priority 'Blocker' = 5"))
+                .andExpect(jsonPath("$[0].changedBy").value(actorId));
+    }
+
+    @Test
     void savesValidWeightsAndWritesHistory() throws Exception {
         mvc.perform(auth(put("/api/config")).contentType(MediaType.APPLICATION_JSON)
                         .content(GOOD_WEIGHTS))
