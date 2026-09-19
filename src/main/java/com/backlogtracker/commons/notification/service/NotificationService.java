@@ -10,7 +10,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
-import com.backlogtracker.backlogtracker.archive.domain.ArchiveRequest;
 import com.backlogtracker.commons.group.domain.Group;
 import com.backlogtracker.commons.group.service.GroupService;
 import com.backlogtracker.commons.notification.domain.Notification;
@@ -45,19 +44,22 @@ public class NotificationService {
                 userId, NotificationStatus.PENDING, ACTIONABLE);
     }
 
-    /** One inbox entry per other group member, asking them to approve/reject the archive. */
-    public void noticeArchiveRequest(ArchiveRequest req, Collection<String> recipientUserIds) {
+    /** One inbox entry per other group member, asking them to approve/reject the archive.
+     *  Takes plain fields rather than an {@code ArchiveRequest} — {@code commons} never
+     *  depends on an applet's domain classes, only the other way around. */
+    public void noticeArchiveRequest(String archiveRequestId, String groupId, String itemId, String itemTitle,
+                                     String requestedByName, String note, Collection<String> recipientUserIds) {
         for (String uid : recipientUserIds) {
             notifications.save(Notification.builder()
                     .userId(uid)
                     .type(NotificationType.ARCHIVE_REQUEST)
                     .status(NotificationStatus.PENDING)
-                    .archiveRequestId(req.getId())
-                    .groupId(req.getGroupId())
-                    .itemId(req.getItemId())
-                    .itemTitle(req.getItemTitle())
-                    .invitedByName(req.getRequestedByName())
-                    .message(req.getNote())
+                    .archiveRequestId(archiveRequestId)
+                    .groupId(groupId)
+                    .itemId(itemId)
+                    .itemTitle(itemTitle)
+                    .invitedByName(requestedByName)
+                    .message(note)
                     .build());
         }
     }
@@ -75,11 +77,14 @@ public class NotificationService {
         }
     }
 
-    /** Close every open notice for a resolved request and post an informational result. */
-    public void resolveArchiveRequest(ArchiveRequest req, boolean approved,
+    /** Close every open notice for a resolved request and post an informational result.
+     *  Takes plain fields rather than an {@code ArchiveRequest} — see
+     *  {@link #noticeArchiveRequest} for why. */
+    public void resolveArchiveRequest(String archiveRequestId, String groupId, String itemId, String itemTitle,
+                                      boolean approved, String rejectedByName,
                                       Collection<String> memberUserIds) {
         Instant now = Instant.now();
-        for (Notification n : notifications.findByArchiveRequestId(req.getId())) {
+        for (Notification n : notifications.findByArchiveRequestId(archiveRequestId)) {
             if (n.getType() == NotificationType.ARCHIVE_REQUEST
                     && n.getStatus() == NotificationStatus.PENDING) {
                 n.setStatus(approved ? NotificationStatus.ACCEPTED : NotificationStatus.DECLINED);
@@ -88,19 +93,19 @@ public class NotificationService {
             }
         }
         String text = approved
-                ? "“" + req.getItemTitle() + "” was archived."
-                : "The request to archive “" + req.getItemTitle() + "” was declined"
-                        + (req.getRejectedByName() != null ? " by " + req.getRejectedByName() : "")
+                ? "“" + itemTitle + "” was archived."
+                : "The request to archive “" + itemTitle + "” was declined"
+                        + (rejectedByName != null ? " by " + rejectedByName : "")
                         + ".";
         for (String uid : memberUserIds) {
             notifications.save(Notification.builder()
                     .userId(uid)
                     .type(NotificationType.ARCHIVE_RESULT)
                     .status(NotificationStatus.ACCEPTED) // informational — never counts as pending
-                    .archiveRequestId(req.getId())
-                    .groupId(req.getGroupId())
-                    .itemId(req.getItemId())
-                    .itemTitle(req.getItemTitle())
+                    .archiveRequestId(archiveRequestId)
+                    .groupId(groupId)
+                    .itemId(itemId)
+                    .itemTitle(itemTitle)
                     .message(text)
                     .build());
         }

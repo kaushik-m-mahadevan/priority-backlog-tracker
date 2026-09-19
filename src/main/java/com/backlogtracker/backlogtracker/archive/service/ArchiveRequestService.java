@@ -71,7 +71,8 @@ public class ArchiveRequestService {
 
         req = evaluate(req, g);
         if (req.getStatus() == Status.PENDING) {
-            notificationService.noticeArchiveRequest(req, others(g, actor.id()));
+            notificationService.noticeArchiveRequest(req.getId(), req.getGroupId(), req.getItemId(),
+                    req.getItemTitle(), req.getRequestedByName(), req.getNote(), others(g, actor.id()));
         }
         return req;
     }
@@ -121,7 +122,8 @@ public class ArchiveRequestService {
         req.setRejectedByName(actor.name());
         req.setDecidedAt(Instant.now());
         req = requests.save(req);
-        notificationService.resolveArchiveRequest(req, false, new ArrayList<>(g.getMemberIds()));
+        notificationService.resolveArchiveRequest(req.getId(), req.getGroupId(), req.getItemId(), req.getItemTitle(),
+                false, req.getRejectedByName(), new ArrayList<>(g.getMemberIds()));
         return req;
     }
 
@@ -151,7 +153,8 @@ public class ArchiveRequestService {
     private void finishApproval(ArchiveRequest req, Group group) {
         archiveService.completeApproved(req.getItemId(), req.getRequestedByUserId());
         if (group.getMemberIds().size() > 1) {
-            notificationService.resolveArchiveRequest(req, true, new ArrayList<>(group.getMemberIds()));
+            notificationService.resolveArchiveRequest(req.getId(), req.getGroupId(), req.getItemId(),
+                    req.getItemTitle(), true, req.getRejectedByName(), new ArrayList<>(group.getMemberIds()));
         }
     }
 
