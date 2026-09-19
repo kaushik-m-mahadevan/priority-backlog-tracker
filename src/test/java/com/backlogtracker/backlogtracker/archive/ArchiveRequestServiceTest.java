@@ -16,6 +16,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 
 import com.backlogtracker.backlogtracker.archive.domain.ArchiveRequest;
 import com.backlogtracker.backlogtracker.archive.repository.ArchiveRequestRepository;
+import com.backlogtracker.backlogtracker.archive.repository.ArchivedItemRepository;
 import com.backlogtracker.backlogtracker.archive.service.ArchiveRequestService;
 import com.backlogtracker.backlogtracker.item.domain.EffortEstimate;
 import com.backlogtracker.backlogtracker.item.domain.EffortUnit;
@@ -39,6 +40,7 @@ class ArchiveRequestServiceTest {
     @Autowired ArchiveRequestService archiveRequestService;
     @Autowired ItemRepository items;
     @Autowired ArchiveRequestRepository requests;
+    @Autowired ArchivedItemRepository archivedItems;
     @Autowired UserRepository users;
 
     private Group group;
@@ -76,6 +78,8 @@ class ArchiveRequestServiceTest {
         requests.findByGroupIdAndStatus(group.getId(), ArchiveRequest.Status.PENDING).forEach(r -> requests.deleteById(r.getId()));
         requests.findByGroupIdAndStatus(group.getId(), ArchiveRequest.Status.APPROVED).forEach(r -> requests.deleteById(r.getId()));
         items.findById(item.getId()).ifPresent(i -> items.deleteById(i.getId()));
+        archivedItems.findByGroupIdOrderByMovedAtDesc(group.getId(), org.springframework.data.domain.Pageable.unpaged())
+                .forEach(ai -> archivedItems.deleteById(ai.getId()));
         groupService.leave(group.getId(), members.get(0).id());
         for (int i = 1; i < members.size(); i++) {
             users.deleteById(members.get(i).id());
@@ -111,8 +115,14 @@ class ArchiveRequestServiceTest {
         assertThat(resolved.getStatus()).isEqualTo(ArchiveRequest.Status.APPROVED);
         assertThat(resolved.getApprovedByUserIds()).containsExactlyInAnyOrderElementsOf(
                 members.stream().map(AuthUser::id).toList());
-        // and the item was actually archived exactly once
+        // and the item was actually archived exactly once -- concurrent approve() calls
+        // resolving unanimity at nearly the same instant could, without care, each try to
+        // move the item and produce a duplicate ArchivedItem, which ArchiveService.move's
+        // atomic findAndRemove is specifically supposed to prevent (tc-5)
         assertThat(items.findById(item.getId())).isEmpty();
+        assertThat(archivedItems.findByGroupIdOrderByMovedAtDesc(group.getId(),
+                org.springframework.data.domain.Pageable.unpaged()).getContent())
+                .hasSize(1);
     }
 
     private ArchiveRequest archiveRequestFor(String itemId, AuthUser requester) {
