@@ -128,6 +128,39 @@ class TransferRequestServiceTest {
                 .isInstanceOf(ResponseStatusException.class);
     }
 
+    /** Regression coverage for unreserve()'s compensating rollback — the one behavior the
+     *  class's own javadoc specifically calls out, with zero prior coverage at any level.
+     *  Reservation only checks the request's own bookkeeping (amount <= what's still
+     *  requested), not real on-hand inventory — so a fulfill() whose reservation succeeds
+     *  but whose physical withdrawal then fails (the target's actual stock changed in the
+     *  interim) must roll fulfilledQuantity back to what it was before, not leave it
+     *  claiming yarn that was never actually handed over. */
+    @Test
+    void unreservesOnAFailedInventoryWithdrawalAfterAValidReservation() {
+        // Requested quantity (3.0) is within bounds for reservation, but the target's real
+        // on-hand stock (1.0) is not enough to actually fulfill it.
+        inventoryService.setMyQuantity(inventoryGroup.getId(), targetId, wool.id(), 1.0);
+        TransferRequestView created = transferRequestService.create(inventoryGroup.getId(), requesterId,
+                new CreateTransferRequestRequest(targetId, wool.id(), 3.0));
+
+        assertThatThrownBy(() -> transferRequestService.fulfill(inventoryGroup.getId(), targetId, created.id(), 3.0))
+                .isInstanceOf(ResponseStatusException.class)
+                .hasMessageContaining("Not enough on hand");
+
+        TransferRequestView afterFailedFulfill = transferRequestService.list(inventoryGroup.getId(), requesterId).stream()
+                .filter(t -> t.id().equals(created.id())).findFirst().orElseThrow();
+        assertThat(afterFailedFulfill.status()).isEqualTo(TransferStatus.PENDING);
+        assertThat(afterFailedFulfill.fulfilledQuantity()).isEqualTo(0.0);
+        // The target's own stock is untouched too — the withdrawal itself never applied.
+        assertThat(inventoryService.mine(inventoryGroup.getId(), targetId).get(0).quantity()).isEqualTo(1.0);
+
+        // The rollback actually worked, not just "didn't crash": a subsequent fulfillment
+        // within the target's real means still succeeds against the same request.
+        inventoryService.setMyQuantity(inventoryGroup.getId(), targetId, wool.id(), 3.0);
+        TransferRequestView afterRetry = transferRequestService.fulfill(inventoryGroup.getId(), targetId, created.id(), 3.0);
+        assertThat(afterRetry.fulfilledQuantity()).isEqualTo(3.0);
+    }
+
     @Test
     void onlyTheTargetCanMarkCompleteEvenBeforeFullyFulfilled() {
         TransferRequestView created = transferRequestService.create(inventoryGroup.getId(), requesterId,

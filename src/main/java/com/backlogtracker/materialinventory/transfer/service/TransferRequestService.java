@@ -151,9 +151,20 @@ public class TransferRequestService {
      *  partially fulfilled on the request even though no yarn actually moved. Not itself
      *  atomic with the reservation (no real transaction backs this), but this is the rare
      *  failure path, not the contended common case the atomic reservation above protects. */
+    /** Rolls back a reservation whose physical inventory move then failed. Also reverts
+     *  {@code status} back to PENDING when the rollback brings fulfilledQuantity back to
+     *  zero — reserveFulfillment unconditionally sets PARTIALLY_FULFILLED on every
+     *  successful reservation, so a request whose very first fulfillment attempt fails
+     *  after reserving would otherwise be stuck showing PARTIALLY_FULFILLED forever despite
+     *  zero yarn ever actually changing hands. A request that already had a real prior
+     *  partial fulfillment keeps PARTIALLY_FULFILLED, since fulfilledQuantity stays > 0. */
     private void unreserve(String groupId, String requestId, double amount) {
         Query query = Query.query(Criteria.where("id").is(requestId).and("groupId").is(groupId));
-        mongo.updateFirst(query, new Update().inc("fulfilledQuantity", -amount), TransferRequest.class);
+        TransferRequest updated = mongo.findAndModify(query, new Update().inc("fulfilledQuantity", -amount),
+                FindAndModifyOptions.options().returnNew(true), TransferRequest.class);
+        if (updated != null && updated.getFulfilledQuantity() <= QuarterStep.EPSILON) {
+            mongo.updateFirst(query, new Update().set("status", TransferStatus.PENDING), TransferRequest.class);
+        }
     }
 
     /** Only the target may mark a request complete (design decision), whether or not it
