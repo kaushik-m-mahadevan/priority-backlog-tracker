@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { api } from "../api/client";
 import { TerminalBadge } from "../components/Badge";
+import { Pager } from "../components/Pager";
 import { PriorityMark } from "../components/PriorityMark";
 import { EffortIcon } from "../components/EffortIcon";
 import { formatDateTime, effortLabel } from "../lib/format";
@@ -100,19 +101,7 @@ export default function ArchivePage() {
             </tbody>
           </table>
         </div>
-        {totalPages > 1 && (
-          <div className="pager">
-            <button disabled={page === 0} onClick={() => setPage((p) => p - 1)}>
-              ‹ Prev
-            </button>
-            <span className="muted">
-              Page {page + 1} of {totalPages}
-            </span>
-            <button disabled={page + 1 >= totalPages} onClick={() => setPage((p) => p + 1)}>
-              Next ›
-            </button>
-          </div>
-        )}
+        <Pager page={page} totalPages={totalPages} onChange={setPage} />
       </div>
     </div>
   );

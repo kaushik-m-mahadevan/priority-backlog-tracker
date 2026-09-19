@@ -12,6 +12,7 @@ import NoGroupNotice from "../components/NoGroupNotice";
 import { useGroups } from "../groups/GroupContext";
 import { useGroupCategories } from "../groups/GroupCategoriesContext";
 import { useConfig } from "../config/ConfigContext";
+import { Pager } from "../components/Pager";
 import { useItemsChanged, notifyItemsChanged } from "../lib/events";
 import { capitalize, effortLabel, formatDate } from "../lib/format";
 import { TERMINAL_STATUSES } from "../types";
@@ -247,19 +248,7 @@ export default function ItemsPage() {
             </tbody>
           </table>
         </div>
-        {totalPages > 1 && (
-          <div className="pager">
-            <button disabled={page === 0} onClick={() => setPage((p) => p - 1)}>
-              ‹ Prev
-            </button>
-            <span className="muted">
-              Page {page + 1} of {totalPages}
-            </span>
-            <button disabled={page + 1 >= totalPages} onClick={() => setPage((p) => p + 1)}>
-              Next ›
-            </button>
-          </div>
-        )}
+        <Pager page={page} totalPages={totalPages} onChange={setPage} />
       </div>
 
       {showForm && (
