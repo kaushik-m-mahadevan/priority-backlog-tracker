@@ -1,0 +1,506 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Implementation Checklist</title>
+<style>
+  :root{
+    --bg:#180f22;
+    --surface:#241933;
+    --surface-2:#2c2040;
+    --border:#3d2f56;
+    --text:#f1e9fb;
+    --muted:#a999c2;
+    --accent:#e8a34c;
+    --accent-ink:#2a1c12;
+    --done:#7bd88f;
+    --done-bg:#1c3324;
+  }
+  @media (prefers-color-scheme: light){
+    :root:not([data-theme="dark"]){
+      --bg:#faf7f2;
+      --surface:#ffffff;
+      --surface-2:#f3ecff;
+      --border:#e2d9f5;
+      --text:#241933;
+      --muted:#6b6083;
+      --accent:#c9791f;
+      --accent-ink:#fff7ec;
+      --done:#1f8a4c;
+      --done-bg:#e3f7e9;
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#180f22;
+    --surface:#241933;
+    --surface-2:#2c2040;
+    --border:#3d2f56;
+    --text:#f1e9fb;
+    --muted:#a999c2;
+    --accent:#e8a34c;
+    --accent-ink:#2a1c12;
+    --done:#7bd88f;
+    --done-bg:#1c3324;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--text);
+    font-family:"Segoe UI", system-ui, -apple-system, sans-serif;
+    line-height:1.45;
+  }
+  .wrap{max-width:920px;margin:0 auto;padding:28px 16px 80px;}
+  header.page{margin-bottom:20px;}
+  h1{font-size:1.6rem;margin:0 0 6px;letter-spacing:-0.01em;}
+  .sub{color:var(--muted);font-size:0.92rem;margin:0 0 18px;}
+  .sub a{color:var(--accent);}
+
+  .progress-card{
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:14px;
+    padding:16px 18px;
+    margin-bottom:22px;
+  }
+  .progress-top{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px;}
+  .progress-top .pct{font-size:1.4rem;font-weight:700;color:var(--accent);font-variant-numeric:tabular-nums;}
+  .progress-top .count{color:var(--muted);font-size:0.85rem;font-variant-numeric:tabular-nums;}
+  .bar-track{height:10px;border-radius:6px;background:var(--surface-2);overflow:hidden;}
+  .bar-fill{height:100%;background:linear-gradient(90deg,var(--accent),#f4c98a);border-radius:6px;transition:width .25s ease;width:0%;}
+
+  details.section{
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:12px;
+    margin-bottom:14px;
+    overflow:hidden;
+  }
+  details.section[open] summary{border-bottom:1px solid var(--border);}
+  summary{
+    list-style:none;
+    cursor:pointer;
+    padding:14px 16px;
+    display:flex;
+    align-items:center;
+    gap:10px;
+    font-weight:600;
+    font-size:0.98rem;
+  }
+  summary::-webkit-details-marker{display:none;}
+  summary .chev{
+    transition:transform .18s ease;
+    color:var(--muted);
+    flex-shrink:0;
+  }
+  details[open] summary .chev{transform:rotate(90deg);}
+  summary .title{flex:1;}
+  summary .badge{
+    font-size:0.78rem;
+    font-weight:700;
+    color:var(--muted);
+    background:var(--surface-2);
+    border:1px solid var(--border);
+    border-radius:999px;
+    padding:2px 10px;
+    font-variant-numeric:tabular-nums;
+    white-space:nowrap;
+  }
+  summary .badge.all-done{color:var(--done);background:var(--done-bg);border-color:transparent;}
+  summary .src-link{
+    font-size:0.75rem;
+    color:var(--muted);
+    text-decoration:none;
+    border:1px solid var(--border);
+    border-radius:6px;
+    padding:2px 8px;
+  }
+  summary .src-link:hover{color:var(--accent);border-color:var(--accent);}
+
+  .items{padding:6px 8px 10px;}
+  .item{
+    display:flex;
+    align-items:flex-start;
+    gap:10px;
+    padding:9px 10px;
+    border-radius:8px;
+  }
+  .item:hover{background:var(--surface-2);}
+  .item input[type=checkbox]{
+    appearance:none;
+    -webkit-appearance:none;
+    width:19px;height:19px;
+    border:2px solid var(--border);
+    border-radius:5px;
+    margin-top:2px;
+    flex-shrink:0;
+    cursor:pointer;
+    position:relative;
+    background:transparent;
+  }
+  .item input[type=checkbox]:checked{
+    background:var(--done);
+    border-color:var(--done);
+  }
+  .item input[type=checkbox]:checked::after{
+    content:"";
+    position:absolute;
+    left:5px;top:1px;
+    width:5px;height:10px;
+    border:solid var(--done-bg);
+    border-width:0 2px 2px 0;
+    transform:rotate(45deg);
+  }
+  .item label{cursor:pointer;flex:1;font-size:0.92rem;}
+  .item.done label{color:var(--muted);text-decoration:line-through;text-decoration-color:var(--border);}
+  .item .note{display:block;color:var(--muted);font-size:0.82rem;margin-top:2px;font-weight:400;}
+
+  footer{color:var(--muted);font-size:0.8rem;margin-top:28px;padding-top:14px;border-top:1px solid var(--border);}
+  footer code{background:var(--surface-2);padding:1px 5px;border-radius:4px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="page">
+    <h1>Implementation Checklist</h1>
+    <p class="sub">
+      Companion to <a href="BACKLOG.md">docs/BACKLOG.md</a> — every approved item, one checkbox
+      each. Check marks here are the repo's source of truth for build status; full design
+      detail for any item lives in BACKLOG.md (linked per section below).
+    </p>
+  </header>
+
+  <div class="progress-card">
+    <div class="progress-top">
+      <span class="pct" id="overallPct">0%</span>
+      <span class="count" id="overallCount">0 / 0 done</span>
+    </div>
+    <div class="bar-track"><div class="bar-fill" id="overallBar"></div></div>
+  </div>
+
+  <!-- ============ SHIPPED ============ -->
+  <details class="section" open>
+    <summary>
+      <span class="chev">▶</span>
+      <span class="title">Shipped</span>
+      <a class="src-link" href="BACKLOG.md#shipped" target="_blank">source</a>
+      <span class="badge">0/0</span>
+    </summary>
+    <div class="items">
+      <div class="item">
+        <input type="checkbox" id="ship-1" checked>
+        <label for="ship-1">Estimate &amp; delivery-date breakdown redesign — itemized cost formula, hourly wage config, delivery-buffer formula
+          <span class="note">Built, tested, live-verified — commit 01c6b89</span>
+        </label>
+      </div>
+    </div>
+  </details>
+
+  <!-- ============ APPROVED DESIGNS ============ -->
+  <details class="section" open>
+    <summary>
+      <span class="chev">▶</span>
+      <span class="title">Approved designs, not yet started</span>
+      <a class="src-link" href="BACKLOG.md#approved-designs-not-yet-started" target="_blank">source</a>
+      <span class="badge">0/0</span>
+    </summary>
+    <div class="items">
+      <div class="item"><input type="checkbox" id="ad-1"><label for="ad-1">Order → Finance Tracker ledger auto-entry <span class="note">Double-entry Debit/Credit table, order→payment sync, refunds, personal profit-split preview</span></label></div>
+      <div class="item"><input type="checkbox" id="ad-2"><label for="ad-2">Order → Material Inventory decrement, with reservation <span class="note">Yarn-only usage logging, per-user sync setting, reservation, low-stock tiers, transfer suggestions</span></label></div>
+      <div class="item"><input type="checkbox" id="ad-3"><label for="ad-3">Order status workflow — Kanban board <span class="note">4 columns, strictly adjacent-only transitions, guided cancel flow</span></label></div>
+      <div class="item"><input type="checkbox" id="ad-4"><label for="ad-4">Notification orchestration <span class="note">NotificationOrchestrator service + proactive notify-on-create for proposals/signups/password requests</span></label></div>
+      <div class="item"><input type="checkbox" id="ad-5"><label for="ad-5">Single cross-applet search <span class="note">Header search box scoped to current business + GroupLink-connected groups</span></label></div>
+      <div class="item"><input type="checkbox" id="ad-6"><label for="ad-6">Multiple saved addresses per customer <span class="note">Labeled address list with one default, replaces single shippingAddress string</span></label></div>
+      <div class="item"><input type="checkbox" id="ad-7"><label for="ad-7">Password-request duplicate handling, unified <span class="note">Same "replace pending request?" confirmation on both change-password and forgot-password paths</span></label></div>
+    </div>
+  </details>
+
+  <!-- ============ QUEUED FOR DESIGN DISCUSSION ============ -->
+  <details class="section">
+    <summary>
+      <span class="chev">▶</span>
+      <span class="title">Approved refactors (pure internal, no design needed)</span>
+      <a class="src-link" href="BACKLOG.md#queued-for-design-discussion-approved-to-pursue-not-yet-designed" target="_blank">source</a>
+      <span class="badge">0/0</span>
+    </summary>
+    <div class="items">
+      <div class="item"><input type="checkbox" id="qd-1"><label for="qd-1">Consolidate the three "everyone must approve" implementations into one shared mechanism</label></div>
+      <div class="item"><input type="checkbox" id="qd-2"><label for="qd-2">Merge the three near-duplicate order forms (new / edit / edit-bulk) into one shared form</label></div>
+    </div>
+  </details>
+
+  <!-- ============ SMALL READY TO BUILD ============ -->
+  <details class="section">
+    <summary>
+      <span class="chev">▶</span>
+      <span class="title">Small, ready to build</span>
+      <a class="src-link" href="BACKLOG.md#small-ready-to-build-no-further-design-needed" target="_blank">source</a>
+      <span class="badge">0/0</span>
+    </summary>
+    <div class="items">
+      <div class="item"><input type="checkbox" id="sm-1"><label for="sm-1">Delete the stale @Version field + comment on TransferRequest</label></div>
+      <div class="item"><input type="checkbox" id="sm-2"><label for="sm-2">Add a confirmation dialog before deleting a logged time entry</label></div>
+      <div class="item"><input type="checkbox" id="sm-3"><label for="sm-3">Re-check a group invite's per-app membership cap at accept time, not just invite time</label></div>
+      <div class="item"><input type="checkbox" id="sm-4"><label for="sm-4">Consolidate duplicated new-customer fields into one shared component</label></div>
+      <div class="item"><input type="checkbox" id="sm-5"><label for="sm-5">Add a "Pending invites" list to the Manage Business/Group page</label></div>
+    </div>
+  </details>
+
+  <!-- ============ UI/UX AUDIT ============ -->
+  <details class="section" open>
+    <summary>
+      <span class="chev">▶</span>
+      <span class="title">UI/UX — mobile &amp; web (2026-09-19 audit)</span>
+      <a class="src-link" href="BACKLOG.md#ui-ux-audit-mobile-web-2026-09-19" target="_blank">source</a>
+      <span class="badge">0/0</span>
+    </summary>
+    <div class="items">
+      <div class="item"><input type="checkbox" id="ui-1"><label for="ui-1">1. Header overflow — applet group/business chooser screen; relocate switcher + Connections</label></div>
+      <div class="item"><input type="checkbox" id="ui-2"><label for="ui-2">2. Material Inventory "Who has what" table — compact Brand/Shade/Size identity, reservation in its own section</label></div>
+      <div class="item"><input type="checkbox" id="ui-3"><label for="ui-3">3. Order Tracker bottom nav — icon-only: Orders / New Order / Customers / More</label></div>
+      <div class="item"><input type="checkbox" id="ui-4"><label for="ui-4">4. NewOrderPage — collapsible sections, Summary open by default</label></div>
+      <div class="item"><input type="checkbox" id="ui-5"><label for="ui-5">5. ItemFormModal — full-screen sheet on mobile</label></div>
+      <div class="item"><input type="checkbox" id="ui-6"><label for="ui-6">6. Bulk-variant nesting — flatten to a divided list</label></div>
+      <div class="item"><input type="checkbox" id="ui-7"><label for="ui-7">7. SettingsPage — sectioned &amp; collapsible; switches not checkboxes; "?" for extra detail</label></div>
+      <div class="item"><input type="checkbox" id="ui-8"><label for="ui-8">8. Dropdown/popover viewport-overflow fix (edge-aware flip/clamp)</label></div>
+      <div class="item"><input type="checkbox" id="ui-9"><label for="ui-9">9. Touch target sizing (44×44 min) + swipe gestures on list rows</label></div>
+      <div class="item"><input type="checkbox" id="ui-10"><label for="ui-10">10. Sticky action bar on the order detail page</label></div>
+      <div class="item"><input type="checkbox" id="ui-11"><label for="ui-11">11. PWA installability <span class="note">good to have</span></label></div>
+      <div class="item"><input type="checkbox" id="ui-12"><label for="ui-12">12. Product Catalog — photo + link support (both, not either/or)</label></div>
+      <div class="item"><input type="checkbox" id="ui-13"><label for="ui-13">13. Camera capture for receipts (Finance Tracker) <span class="note">good to have</span></label></div>
+    </div>
+  </details>
+
+  <!-- ============ CODE QUALITY: BUGS ============ -->
+  <details class="section" open>
+    <summary>
+      <span class="chev">▶</span>
+      <span class="title">Code quality — real bugs (fix first)</span>
+      <a class="src-link" href="BACKLOG.md#code-quality-internal-engineering-backlog-2026-09-19-audit" target="_blank">source</a>
+      <span class="badge">0/0</span>
+    </summary>
+    <div class="items">
+      <div class="item"><input type="checkbox" id="bug-1"><label for="bug-1">Fix EditOrderForm always erasing itemizedPackaging on save <span class="note">data loss</span></label></div>
+      <div class="item"><input type="checkbox" id="bug-2"><label for="bug-2">Guard EditBulkDetailsForm's "+ Add variant" against an empty variants array <span class="note">crash risk</span></label></div>
+      <div class="item"><input type="checkbox" id="bug-3"><label for="bug-3">Add a real payment-mode picker instead of hardcoded "UPI"</label></div>
+      <div class="item"><input type="checkbox" id="bug-4"><label for="bug-4">Add try/catch + surfaced error to OrderDetailPage's payment/status/stage-progress calls</label></div>
+      <div class="item"><input type="checkbox" id="bug-5"><label for="bug-5">Fix ConfigService.addPriority hardcoding changedBy: null in audit history</label></div>
+      <div class="item"><input type="checkbox" id="bug-6"><label for="bug-6">Rename OrderController.myWork's "status" param to "completionFilter" <span class="note">coordinate with frontend caller</span></label></div>
+      <div class="item"><input type="checkbox" id="bug-7"><label for="bug-7">Derive WorkloadService/CompletionStatsService's hardcoded priority/status literals from real config</label></div>
+      <div class="item"><input type="checkbox" id="bug-8"><label for="bug-8">Fix imagesApi.ts to surface the backend's real error message</label></div>
+    </div>
+  </details>
+
+  <!-- ============ CODE QUALITY: ARCHITECTURE ============ -->
+  <details class="section">
+    <summary>
+      <span class="chev">▶</span>
+      <span class="title">Code quality — architecture violations</span>
+      <a class="src-link" href="BACKLOG.md#code-quality-internal-engineering-backlog-2026-09-19-audit" target="_blank">source</a>
+      <span class="badge">0/0</span>
+    </summary>
+    <div class="items">
+      <div class="item"><input type="checkbox" id="arch-1"><label for="arch-1">Fix NotificationService's illegal dependency on ArchiveRequest (commons → applet)</label></div>
+      <div class="item"><input type="checkbox" id="arch-2"><label for="arch-2">Move DemoDataSeeder out of the Backlog Tracker applet package to a platform-level package</label></div>
+      <div class="item"><input type="checkbox" id="arch-3"><label for="arch-3">Consolidate ArchiveRequestService's approval state machine into ApprovalService <span class="note">pairs with qd-1</span></label></div>
+    </div>
+  </details>
+
+  <!-- ============ CODE QUALITY: BACKEND DUPLICATION ============ -->
+  <details class="section">
+    <summary>
+      <span class="chev">▶</span>
+      <span class="title">Code quality — backend duplication</span>
+      <a class="src-link" href="BACKLOG.md#code-quality-internal-engineering-backlog-2026-09-19-audit" target="_blank">source</a>
+      <span class="badge">0/0</span>
+    </summary>
+    <div class="items">
+      <div class="item"><input type="checkbox" id="bdup-1"><label for="bdup-1">Deduplicate InventoryService vs NeedleInventoryService</label></div>
+      <div class="item"><input type="checkbox" id="bdup-2"><label for="bdup-2">Deduplicate YarnTypeService / NeedleTypeService / ColorwayService's CRUD template</label></div>
+      <div class="item"><input type="checkbox" id="bdup-3"><label for="bdup-3">Deduplicate ConfigService.removePriority vs GroupCategoryService.removeCategory</label></div>
+      <div class="item"><input type="checkbox" id="bdup-4"><label for="bdup-4">Extract shared sha256(String) helper (JwtService/AesGcmCipher/BlindIndexService)</label></div>
+      <div class="item"><input type="checkbox" id="bdup-5"><label for="bdup-5">Deduplicate requireQuarterStep (InventoryService/TransferRequestService)</label></div>
+      <div class="item"><input type="checkbox" id="bdup-6"><label for="bdup-6">Deduplicate OrderCalculator.estimateIndividual vs .priceVariant pricing pipeline <span class="note">highest-risk duplication in the app</span></label></div>
+      <div class="item"><input type="checkbox" id="bdup-7"><label for="bdup-7">Extract TimeLogService/OrderChangeLogService collaborators out of OrderService</label></div>
+      <div class="item"><input type="checkbox" id="bdup-8"><label for="bdup-8">Extract shared "find-by-id-or-404 / status-check" helper (6+ call sites)</label></div>
+      <div class="item"><input type="checkbox" id="bdup-9"><label for="bdup-9">Extract shared "enum-from-request-string" helper (3 call sites)</label></div>
+      <div class="item"><input type="checkbox" id="bdup-10"><label for="bdup-10">Extract shared pagination page/size clamp helper</label></div>
+    </div>
+  </details>
+
+  <!-- ============ CODE QUALITY: FRONTEND DUPLICATION ============ -->
+  <details class="section">
+    <summary>
+      <span class="chev">▶</span>
+      <span class="title">Code quality — frontend duplication</span>
+      <a class="src-link" href="BACKLOG.md#code-quality-internal-engineering-backlog-2026-09-19-audit" target="_blank">source</a>
+      <span class="badge">0/0</span>
+    </summary>
+    <div class="items">
+      <div class="item"><input type="checkbox" id="fdup-1"><label for="fdup-1">Split OrderDetailPage.tsx (1743 lines) into hooks + per-section components</label></div>
+      <div class="item"><input type="checkbox" id="fdup-2"><label for="fdup-2">Build a generic PerMemberQuantityTable for MyInventoryPage's yarn/needle tables <span class="note">do before the inventory-reservation feature adds a 3rd table</span></label></div>
+      <div class="item"><input type="checkbox" id="fdup-3"><label for="fdup-3">Build a generic useLinkedMaterialResource hook, replacing 4 near-identical hooks</label></div>
+      <div class="item"><input type="checkbox" id="fdup-4"><label for="fdup-4">Build a createAppletGroupContext factory for Finance/Inventory/Catalog Context+Layout+Root <span class="note">largest win, highest risk — needs real test coverage</span></label></div>
+      <div class="item"><input type="checkbox" id="fdup-5"><label for="fdup-5">Build a shared useDismissableMenu hook <span class="note">scope to whichever of NavMenu/Bell/Connections are still real dropdowns after the header redesign</span></label></div>
+      <div class="item"><input type="checkbox" id="fdup-6"><label for="fdup-6">Build a shared formatMoney() helper <span class="note">do before the ledger Debit/Credit rewrite lands</span></label></div>
+      <div class="item"><input type="checkbox" id="fdup-7"><label for="fdup-7">Build a shared ColorwayForm component</label></div>
+      <div class="item"><input type="checkbox" id="fdup-8"><label for="fdup-8">Build a shared Pager component</label></div>
+      <div class="item"><input type="checkbox" id="fdup-9"><label for="fdup-9">Build a shared loading/error/empty-state convention, reusing EmptyLeaf</label></div>
+    </div>
+  </details>
+
+  <!-- ============ CODE QUALITY: SMALL CLEANUPS ============ -->
+  <details class="section">
+    <summary>
+      <span class="chev">▶</span>
+      <span class="title">Code quality — small/trivial cleanups</span>
+      <a class="src-link" href="BACKLOG.md#code-quality-internal-engineering-backlog-2026-09-19-audit" target="_blank">source</a>
+      <span class="badge">0/0</span>
+    </summary>
+    <div class="items">
+      <div class="item"><input type="checkbox" id="cln-1"><label for="cln-1">Reference a shared stage-key constant instead of hardcoded "crocheting"/"assembly" literals</label></div>
+      <div class="item"><input type="checkbox" id="cln-2"><label for="cln-2">Share a digit-width constant across CreatorService/LocationCodeService/OrderNumberService</label></div>
+      <div class="item"><input type="checkbox" id="cln-3"><label for="cln-3">Unify BusinessConfigService.seed()'s random-code generator with RandomCodeAssigner</label></div>
+      <div class="item"><input type="checkbox" id="cln-4"><label for="cln-4">Deduplicate finalCost derivation in OrderService.java</label></div>
+      <div class="item"><input type="checkbox" id="cln-5"><label for="cln-5">Extract a shared CustomerService.applyFields helper</label></div>
+      <div class="item"><input type="checkbox" id="cln-6"><label for="cln-6">Reference shared Mongo collection-name constants instead of string literals</label></div>
+      <div class="item"><input type="checkbox" id="cln-7"><label for="cln-7">Move CounterService.nextSharedItemId() into the backlogtracker.item package</label></div>
+      <div class="item"><input type="checkbox" id="cln-8"><label for="cln-8">Delete confirmed dead code (InventoryService.quantityOf and the rest of the audit's list)</label></div>
+      <div class="item"><input type="checkbox" id="cln-9"><label for="cln-9">Unify or document the UserSummary/UserView vs User/UserSummary divergence</label></div>
+      <div class="item"><input type="checkbox" id="cln-10"><label for="cln-10">Derive terminal-status literal arrays from the one union-type definition (frontend)</label></div>
+      <div class="item"><input type="checkbox" id="cln-11"><label for="cln-11">Extract one shared capitalize()/title-case helper (frontend)</label></div>
+    </div>
+  </details>
+
+  <!-- ============ TESTING: HIGHEST VALUE GAPS ============ -->
+  <details class="section">
+    <summary>
+      <span class="chev">▶</span>
+      <span class="title">Testing — highest-value coverage gaps</span>
+      <a class="src-link" href="BACKLOG.md#testing-coverage-backlog-2026-09-19-audit" target="_blank">source</a>
+      <span class="badge">0/0</span>
+    </summary>
+    <div class="items">
+      <div class="item"><input type="checkbox" id="tg-1"><label for="tg-1">Test ConfigService.addPriority/removePriority's three safe-removal branches <span class="note">single largest gap in the audit</span></label></div>
+      <div class="item"><input type="checkbox" id="tg-2"><label for="tg-2">Test CustomerService.search's blind-index duplicate detection</label></div>
+      <div class="item"><input type="checkbox" id="tg-3"><label for="tg-3">Test OrderBusinessRules.requireSplitAllocationSumsToQuantity (create + bulk-update)</label></div>
+      <div class="item"><input type="checkbox" id="tg-4"><label for="tg-4">Test TransferRequestService.unreserve()'s compensating-rollback path</label></div>
+      <div class="item"><input type="checkbox" id="tg-5"><label for="tg-5">Add a BlindIndexService test file (hash normalization, null/blank, domain separation)</label></div>
+      <div class="item"><input type="checkbox" id="tg-6"><label for="tg-6">Fix JwtService to use the injected Clock, then add a deterministic expiry test</label></div>
+      <div class="item"><input type="checkbox" id="tg-7"><label for="tg-7">Test BusinessConfig.bufferDaysFor across all DeliveryTier values + the zero-fallback branch</label></div>
+      <div class="item"><input type="checkbox" id="tg-8"><label for="tg-8">Test that hourlyWageConfirmed actually changes a real order's price</label></div>
+      <div class="item"><input type="checkbox" id="tg-9"><label for="tg-9">Add day-boundary threshold tests for AgingService (14/15, 30/31, 3/6/10)</label></div>
+      <div class="item"><input type="checkbox" id="tg-10"><label for="tg-10">Add baseline coverage for OrderService.updateStatus + actualDeliveryDate stamp-once</label></div>
+      <div class="item"><input type="checkbox" id="tg-11"><label for="tg-11">Test payment-status exact boundaries (net == finalCost, ±1)</label></div>
+      <div class="item"><input type="checkbox" id="tg-12"><label for="tg-12">Test non-member-caller authorization across Material Inventory/Finance/Product Catalog</label></div>
+      <div class="item"><input type="checkbox" id="tg-13"><label for="tg-13">Test group-isolation (non-member access) in Backlog Tracker's own suite</label></div>
+    </div>
+  </details>
+
+  <!-- ============ TESTING: CONCURRENCY ============ -->
+  <details class="section">
+    <summary>
+      <span class="chev">▶</span>
+      <span class="title">Testing — concurrency</span>
+      <a class="src-link" href="BACKLOG.md#testing-coverage-backlog-2026-09-19-audit" target="_blank">source</a>
+      <span class="badge">0/0</span>
+    </summary>
+    <div class="items">
+      <div class="item"><input type="checkbox" id="tc-1"><label for="tc-1">Add a real concurrent test for ApprovalService.approve's retry loop</label></div>
+      <div class="item"><input type="checkbox" id="tc-2"><label for="tc-2">Add a real concurrent test for GroupLinkService.link's duplicate-key race</label></div>
+      <div class="item"><input type="checkbox" id="tc-3"><label for="tc-3">Add a real concurrent test for CostConfigChangeService.approve's retry loop</label></div>
+      <div class="item"><input type="checkbox" id="tc-4"><label for="tc-4">Strengthen the 4 existing thread-pool tests with latch-gated simultaneous submission</label></div>
+      <div class="item"><input type="checkbox" id="tc-5"><label for="tc-5">Assert no duplicate ArchivedItem in ArchiveRequestServiceTest's concurrent-approval test</label></div>
+    </div>
+  </details>
+
+  <!-- ============ TESTING: FRONTEND BREADTH ============ -->
+  <details class="section">
+    <summary>
+      <span class="chev">▶</span>
+      <span class="title">Testing — frontend breadth</span>
+      <a class="src-link" href="BACKLOG.md#testing-coverage-backlog-2026-09-19-audit" target="_blank">source</a>
+      <span class="badge">0/0</span>
+    </summary>
+    <div class="items">
+      <div class="item"><input type="checkbox" id="tf-1"><label for="tf-1">Add tests for every untested custom hook (useSetupGate, useLinked*/useMy*Inventory, useBusiness/useAuth/useGroups, useKeepAlive, useItemsChanged)</label></div>
+      <div class="item"><input type="checkbox" id="tf-2"><label for="tf-2">Add tests for components with real branching logic (OrderDueDate, TimeTracking, ProgressRing, Connections, Bell, ItemFormModal)</label></div>
+      <div class="item"><input type="checkbox" id="tf-3"><label for="tf-3">Add tests for api/client.ts's request()</label></div>
+      <div class="item"><input type="checkbox" id="tf-4"><label for="tf-4">Extract + test OrderDetailPage's inline business logic (hours-percentage, per-creator ETA)</label></div>
+      <div class="item"><input type="checkbox" id="tf-5"><label for="tf-5">Test OrderFormFields.tsx's untested AddOnsFields/ComponentsFields/duplicateVariant/blankComponent</label></div>
+      <div class="item"><input type="checkbox" id="tf-6"><label for="tf-6">Add Playwright e2e coverage for Finance Tracker, Material Inventory, Product Catalog, and Order Tracker's bulk-order path</label></div>
+    </div>
+  </details>
+
+  <!-- ============ TESTING: ORGANIZATION / STRENGTHEN ============ -->
+  <details class="section">
+    <summary>
+      <span class="chev">▶</span>
+      <span class="title">Testing — consolidate, strengthen, organize</span>
+      <a class="src-link" href="BACKLOG.md#testing-coverage-backlog-2026-09-19-audit" target="_blank">source</a>
+      <span class="badge">0/0</span>
+    </summary>
+    <div class="items">
+      <div class="item"><input type="checkbox" id="to-1"><label for="to-1">Merge/narrow the near-duplicate OrderCalculatorTest cases</label></div>
+      <div class="item"><input type="checkbox" id="to-2"><label for="to-2">Parameterize TransferRequestServiceTest's duplicated concurrency setup</label></div>
+      <div class="item"><input type="checkbox" id="to-3"><label for="to-3">Share a parameterized base for YarnTypeService/NeedleTypeService tests</label></div>
+      <div class="item"><input type="checkbox" id="to-4"><label for="to-4">Split bundled multi-assertion tests (GroupLinkServiceTest, RegisterApiTest)</label></div>
+      <div class="item"><input type="checkbox" id="to-5"><label for="to-5">Strengthen weak assertions (exact percentage, message/status checks, re-fetch invariants)</label></div>
+      <div class="item"><input type="checkbox" id="to-6"><label for="to-6">Split OrderApiTest's dumping-ground file by concern</label></div>
+      <div class="item"><input type="checkbox" id="to-7"><label for="to-7">Add a BusinessConfigTest pure-unit-test file</label></div>
+      <div class="item"><input type="checkbox" id="to-8"><label for="to-8">Split ConfigApiTest's mixed concerns into separate files</label></div>
+    </div>
+  </details>
+
+  <footer>
+    Check marks are updated by editing this file's <code>checked</code> attributes and
+    committing — that commit <em>is</em> the progress update, not a separate log. Full design
+    detail for any item lives in <a href="BACKLOG.md" style="color:var(--accent)">BACKLOG.md</a>.
+    Explicitly deferred and rejected items are intentionally not tracked here.
+  </footer>
+
+</div>
+
+<script>
+  (function(){
+    var sections = document.querySelectorAll('details.section');
+    var allBoxes = [];
+
+    function refreshSection(section){
+      var boxes = section.querySelectorAll('.item input[type=checkbox]');
+      var checked = 0;
+      boxes.forEach(function(b){
+        b.closest('.item').classList.toggle('done', b.checked);
+        if (b.checked) checked++;
+      });
+      var badge = section.querySelector('summary .badge');
+      badge.textContent = checked + '/' + boxes.length;
+      badge.classList.toggle('all-done', boxes.length > 0 && checked === boxes.length);
+    }
+
+    function refreshOverall(){
+      var boxes = document.querySelectorAll('.item input[type=checkbox]');
+      var checked = 0;
+      boxes.forEach(function(b){ if (b.checked) checked++; });
+      var pct = boxes.length ? Math.round((checked / boxes.length) * 100) : 0;
+      document.getElementById('overallPct').textContent = pct + '%';
+      document.getElementById('overallCount').textContent = checked + ' / ' + boxes.length + ' done';
+      document.getElementById('overallBar').style.width = pct + '%';
+    }
+
+    sections.forEach(function(section){
+      refreshSection(section);
+      section.querySelectorAll('.item input[type=checkbox]').forEach(function(b){
+        b.addEventListener('change', function(){
+          refreshSection(section);
+          refreshOverall();
+        });
+      });
+    });
+    refreshOverall();
+  })();
+</script>
+</body>
+</html>
