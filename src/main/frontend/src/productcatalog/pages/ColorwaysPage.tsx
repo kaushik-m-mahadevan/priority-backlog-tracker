@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { productCatalogApi } from "../api";
 import { useProductCatalog } from "../ProductCatalogContext";
+import { formatMoney } from "../../lib/format";
 import type { ColorwayView } from "../types";
 
 type NewColorwayDraft = {
@@ -195,7 +196,7 @@ export default function ColorwaysPage() {
         <div className="toolbar">
           <div>
             <strong>{c.name}</strong> — {c.colour}
-            {c.estimatedCost != null && <span className="muted"> · est. ₹{c.estimatedCost.toFixed(2)}</span>}
+            {c.estimatedCost != null && <span className="muted"> · est. {formatMoney(c.estimatedCost)}</span>}
           </div>
           <span className="spacer" />
           {c.ideabox && (

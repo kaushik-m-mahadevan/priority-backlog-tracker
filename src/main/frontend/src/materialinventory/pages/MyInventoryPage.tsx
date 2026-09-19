@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useAuth } from "../../auth/AuthContext";
 import { materialInventoryApi } from "../api";
 import { useMaterialInventory } from "../MaterialInventoryContext";
+import { formatMoney } from "../../lib/format";
 import type { InventoryEntryView, NeedleInventoryEntryView, NeedleKind, NeedleTypeView, YarnTypeView } from "../types";
 
 type NewYarnDraft = {
@@ -414,7 +415,7 @@ export default function MyInventoryPage() {
                             type="button"
                             onClick={() => setEditingCost({ ...editingCost, [y.id]: y.costPerSkein != null ? String(y.costPerSkein) : "" })}
                           >
-                            {y.costPerSkein != null ? `₹${y.costPerSkein.toFixed(2)}/skein` : "Set cost per skein"}
+                            {y.costPerSkein != null ? `${formatMoney(y.costPerSkein)}/skein` : "Set cost per skein"}
                           </button>
                         )}
                         {y.costHistory.length > 0 && (
@@ -427,7 +428,7 @@ export default function MyInventoryPage() {
                         <ul style={{ margin: "4px 0 0", paddingLeft: 16, fontSize: 12 }} className="muted">
                           {y.costHistory.map((c, i) => (
                             <li key={i}>
-                              {new Date(c.changedAt).toLocaleDateString()}: {c.previousCost != null ? `₹${c.previousCost.toFixed(2)}` : "unset"} → {c.newCost != null ? `₹${c.newCost.toFixed(2)}` : "unset"}
+                              {new Date(c.changedAt).toLocaleDateString()}: {c.previousCost != null ? formatMoney(c.previousCost) : "unset"} → {c.newCost != null ? formatMoney(c.newCost) : "unset"}
                             </li>
                           ))}
                         </ul>

@@ -1,6 +1,15 @@
 import type { Effort } from "../types";
 import { displayTz } from "./tz";
 
+/* ---- money ------------------------------------------------------------------ */
+
+/** "₹1234.50", "-₹50.00" — the one place a rupee amount gets formatted, so every
+ *  display handles negative amounts the same way instead of some silently dropping
+ *  the sign. */
+export function formatMoney(n: number): string {
+  return n < 0 ? `-₹${Math.abs(n).toFixed(2)}` : `₹${n.toFixed(2)}`;
+}
+
 /* ---- effort ---------------------------------------------------------------- */
 
 export type GrowthStage = 0 | 1 | 2 | 3 | 4 | 5;

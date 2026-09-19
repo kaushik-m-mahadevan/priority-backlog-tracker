@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useAuth } from "../../auth/AuthContext";
 import { financeTrackerApi } from "../api";
 import { useFinanceGroup } from "../FinanceGroupContext";
+import { formatMoney } from "../../lib/format";
 import type { ProfitDistributionRecipientInput, ProfitDistributionView } from "../types";
 
 type RecipientDraft = { personId: string; unitsCompleted: string; overrideAmount: string };
@@ -33,7 +34,6 @@ export default function ProfitSplitPage() {
 
   const members = currentFinanceGroup?.members ?? [];
   const memberName = (id: string) => members.find((m) => m.id === id)?.name ?? "Unknown";
-  const fmt = (n: number) => `₹${n.toFixed(2)}`;
 
   const load = () => {
     if (!currentGroupId) return;
@@ -139,11 +139,11 @@ export default function ProfitSplitPage() {
             return (
               <div className="card" key={d.requestId} style={{ background: "var(--bg-elev-2)", marginBottom: 10 }}>
                 <div className="row"><span className="k">Order</span><span className="v">{orderLabel(d.orderReferences)}</span></div>
-                <div className="row"><span className="k">Total profit</span><span className="v">{fmt(d.totalProfit)}</span></div>
+                <div className="row"><span className="k">Total profit</span><span className="v">{formatMoney(d.totalProfit)}</span></div>
                 {d.recipients.map((r) => (
                   <div className="row" key={r.personId}>
                     <span className="k">{memberName(r.personId)}</span>
-                    <span className="v mono">{fmt(r.amount)}</span>
+                    <span className="v mono">{formatMoney(r.amount)}</span>
                   </div>
                 ))}
                 <p className="muted" style={{ fontSize: 13 }}>
@@ -334,7 +334,7 @@ export default function ProfitSplitPage() {
                 {resolved.map((d) => (
                   <tr key={d.requestId}>
                     <td className="cell-title">{orderLabel(d.orderReferences)}</td>
-                    <td className="cell-order mono">{fmt(d.totalProfit)}</td>
+                    <td className="cell-order mono">{formatMoney(d.totalProfit)}</td>
                     <td className="cell-type">{d.status}</td>
                   </tr>
                 ))}

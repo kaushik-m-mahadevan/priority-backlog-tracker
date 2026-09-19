@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useAuth } from "../../auth/AuthContext";
 import { financeTrackerApi } from "../api";
 import { useFinanceGroup } from "../FinanceGroupContext";
+import { formatMoney } from "../../lib/format";
 import type { BalanceView } from "../types";
 
 type SettleForm = { kind: "person" | "business"; fromPersonId: string; amount: string };
@@ -32,8 +33,6 @@ export default function OverviewPage() {
   };
 
   useEffect(load, [currentGroupId]);
-
-  const fmt = (n: number) => (n < 0 ? `-₹${Math.abs(n).toFixed(2)}` : `₹${n.toFixed(2)}`);
 
   const submitSettlement = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -91,10 +90,10 @@ export default function OverviewPage() {
                     <tr key={b.personId}>
                       <td className="cell-title">{memberName(b.personId)}</td>
                       <td className="cell-order mono" style={b.netFromOthers < 0 ? { color: "var(--urgent)" } : undefined}>
-                        {fmt(b.netFromOthers)}
+                        {formatMoney(b.netFromOthers)}
                         <span className="muted"> {b.netFromOthers < 0 ? "owed" : b.netFromOthers > 0 ? "owed to them" : ""}</span>
                       </td>
-                      <td className="cell-subtitle mono">{fmt(b.owedByBusiness)}</td>
+                      <td className="cell-subtitle mono">{formatMoney(b.owedByBusiness)}</td>
                       <td className="cell-type">
                         {isMe && b.netFromOthers > 0 && (
                           <button

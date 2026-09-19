@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { ageShort, due, effortLabel, growthStage, daysUntil } from "./format";
+import { ageShort, due, effortLabel, formatMoney, growthStage, daysUntil } from "./format";
 import type { Effort } from "../types";
 
 const eff = (minutes: number): Effort => ({ value: minutes, unit: "MINUTES", minutes });
@@ -22,6 +22,15 @@ describe("effortLabel", () => {
     expect(effortLabel(null)).toBe("unsized");
     expect(effortLabel(eff(30))).toBe("quick — under an hour");
     expect(effortLabel(eff(10000))).toBe("a big one — a week or more");
+  });
+});
+
+describe("formatMoney", () => {
+  it("always shows two decimals, and puts the minus sign before the symbol", () => {
+    expect(formatMoney(1234.5)).toBe("₹1234.50");
+    expect(formatMoney(0)).toBe("₹0.00");
+    expect(formatMoney(-50)).toBe("-₹50.00");
+    expect(formatMoney(-12.3)).toBe("-₹12.30");
   });
 });
 

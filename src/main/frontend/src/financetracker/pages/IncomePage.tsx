@@ -4,6 +4,7 @@ import BillSideBySide from "../../components/BillSideBySide";
 import { imagesApi } from "../../components/imagesApi";
 import { financeTrackerApi } from "../api";
 import { useFinanceGroup } from "../FinanceGroupContext";
+import { formatMoney } from "../../lib/format";
 import type { LedgerEntryView } from "../types";
 
 type CreditedTo = "business" | "person";
@@ -226,7 +227,7 @@ export default function IncomePage() {
               {entries.map((e) => (
                 <tr key={e.id}>
                   <td className="cell-title">{e.description}</td>
-                  <td className="cell-order mono">₹{e.amount.toFixed(2)}</td>
+                  <td className="cell-order mono">{formatMoney(e.amount)}</td>
                   <td className="cell-subtitle">{memberName(e.payerId)}</td>
                   <td className="cell-type">{creditSummary(e)}</td>
                   <td>

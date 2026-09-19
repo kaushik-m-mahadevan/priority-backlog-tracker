@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
-import { formatDate } from "../../lib/format";
+import { formatDate, formatMoney } from "../../lib/format";
 import { orderTrackerApi } from "../api";
 import { useAuth } from "../../auth/AuthContext";
 import { useBusiness } from "../BusinessContext";
@@ -1016,7 +1016,7 @@ export default function OrderDetailPage() {
                     {m.kind === "YARN" ? "Yarn" : "Needle"}: {m.value}
                     {m.notes && <span className="muted"> ({m.notes})</span>}
                   </span>
-                  <span className="v">{m.quantity} × ₹{m.unitCost.toFixed(2)}</span>
+                  <span className="v">{m.quantity} × {formatMoney(m.unitCost)}</span>
                 </div>
               ))
             )}
@@ -1029,14 +1029,14 @@ export default function OrderDetailPage() {
               order.addOns.map((a, i) => (
                 <div className="row" key={i}>
                   <span className="k">{a.name}</span>
-                  <span className="v">{a.quantity} × ₹{a.unitCost.toFixed(2)}</span>
+                  <span className="v">{a.quantity} × {formatMoney(a.unitCost)}</span>
                 </div>
               ))
             )}
           </div>
           <div className="card">
             <h2>Packaging</h2>
-            <div className="row"><span className="k">Cost</span><span className="v">₹{order.packaging?.cost.toFixed(2) ?? "0.00"}</span></div>
+            <div className="row"><span className="k">Cost</span><span className="v">{order.packaging?.cost != null ? formatMoney(order.packaging.cost) : "₹0.00"}</span></div>
             <div className="row"><span className="k">Time</span><span className="v">{order.packaging?.timeHours ?? 0}h</span></div>
           </div>
         </div>
@@ -1050,7 +1050,7 @@ export default function OrderDetailPage() {
                   <strong>{c.label}</strong>
                   <span className="muted">× {c.quantity}</span>
                   <span className="spacer" />
-                  <span className="muted">₹{c.perUnitCost.toFixed(2)}/unit · ₹{c.totalCost.toFixed(2)} total</span>
+                  <span className="muted">{formatMoney(c.perUnitCost)}/unit · {formatMoney(c.totalCost)} total</span>
                 </div>
                 <div className="row"><span className="k">Materials</span>
                   <span className="v">
@@ -1112,8 +1112,8 @@ export default function OrderDetailPage() {
                 <span className="spacer" />
                 <span className="muted">Crochet {v.craftingTimeHours}h/unit · Assembly {v.assemblyTimeHours}h/unit</span>
                 <span className="muted" title="Estimated">~{v.perUnitTimeHours.toFixed(2)}h/unit · {v.totalTimeHours.toFixed(2)}h total</span>
-                <span title="Estimated">~₹{v.perUnitCost.toFixed(2)}/unit</span>
-                <span title="Estimated">Total ~₹{v.totalCost.toFixed(2)}</span>
+                <span title="Estimated">~{formatMoney(v.perUnitCost)}/unit</span>
+                <span title="Estimated">Total ~{formatMoney(v.totalCost)}</span>
               </div>
               <div className="toolbar" style={{ marginTop: 8, flexWrap: "wrap", gap: 16 }}>
                 {v.components.length === 0 && (
@@ -1145,7 +1145,7 @@ export default function OrderDetailPage() {
                         <strong>{c.label}</strong>
                         <span className="muted">× {c.quantity}</span>
                         <span className="spacer" />
-                        <span className="muted">₹{c.perUnitCost.toFixed(2)}/unit · ₹{c.totalCost.toFixed(2)} total</span>
+                        <span className="muted">{formatMoney(c.perUnitCost)}/unit · {formatMoney(c.totalCost)} total</span>
                       </div>
                       <div className="row"><span className="k">Materials</span>
                         <span className="v">
@@ -1185,7 +1185,7 @@ export default function OrderDetailPage() {
                           {m.kind === "YARN" ? "Yarn" : "Needle"}: {m.value}
                           {m.notes && <span className="muted"> ({m.notes})</span>}
                         </span>
-                        <span className="v">{m.quantity} × ₹{m.unitCost.toFixed(2)}</span>
+                        <span className="v">{m.quantity} × {formatMoney(m.unitCost)}</span>
                       </div>
                     ))
                   )}
@@ -1198,7 +1198,7 @@ export default function OrderDetailPage() {
                     v.addOns.map((a, i) => (
                       <div className="row" key={i}>
                         <span className="k">{a.name}</span>
-                        <span className="v">{a.quantity} × ₹{a.unitCost.toFixed(2)}</span>
+                        <span className="v">{a.quantity} × {formatMoney(a.unitCost)}</span>
                       </div>
                     ))
                   )}
@@ -1407,15 +1407,15 @@ export default function OrderDetailPage() {
                 </p>
               )}
               {order.costEstimate.itemizedBreakdown.map((b) => (
-                <div className="row" key={b.label}><span className="k">{b.label}</span><span className="v">₹{b.amount.toFixed(2)}</span></div>
+                <div className="row" key={b.label}><span className="k">{b.label}</span><span className="v">{formatMoney(b.amount)}</span></div>
               ))}
-              <div className="cost-total"><span className="k">Estimated price</span><span className="v">₹{order.costEstimate.finalCost.toFixed(2)}</span></div>
+              <div className="cost-total"><span className="k">Estimated price</span><span className="v">{formatMoney(order.costEstimate.finalCost)}</span></div>
               <div className="row" style={{ marginTop: 8 }}><span className="k">Estimated time</span><span className="v">{order.costEstimate.grossTimeHours}h</span></div>
             </>
           ) : (
             <>
               <div className="row"><span className="k">Total quantity</span><span className="v">{order.bulkDetails?.totalQuantity}</span></div>
-              <div className="cost-total"><span className="k">Estimated total cost</span><span className="v">₹{order.bulkDetails?.totalFinalCost.toFixed(2)}</span></div>
+              <div className="cost-total"><span className="k">Estimated total cost</span><span className="v">{formatMoney(order.bulkDetails?.totalFinalCost ?? 0)}</span></div>
               <div className="row" style={{ marginTop: 8 }}><span className="k">Estimated total time</span><span className="v">{order.bulkDetails?.totalTimeHours}h</span></div>
             </>
           )}
@@ -1468,11 +1468,11 @@ export default function OrderDetailPage() {
             order.payments.map((p) => (
               <div className="row" key={p.paymentId}>
                 <span className="k">{p.type}</span>
-                <span className="v">₹{p.amount.toFixed(2)} ({p.mode})</span>
+                <span className="v">{formatMoney(p.amount)} ({p.mode})</span>
               </div>
             ))
           )}
-          <div className="row"><span className="k">Balance</span><span className="v">₹{order.balanceAmount.toFixed(2)}</span></div>
+          <div className="row"><span className="k">Balance</span><span className="v">{formatMoney(order.balanceAmount)}</span></div>
           <div className="toolbar" style={{ marginTop: 10 }}>
             <select aria-label="Payment type" value={paymentType} onChange={(e) => setPaymentType(e.target.value as PaymentType)}>
               <option value="ADVANCE">Advance</option>
@@ -1663,18 +1663,18 @@ function FinalizationCard({ groupId, order }: { groupId: string; order: OrderVie
 
       {finalization.status === "FINALIZED" && (
         <>
-          <div className="row"><span className="k">Final cost</span><span className="v">₹{finalization.finalCost.toFixed(2)}</span></div>
-          <div className="row"><span className="k">Final revenue</span><span className="v">₹{finalization.finalRevenue.toFixed(2)}</span></div>
-          <div className="cost-total"><span className="k">Final profit</span><span className="v">₹{finalization.finalProfit.toFixed(2)}</span></div>
+          <div className="row"><span className="k">Final cost</span><span className="v">{formatMoney(finalization.finalCost)}</span></div>
+          <div className="row"><span className="k">Final revenue</span><span className="v">{formatMoney(finalization.finalRevenue)}</span></div>
+          <div className="cost-total"><span className="k">Final profit</span><span className="v">{formatMoney(finalization.finalProfit)}</span></div>
           <p className="muted" style={{ fontSize: 12 }}>Finalized {formatDate(finalization.finalizedAt)}.</p>
         </>
       )}
 
       {finalization.status === "PENDING" && (
         <div className="card" style={{ background: "var(--bg-elev-2)" }}>
-          <div className="row"><span className="k">Proposed cost</span><span className="v">₹{finalization.finalCost.toFixed(2)}</span></div>
-          <div className="row"><span className="k">Proposed revenue</span><span className="v">₹{finalization.finalRevenue.toFixed(2)}</span></div>
-          <div className="row"><span className="k">Proposed profit</span><span className="v">₹{finalization.finalProfit.toFixed(2)}</span></div>
+          <div className="row"><span className="k">Proposed cost</span><span className="v">{formatMoney(finalization.finalCost)}</span></div>
+          <div className="row"><span className="k">Proposed revenue</span><span className="v">{formatMoney(finalization.finalRevenue)}</span></div>
+          <div className="row"><span className="k">Proposed profit</span><span className="v">{formatMoney(finalization.finalProfit)}</span></div>
           <p className="muted" style={{ fontSize: 13 }}>
             Approved by {finalization.approvedByUserIds.length}/{finalization.groupMemberIds.length} member(s) so far.
           </p>
