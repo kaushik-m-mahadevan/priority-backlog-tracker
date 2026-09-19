@@ -389,7 +389,7 @@
       <div class="item"><input type="checkbox" id="tg-4" checked><label for="tg-4">Test TransferRequestService.unreserve()'s compensating-rollback path <span class="note">writing this test surfaced a real bug: unreserve() rolled back fulfilledQuantity but never reverted status, leaving a request stuck showing PARTIALLY_FULFILLED forever after a failed first attempt — fixed alongside the test</span></label></div>
       <div class="item"><input type="checkbox" id="tg-5" checked><label for="tg-5">Add a BlindIndexService test file (hash normalization, null/blank, domain separation)</label></div>
       <div class="item"><input type="checkbox" id="tg-6" checked><label for="tg-6">Fix JwtService to use the injected Clock, then add a deterministic expiry test</label></div>
-      <div class="item"><input type="checkbox" id="tg-7"><label for="tg-7">Test BusinessConfig.bufferDaysFor across all DeliveryTier values + the zero-fallback branch</label></div>
+      <div class="item"><input type="checkbox" id="tg-7" checked><label for="tg-7">Test BusinessConfig.bufferDaysFor across all DeliveryTier values + the zero-fallback branch</label></div>
       <div class="item"><input type="checkbox" id="tg-8"><label for="tg-8">Test that hourlyWageConfirmed actually changes a real order's price</label></div>
       <div class="item"><input type="checkbox" id="tg-9" checked><label for="tg-9">Add day-boundary threshold tests for AgingService (14/15, 30/31, 3/6/10)</label></div>
       <div class="item"><input type="checkbox" id="tg-10"><label for="tg-10">Add baseline coverage for OrderService.updateStatus + actualDeliveryDate stamp-once</label></div>
@@ -449,7 +449,7 @@
       <div class="item"><input type="checkbox" id="to-4"><label for="to-4">Split bundled multi-assertion tests (GroupLinkServiceTest, RegisterApiTest)</label></div>
       <div class="item"><input type="checkbox" id="to-5"><label for="to-5">Strengthen weak assertions (exact percentage, message/status checks, re-fetch invariants)</label></div>
       <div class="item"><input type="checkbox" id="to-6"><label for="to-6">Split OrderApiTest's dumping-ground file by concern</label></div>
-      <div class="item"><input type="checkbox" id="to-7"><label for="to-7">Add a BusinessConfigTest pure-unit-test file</label></div>
+      <div class="item"><input type="checkbox" id="to-7" checked><label for="to-7">Add a BusinessConfigTest pure-unit-test file</label></div>
       <div class="item"><input type="checkbox" id="to-8"><label for="to-8">Split ConfigApiTest's mixed concerns into separate files</label></div>
     </div>
   </details>
