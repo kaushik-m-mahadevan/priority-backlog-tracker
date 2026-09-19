@@ -367,7 +367,7 @@
       <div class="item"><input type="checkbox" id="cln-5"><label for="cln-5">Extract a shared CustomerService.applyFields helper</label></div>
       <div class="item"><input type="checkbox" id="cln-6"><label for="cln-6">Reference shared Mongo collection-name constants instead of string literals</label></div>
       <div class="item"><input type="checkbox" id="cln-7"><label for="cln-7">Move CounterService.nextSharedItemId() into the backlogtracker.item package</label></div>
-      <div class="item"><input type="checkbox" id="cln-8"><label for="cln-8">Delete confirmed dead code (InventoryService.quantityOf and the rest of the audit's list)</label></div>
+      <div class="item"><input type="checkbox" id="cln-8" checked><label for="cln-8">Delete confirmed dead code (InventoryService.quantityOf and the rest of the audit's list) <span class="note">re-verified against actual usage first — quantityOf, GroupRepository.findByMemberIdsContaining, and ItemRepository.findByItemId are all still called from tests, so left in place; only genuinely zero-usage methods removed</span></label></div>
       <div class="item"><input type="checkbox" id="cln-9"><label for="cln-9">Unify or document the UserSummary/UserView vs User/UserSummary divergence</label></div>
       <div class="item"><input type="checkbox" id="cln-10"><label for="cln-10">Derive terminal-status literal arrays from the one union-type definition (frontend)</label></div>
       <div class="item"><input type="checkbox" id="cln-11"><label for="cln-11">Extract one shared capitalize()/title-case helper (frontend)</label></div>

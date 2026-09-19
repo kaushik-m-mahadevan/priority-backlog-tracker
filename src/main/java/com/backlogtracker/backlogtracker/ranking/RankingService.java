@@ -17,8 +17,6 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class RankingService {
 
-    public static final int DEFAULT_LIMIT = 10;
-
     private final ItemService itemService;
     private final ConfigService configService;
     private final ScoringService scoringService;

@@ -96,7 +96,3 @@ export function ageShort(days: number): string {
   if (days < 60) return `${Math.round(days / 7)}w`;
   return `${Math.round(days / 30)}mo`;
 }
-
-export function score(n: number): string {
-  return n.toFixed(3);
-}
