@@ -20,13 +20,15 @@ import lombok.Setter;
  * Never participates in Top 10, Quick Wins, aging, or workload — it no longer lives in
  * the {@code items} collection.
  */
-@Document("archivedItems")
+@Document(ArchivedItem.COLLECTION)
 @Getter
 @Setter
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
 public class ArchivedItem {
+
+    public static final String COLLECTION = "archivedItems";
 
     @Id
     private String id;

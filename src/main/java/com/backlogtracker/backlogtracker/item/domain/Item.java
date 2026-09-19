@@ -24,7 +24,7 @@ import lombok.Setter;
  * <p>{@code editLock} and {@code archivalRequests} are added by later steps; MongoDB is
  * schemaless so their absence here is fine.
  */
-@Document("items")
+@Document(Item.COLLECTION)
 @CompoundIndexes({
         @CompoundIndex(name = "group_status", def = "{'groupId': 1, 'status': 1}"),
         @CompoundIndex(name = "group_owner", def = "{'groupId': 1, 'ownerId': 1}"),
@@ -42,6 +42,8 @@ import lombok.Setter;
 @NoArgsConstructor
 @AllArgsConstructor
 public class Item {
+
+    public static final String COLLECTION = "items";
 
     @Id
     private String id;
