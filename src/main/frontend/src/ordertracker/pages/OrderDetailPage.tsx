@@ -676,6 +676,7 @@ export default function OrderDetailPage() {
   const [paymentType, setPaymentType] = useState<PaymentType>("ADVANCE");
   const [paymentMode, setPaymentMode] = useState("UPI");
   const [paymentModeOther, setPaymentModeOther] = useState("");
+  const [actionError, setActionError] = useState<string | null>(null);
   const [addingToGroup, setAddingToGroup] = useState(false);
   const [historyCreatorFilter, setHistoryCreatorFilter] = useState("all");
   const [historyStageFilter, setHistoryStageFilter] = useState("all");
@@ -807,8 +808,23 @@ export default function OrderDetailPage() {
     return n ? `${n.kind === "CROCHET_HOOK" ? "Hook" : "Needle"} ${n.size}` : "linked needle";
   };
 
+  // Every mutation below the summary bar (status, stage progress, payments) runs through
+  // this so a failed call surfaces a real error instead of failing invisibly. Returns
+  // whether it succeeded, so a caller can skip clearing its own form fields on failure.
+  const runAction = async (fn: () => Promise<OrderView>): Promise<boolean> => {
+    setActionError(null);
+    try {
+      setOrder(await fn());
+      return true;
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : "That action failed — please retry.");
+      return false;
+    }
+  };
+
   return (
     <div>
+      {actionError && <div className="error" style={{ marginBottom: 12 }}>{actionError}</div>}
       <div className="toolbar" style={{ marginBottom: 4 }}>
         <span className="mono" style={{ fontSize: 20, fontWeight: 700 }}>
           {order.orderNumber}
@@ -817,7 +833,7 @@ export default function OrderDetailPage() {
         <select
           aria-label="Order status"
           value={order.status}
-          onChange={async (e) => setOrder(await orderTrackerApi.updateStatus(groupId, order.id, e.target.value))}
+          onChange={async (e) => runAction(() => orderTrackerApi.updateStatus(groupId, order.id, e.target.value))}
         >
           {STATUSES.map((s) => (
             <option key={s} value={s}>
@@ -1223,8 +1239,8 @@ export default function OrderDetailPage() {
                                 style={{ width: 70 }}
                                 value={entry?.unitsCompleted ?? 0}
                                 onChange={async (e) =>
-                                  setOrder(
-                                    await orderTrackerApi.updateBulkSplitProgress(
+                                  runAction(() =>
+                                    orderTrackerApi.updateBulkSplitProgress(
                                       groupId, order.id, v.variantId, s.creatorId, stageKey, Number(e.target.value)
                                     )
                                   )
@@ -1286,7 +1302,7 @@ export default function OrderDetailPage() {
                     style={{ width: 90 }}
                     value={sp.unitsCompleted}
                     onChange={async (e) =>
-                      setOrder(await orderTrackerApi.updateBulkStageProgress(groupId, order.id, sp.stageKey, Number(e.target.value)))
+                      runAction(() => orderTrackerApi.updateBulkStageProgress(groupId, order.id, sp.stageKey, Number(e.target.value)))
                     }
                   />
                   <span className="muted"> / {sp.totalUnits}</span>
@@ -1352,8 +1368,8 @@ export default function OrderDetailPage() {
                       type="checkbox"
                       checked={s.unitsCompleted >= 1}
                       onChange={async (e) =>
-                        setOrder(
-                          await orderTrackerApi.updateStageAssignment(
+                        runAction(() =>
+                          orderTrackerApi.updateStageAssignment(
                             groupId, order.id, s.stageKey, s.assignedCreatorId, e.target.checked ? 1 : 0
                           )
                         )
@@ -1475,9 +1491,11 @@ export default function OrderDetailPage() {
               onClick={async () => {
                 if (!paymentAmount) return;
                 const mode = paymentMode === "OTHER" ? paymentModeOther.trim() : paymentMode;
-                setOrder(await orderTrackerApi.addPayment(groupId, order.id, { type: paymentType, amount: paymentAmount, mode }));
-                setPaymentAmount(0);
-                setPaymentModeOther("");
+                const ok = await runAction(() => orderTrackerApi.addPayment(groupId, order.id, { type: paymentType, amount: paymentAmount, mode }));
+                if (ok) {
+                  setPaymentAmount(0);
+                  setPaymentModeOther("");
+                }
               }}
             >
               Record
