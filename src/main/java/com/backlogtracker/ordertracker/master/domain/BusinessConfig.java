@@ -29,6 +29,12 @@ import lombok.Setter;
 @AllArgsConstructor
 public class BusinessConfig {
 
+    /** The two stage keys with real per-creator split tracking (spec §5.11) — named
+     *  constants instead of the string literal duplicated between here and
+     *  {@code defaultsFor}, so a rename can't silently desync the two. */
+    public static final String STAGE_CROCHETING = "crocheting";
+    public static final String STAGE_ASSEMBLY = "assembly";
+
     @Id
     private String groupId;
 
@@ -104,7 +110,7 @@ public class BusinessConfig {
          *  {@link #defaultsFor}'s four — safe to restore the intended value by stageKey. */
         public WorkStageType {
             if (splitTracked == null) {
-                splitTracked = "crocheting".equals(stageKey) || "assembly".equals(stageKey);
+                splitTracked = STAGE_CROCHETING.equals(stageKey) || STAGE_ASSEMBLY.equals(stageKey);
             }
         }
     }
@@ -162,8 +168,8 @@ public class BusinessConfig {
                 .deliveryBufferOtherStateDays(DEFAULT_BUFFER_OTHER_STATE_DAYS)
                 .deliveryBufferInternationalDays(DEFAULT_BUFFER_INTERNATIONAL_DAYS)
                 .workStages(new ArrayList<>(List.of(
-                        new WorkStageType("crocheting", "Crocheting", 1, true),
-                        new WorkStageType("assembly", "Assembly", 2, true),
+                        new WorkStageType(STAGE_CROCHETING, "Crocheting", 1, true),
+                        new WorkStageType(STAGE_ASSEMBLY, "Assembly", 2, true),
                         new WorkStageType("packaging", "Packaging", 3, false),
                         new WorkStageType("shipment", "Shipment", 4, false))))
                 .build();

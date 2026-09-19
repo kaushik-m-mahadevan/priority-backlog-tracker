@@ -37,12 +37,19 @@ const DELIVERY_TIER_LABELS: Record<DeliveryTier, string> = {
   INTERNATIONAL: "International",
 };
 
+/** The two stage keys with real per-creator split tracking — named constants instead of
+ *  the string literal duplicated between STAGE_ICONS and the hoursBased check below, so a
+ *  rename can't silently desync the two (mirrors BusinessConfig.STAGE_CROCHETING/
+ *  STAGE_ASSEMBLY on the backend). */
+const STAGE_CROCHETING = "crocheting";
+const STAGE_ASSEMBLY = "assembly";
+
 /** Work stages are configurable per business, so this is a best-effort visual cue for the
  *  common ones rather than a strict mapping — an unrecognized stageKey still gets a
  *  sensible generic icon rather than nothing. */
 const STAGE_ICONS: Record<string, string> = {
-  crocheting: "🧶",
-  assembly: "🧵",
+  [STAGE_CROCHETING]: "🧶",
+  [STAGE_ASSEMBLY]: "🧵",
   packaging: "📦",
   shipment: "🚚",
 };
@@ -1353,8 +1360,8 @@ export default function OrderDetailPage() {
         <div className="card" style={{ marginBottom: 16 }}>
           <h2>Work stages</h2>
           {order.stageAssignments.map((s) => {
-            const hoursBased = s.stageKey === "crocheting" ? craftPctIndividual
-              : s.stageKey === "assembly" ? assemblyPctIndividual : null;
+            const hoursBased = s.stageKey === STAGE_CROCHETING ? craftPctIndividual
+              : s.stageKey === STAGE_ASSEMBLY ? assemblyPctIndividual : null;
             const pct = hoursBased ?? (s.totalUnits > 0 ? (s.unitsCompleted / s.totalUnits) * 100 : 0);
             return (
               <div className="row" key={s.stageKey} style={{ alignItems: "center" }}>
