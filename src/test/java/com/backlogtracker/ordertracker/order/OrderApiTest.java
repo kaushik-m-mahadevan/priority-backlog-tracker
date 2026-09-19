@@ -134,10 +134,13 @@ class OrderApiTest {
                 .andReturn().getResponse().getContentAsString();
 
         JsonNode view = mapper.readTree(body);
-        double gross = 120 + 40; // no packaging
-        double overhead = gross * 0.15;
-        double profit = (gross + overhead) * 0.20;
-        assertThat(view.get("costEstimate").get("finalCost").asDouble()).isCloseTo(gross + overhead + profit,
+        // round 5 pricing redesign: no overhead cost line any more; labor (4h crafting × the
+        // business's default ₹100/h wage) folds into gross before the 20% profit margin.
+        double materialsAndAddOns = 120 + 40; // no packaging
+        double labor = 4.0 * 100.0;
+        double gross = materialsAndAddOns + labor;
+        double profit = gross * 0.20;
+        assertThat(view.get("costEstimate").get("finalCost").asDouble()).isCloseTo(gross + profit,
                 org.assertj.core.data.Offset.offset(0.01));
         assertThat(view.get("stageAssignments").size()).isEqualTo(4); // crocheting/assembly/packaging/shipment
     }
@@ -206,9 +209,11 @@ class OrderApiTest {
                 .andExpect(jsonPath("$.costEstimate.grossTimeHours").value(8.0))
                 .andReturn().getResponse().getContentAsString();
 
+        // round 5 delivery redesign: workDays(2) + the business's default same-city delivery
+        // buffer(1) = 3, padded by the default 15% time-overhead and rounded up = 4 days.
         JsonNode view = mapper.readTree(body);
         assertThat(java.time.Instant.parse(view.get("costEstimate").get("computedDueDate").asText()))
-                .isEqualTo(java.time.Instant.parse("2026-01-03T00:00:00Z"));
+                .isEqualTo(java.time.Instant.parse("2026-01-05T00:00:00Z"));
     }
 
     @Test
@@ -372,15 +377,21 @@ class OrderApiTest {
                 .andReturn().getResponse().getContentAsString();
 
         JsonNode view = mapper.readTree(body);
-        // creator A (base, 4h/day): 20 units * 1h = 20h / 4h-per-day = 5 days
+        // creator A (base, 4h/day): 20 units * 1h = 20h / 4h-per-day = 5 work days
         // creator B (8h/day): 5 units * 1h = 5h / 8h-per-day = 1 day -> driven by A
+        // round 5 delivery redesign: 5 work days + the business's default same-city buffer(1)
+        // = 6, padded by the default 15% time-overhead and rounded up = 7 days.
         String dueAt = view.get("bulkDetails").get("computedDueDate").asText();
         assertThat(java.time.Instant.parse(dueAt))
-                .isEqualTo(java.time.Instant.parse("2026-01-01T00:00:00Z").plus(java.time.Duration.ofDays(5)));
+                .isEqualTo(java.time.Instant.parse("2026-01-01T00:00:00Z").plus(java.time.Duration.ofDays(7)));
 
+        // round 5 pricing redesign: no overhead cost line; labor (1h crafting × the
+        // business's default ₹100/h wage) folds into gross before the 20% profit margin.
         double perUnitCost = view.get("bulkDetails").get("variants").get(0).get("perUnitCost").asDouble();
-        double expectedGross = 100; // one mandatory item, no addons/packaging
-        double expectedFinal = expectedGross * 1.15 * 1.20;
+        double materials = 100; // one mandatory item, no addons/packaging
+        double labor = 1.0 * 100.0;
+        double expectedGross = materials + labor;
+        double expectedFinal = expectedGross * 1.20;
         assertThat(perUnitCost).isCloseTo(expectedFinal, org.assertj.core.data.Offset.offset(0.01));
     }
 
@@ -409,10 +420,12 @@ class OrderApiTest {
 
         // creator A: 20 units * 2h/unit = 40h / 4h-per-day = 10 days for the work itself,
         // plus 8h research / 4h-per-day = 2 days charged against the coordinating creator's
-        // own pace (defaults to the same creator here) = 12 days total, no logistics buffer.
+        // own pace (defaults to the same creator here), plus the business's default
+        // same-city delivery buffer (1) = 13, padded by the default 15% time-overhead and
+        // rounded up (round 5 redesign) = 15 days total.
         JsonNode view = mapper.readTree(body);
         assertThat(java.time.Instant.parse(view.get("bulkDetails").get("computedDueDate").asText()))
-                .isEqualTo(java.time.Instant.parse("2026-01-01T00:00:00Z").plus(java.time.Duration.ofDays(12)));
+                .isEqualTo(java.time.Instant.parse("2026-01-01T00:00:00Z").plus(java.time.Duration.ofDays(15)));
     }
 
     @Test

@@ -25,23 +25,41 @@ public class BusinessConfigService {
         return repository.findById(groupId).orElseGet(() -> seed(groupId));
     }
 
-    /** Overhead % and profit margin % are deliberately absent here — they change what
-     *  every existing order costs, so they go only through {@code CostConfigChangeService}'s
-     *  unanimous-approval flow (platform integration decision). Everything else about a
-     *  business's config is low-stakes enough for any member to change freely. */
+    /** Overhead %, profit margin %, and hourly wage are deliberately absent here — they
+     *  change what every existing order costs, so they go only through
+     *  {@code CostConfigChangeService}'s unanimous-approval flow (platform integration
+     *  decision). Delivery-buffer tiers are logistics guesses, not pricing, so they stay
+     *  here as freely editable (round 5 delivery-estimate redesign) alongside everything
+     *  else that's low-stakes enough for any member to change freely. */
     public BusinessConfig update(String groupId, String userId, String currency,
-                                 List<WorkStageType> workStages) {
+                                 List<WorkStageType> workStages, int deliveryBufferSameCityDays,
+                                 int deliveryBufferSameStateDays, int deliveryBufferOtherStateDays,
+                                 int deliveryBufferInternationalDays) {
         BusinessConfig cfg = get(groupId, userId); // ensures membership + seeds if absent
         cfg.setCurrency(currency);
         cfg.setWorkStages(workStages);
+        cfg.setDeliveryBufferSameCityDays(deliveryBufferSameCityDays);
+        cfg.setDeliveryBufferSameStateDays(deliveryBufferSameStateDays);
+        cfg.setDeliveryBufferOtherStateDays(deliveryBufferOtherStateDays);
+        cfg.setDeliveryBufferInternationalDays(deliveryBufferInternationalDays);
         return repository.save(cfg);
     }
 
-    /** Used only by {@code CostConfigChangeService} once a proposal is unanimously approved. */
-    BusinessConfig applyCostConfig(String groupId, double overheadPercentage, double profitMarginPercentage) {
+    /** Used only by {@code CostConfigChangeService} once a proposal is unanimously approved.
+     *  {@code hourlyWageConfirmed} only flips true when the incoming wage actually differs
+     *  from what's on file — every cost-config propose (including the setup wizard's
+     *  overhead/margin-only step) resends the current wage untouched, and that must NOT
+     *  silently "confirm" a wage nobody actually agreed on. Once confirmed, stays confirmed
+     *  even if a later change happens to round-trip back to the same number. */
+    BusinessConfig applyCostConfig(String groupId, double overheadPercentage, double profitMarginPercentage,
+                                   double hourlyWage) {
         BusinessConfig cfg = repository.findById(groupId).orElseGet(() -> seed(groupId));
         cfg.setOverheadPercentage(overheadPercentage);
         cfg.setProfitMarginPercentage(profitMarginPercentage);
+        if (hourlyWage != cfg.getHourlyWage()) {
+            cfg.setHourlyWageConfirmed(true);
+        }
+        cfg.setHourlyWage(hourlyWage);
         return repository.save(cfg);
     }
 

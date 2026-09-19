@@ -27,7 +27,12 @@ export default function BusinessSettingsPage() {
   const [templateNotes, setTemplateNotes] = useState("");
   const [proposedOverhead, setProposedOverhead] = useState(0);
   const [proposedMargin, setProposedMargin] = useState(0);
+  const [proposedWage, setProposedWage] = useState(0);
   const [costConfigError, setCostConfigError] = useState<string | null>(null);
+  const [bufferSameCity, setBufferSameCity] = useState(1);
+  const [bufferSameState, setBufferSameState] = useState(2);
+  const [bufferOtherState, setBufferOtherState] = useState(3);
+  const [bufferInternational, setBufferInternational] = useState(5);
 
   const load = async () => {
     const [cfg, me, p, t, changes] = await Promise.all([
@@ -44,6 +49,11 @@ export default function BusinessSettingsPage() {
     setChangeRequests(changes);
     setProposedOverhead(cfg.overheadPercentage * 100);
     setProposedMargin(cfg.profitMarginPercentage * 100);
+    setProposedWage(cfg.hourlyWage);
+    setBufferSameCity(cfg.deliveryBufferSameCityDays);
+    setBufferSameState(cfg.deliveryBufferSameStateDays);
+    setBufferOtherState(cfg.deliveryBufferOtherStateDays);
+    setBufferInternational(cfg.deliveryBufferInternationalDays);
     if (me) {
       setBaseLocation(me.baseLocation);
       setHoursPerDay(me.hoursAvailablePerDay);
@@ -99,7 +109,7 @@ export default function BusinessSettingsPage() {
     e.preventDefault();
     setCostConfigError(null);
     try {
-      const request = await orderTrackerApi.proposeCostConfigChange(groupId, proposedOverhead / 100, proposedMargin / 100);
+      const request = await orderTrackerApi.proposeCostConfigChange(groupId, proposedOverhead / 100, proposedMargin / 100, proposedWage);
       setChangeRequests((prev) => [...prev, request]);
       if (request.status === "APPROVED") {
         await load();
@@ -107,6 +117,19 @@ export default function BusinessSettingsPage() {
     } catch (err) {
       setCostConfigError(err instanceof Error ? err.message : "Failed to propose change");
     }
+  };
+
+  const saveDeliveryBuffers = async (e: React.FormEvent) => {
+    e.preventDefault();
+    await orderTrackerApi.updateBusinessConfig(groupId, {
+      currency: config!.currency,
+      workStages: config!.workStages,
+      deliveryBufferSameCityDays: bufferSameCity,
+      deliveryBufferSameStateDays: bufferSameState,
+      deliveryBufferOtherStateDays: bufferOtherState,
+      deliveryBufferInternationalDays: bufferInternational,
+    });
+    await load();
   };
 
   const respondToChangeRequest = async (requestId: string, approve: boolean) => {
@@ -170,8 +193,16 @@ export default function BusinessSettingsPage() {
             Currency: <strong>{config.currency}</strong>
           </p>
           <p>
-            Overhead: <strong>{(config.overheadPercentage * 100).toFixed(0)}%</strong> · Profit margin:{" "}
-            <strong>{(config.profitMarginPercentage * 100).toFixed(0)}%</strong>
+            Overhead: <strong>{(config.overheadPercentage * 100).toFixed(0)}%</strong> (delivery-time padding) · Profit
+            margin: <strong>{(config.profitMarginPercentage * 100).toFixed(0)}%</strong>
+          </p>
+          <p>
+            Hourly wage: <strong>{config.currency} {config.hourlyWage}/h</strong>
+            {!config.hourlyWageConfirmed && (
+              <span className="hint" style={{ marginLeft: 6 }}>
+                ⚠ using the default rate — propose your own below
+              </span>
+            )}
           </p>
           <p>
             Order type codes — individual <span className="mono">{config.individualOrderTypeCode}</span>, bulk{" "}
@@ -183,11 +214,11 @@ export default function BusinessSettingsPage() {
         </div>
       </div>
 
-      <h2 className="settings-section">Overhead &amp; profit margin</h2>
+      <h2 className="settings-section">Overhead, profit margin &amp; hourly wage</h2>
       <div className="card">
         <p className="muted" style={{ marginTop: 0, fontSize: 13 }}>
           These change what every existing order costs, so a change only takes effect once every member of{" "}
-          {currentBusiness?.name} has approved it.
+          {currentBusiness?.name} has approved it. Overhead is delivery-time padding only — it never affects price.
         </p>
         {costConfigError && <div className="error">{costConfigError}</div>}
 
@@ -195,7 +226,8 @@ export default function BusinessSettingsPage() {
           <div className="card" style={{ background: "var(--bg-elev-2)" }}>
             <p>
               Proposed: overhead <strong>{(pendingChangeRequest.proposedOverheadPercentage * 100).toFixed(0)}%</strong>,
-              profit margin <strong>{(pendingChangeRequest.proposedProfitMarginPercentage * 100).toFixed(0)}%</strong>
+              profit margin <strong>{(pendingChangeRequest.proposedProfitMarginPercentage * 100).toFixed(0)}%</strong>,
+              hourly wage <strong>{config.currency} {pendingChangeRequest.proposedHourlyWage}/h</strong>
             </p>
             <p className="muted" style={{ fontSize: 13 }}>
               Approved by {pendingChangeRequest.approvedByUserIds.length} member(s) so far.
@@ -214,18 +246,51 @@ export default function BusinessSettingsPage() {
         ) : (
           <form className="form-grid" onSubmit={proposeCostConfigChange}>
             <div className="form-row">
-              <label htmlFor="bs-overhead">Overhead %</label>
+              <label htmlFor="bs-overhead">Overhead % (delivery-time padding)</label>
               <input id="bs-overhead" type="number" min={0} step={1} value={proposedOverhead} onChange={(e) => setProposedOverhead(Number(e.target.value))} />
             </div>
             <div className="form-row">
               <label htmlFor="bs-margin">Profit margin %</label>
               <input id="bs-margin" type="number" min={0} step={1} value={proposedMargin} onChange={(e) => setProposedMargin(Number(e.target.value))} />
             </div>
+            <div className="form-row">
+              <label htmlFor="bs-wage">Hourly wage ({config.currency}/h)</label>
+              <input id="bs-wage" type="number" min={0} step={1} value={proposedWage} onChange={(e) => setProposedWage(Number(e.target.value))} />
+            </div>
             <button className="primary" type="submit">
               Propose change
             </button>
           </form>
         )}
+      </div>
+
+      <h2 className="settings-section">Delivery buffers</h2>
+      <div className="card">
+        <p className="muted" style={{ marginTop: 0, fontSize: 13 }}>
+          Flat extra days added to an order's delivery estimate depending on how far it's shipping — a rough guess for
+          now, not tied to real courier data yet. Freely editable, no approval needed.
+        </p>
+        <form className="form-grid" onSubmit={saveDeliveryBuffers}>
+          <div className="form-row">
+            <label htmlFor="bs-buffer-same-city">Same city (days)</label>
+            <input id="bs-buffer-same-city" type="number" min={0} step={1} value={bufferSameCity} onChange={(e) => setBufferSameCity(Number(e.target.value))} />
+          </div>
+          <div className="form-row">
+            <label htmlFor="bs-buffer-same-state">Same state (days)</label>
+            <input id="bs-buffer-same-state" type="number" min={0} step={1} value={bufferSameState} onChange={(e) => setBufferSameState(Number(e.target.value))} />
+          </div>
+          <div className="form-row">
+            <label htmlFor="bs-buffer-other-state">Other state (days)</label>
+            <input id="bs-buffer-other-state" type="number" min={0} step={1} value={bufferOtherState} onChange={(e) => setBufferOtherState(Number(e.target.value))} />
+          </div>
+          <div className="form-row">
+            <label htmlFor="bs-buffer-international">International (days)</label>
+            <input id="bs-buffer-international" type="number" min={0} step={1} value={bufferInternational} onChange={(e) => setBufferInternational(Number(e.target.value))} />
+          </div>
+          <button className="primary" type="submit">
+            Save
+          </button>
+        </form>
       </div>
 
       <h2 className="settings-section">Packaging presets</h2>

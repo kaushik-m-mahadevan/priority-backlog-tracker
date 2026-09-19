@@ -127,4 +127,42 @@ class CostConfigChangeApiTest {
                 .andExpect(jsonPath("$.overheadPercentage").value(0.22))
                 .andExpect(jsonPath("$.profitMarginPercentage").value(0.28));
     }
+
+    /** Regression test: the setup wizard's overhead/margin-only step resends the current
+     *  (still-default) hourly wage untouched on every propose — that must NOT silently mark
+     *  the wage as "confirmed" (which would hide the default-rate warning without the group
+     *  ever actually agreeing on a real number). Only a propose that actually changes the
+     *  wage should flip it. */
+    @Test
+    void resendingTheSameHourlyWageDoesNotConfirmItButChangingItDoes() throws Exception {
+        double seededWage = mapper.readTree(mvc.perform(auth(
+                        get("/api/ordertracker/groups/" + groupId + "/business-config"), proposerToken))
+                        .andExpect(jsonPath("$.hourlyWageConfirmed").value(false))
+                        .andReturn().getResponse().getContentAsString())
+                .get("hourlyWage").asDouble();
+
+        mvc.perform(auth(post(
+                        "/api/ordertracker/groups/" + groupId + "/business-config/change-requests"), proposerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"overheadPercentage":0.22,"profitMarginPercentage":0.28,"hourlyWage":%s}"""
+                                .formatted(seededWage)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("APPROVED"));
+
+        mvc.perform(auth(get("/api/ordertracker/groups/" + groupId + "/business-config"), proposerToken))
+                .andExpect(jsonPath("$.hourlyWageConfirmed").value(false));
+
+        mvc.perform(auth(post(
+                        "/api/ordertracker/groups/" + groupId + "/business-config/change-requests"), proposerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"overheadPercentage":0.22,"profitMarginPercentage":0.28,"hourlyWage":150}"""))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("APPROVED"));
+
+        mvc.perform(auth(get("/api/ordertracker/groups/" + groupId + "/business-config"), proposerToken))
+                .andExpect(jsonPath("$.hourlyWageConfirmed").value(true))
+                .andExpect(jsonPath("$.hourlyWage").value(150.0));
+    }
 }

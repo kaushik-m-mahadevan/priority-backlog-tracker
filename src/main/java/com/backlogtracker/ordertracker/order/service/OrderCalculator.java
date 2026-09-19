@@ -34,21 +34,44 @@ public class OrderCalculator {
         return LineItem.sumCost(items);
     }
 
-    /** grossCost = mandatoryItemsCost + addOnsCost + packagingCost (spec §5.10). */
-    public double grossCost(double mandatoryItemsCost, double addOnsCost, double packagingCost) {
-        return mandatoryItemsCost + addOnsCost + packagingCost;
+    /** grossCost = mandatoryItemsCost + addOnsCost + packagingCost + laborCost (round 5
+     *  pricing redesign — labor is treated as a raw-material-like cost, not overhead or
+     *  profit, so it's folded in here before {@link #profitAmount} applies). */
+    public double grossCost(double mandatoryItemsCost, double addOnsCost, double packagingCost, double laborCost) {
+        return mandatoryItemsCost + addOnsCost + packagingCost + laborCost;
     }
 
-    public double overheadAmount(double grossCost, double overheadPercentage) {
-        return grossCost * overheadPercentage;
+    /** totalHours × the business's effective hourly wage (round 5 pricing redesign) — the
+     *  first time hours have ever fed into cost; previously time only affected the due
+     *  date. */
+    public double laborCost(double totalHours, double hourlyWage) {
+        return totalHours * hourlyWage;
     }
 
-    public double profitAmount(double grossCost, double overheadAmount, double profitMarginPercentage) {
-        return (grossCost + overheadAmount) * profitMarginPercentage;
+    /** Overhead is a delivery-time concept only now (round 5 redesign) — no overhead
+     *  argument here any more, profit margin applies directly on top of gross. */
+    public double profitAmount(double grossCost, double profitMarginPercentage) {
+        return grossCost * profitMarginPercentage;
     }
 
-    public double finalCost(double grossCost, double overheadAmount, double profitAmount) {
-        return grossCost + overheadAmount + profitAmount;
+    public double finalCost(double grossCost, double profitAmount) {
+        return grossCost + profitAmount;
+    }
+
+    /** ceil(hours / hoursPerDay), minimum 1 day of work for any non-zero order. */
+    public int workDays(double hours, double hoursPerDay) {
+        return (int) Math.max(1, Math.ceil(hours / hoursPerDay));
+    }
+
+    /** The quotable delivery date (round 5 redesign): the work-days estimate plus a flat,
+     *  delivery-tier buffer, then padded by the business's time-overhead percentage and
+     *  rounded up — e.g. 2 work days + 1 delivery-buffer day = 3, × 1.15 overhead = 3.45,
+     *  rounds up to 4. */
+    public Instant quotableDeliveryDate(Instant orderReceivedDate, int workDays, int deliveryBufferDays,
+                                        double overheadPercentage) {
+        double padded = (workDays + deliveryBufferDays) * (1 + overheadPercentage);
+        long totalDays = Math.max(1, (long) Math.ceil(padded));
+        return orderReceivedDate.plus(totalDays, ChronoUnit.DAYS);
     }
 
     /** grossTimeHours = crocheting + assembly + packaging time. Research time is added
@@ -89,43 +112,42 @@ public class OrderCalculator {
                                                  List<Order.Component> components,
                                                  Packaging packaging, double craftingTimeHours,
                                                  double assemblyTimeHours, double researchTimeHours,
-                                                 double overheadPct, double profitMarginPct,
+                                                 double overheadPct, double profitMarginPct, double hourlyWage,
+                                                 int deliveryBufferDays,
                                                  Instant orderReceivedDate, double assignedCreatorHoursPerDay) {
         double mandatoryItemsCost = mandatoryItemsCost(mandatoryItems);
         double addOnsCost = lineItemsCost(addOns);
         double componentsCost = componentsCost(components);
         double packagingCost = packaging.cost();
-        double gross = grossCost(mandatoryItemsCost + componentsCost, addOnsCost, packagingCost);
-        double overhead = overheadAmount(gross, overheadPct);
-        double profit = profitAmount(gross, overhead, profitMarginPct);
-        double finalCost = finalCost(gross, overhead, profit);
         double componentsTimeHours = componentsTimeHours(components);
         double grossTimeHours = grossTimeHours(craftingTimeHours + componentsTimeHours, assemblyTimeHours, packaging)
                 + researchTimeHours;
+        double labor = laborCost(grossTimeHours, hourlyWage);
+        double gross = grossCost(mandatoryItemsCost + componentsCost, addOnsCost, packagingCost, labor);
+        double profit = profitAmount(gross, profitMarginPct);
+        double finalCost = finalCost(gross, profit);
+        int workDays = workDays(grossTimeHours, assignedCreatorHoursPerDay);
 
         return Order.CostEstimate.builder()
                 .mandatoryItemsCost(mandatoryItemsCost)
                 .addOnsCost(addOnsCost)
                 .packagingCost(packagingCost)
+                .laborCost(labor)
                 .grossCost(gross)
-                .overheadAmount(overhead)
                 .profitAmount(profit)
                 .finalCost(finalCost)
                 .grossTimeHours(grossTimeHours)
+                .workDays(workDays)
+                .deliveryBufferDays(deliveryBufferDays)
                 .itemizedBreakdown(List.of(
                         new Order.BreakdownLine("Mandatory items", mandatoryItemsCost),
                         new Order.BreakdownLine("Components", componentsCost),
                         new Order.BreakdownLine("Add-ons", addOnsCost),
                         new Order.BreakdownLine("Packaging", packagingCost),
-                        new Order.BreakdownLine("Overhead", overhead),
+                        new Order.BreakdownLine("Labor", labor),
                         new Order.BreakdownLine("Profit margin", profit)))
-                .computedDueDate(dueDate(orderReceivedDate, grossTimeHours, assignedCreatorHoursPerDay))
+                .computedDueDate(quotableDeliveryDate(orderReceivedDate, workDays, deliveryBufferDays, overheadPct))
                 .build();
-    }
-
-    private Instant dueDate(Instant from, double hours, double hoursPerDay) {
-        long days = Math.max(1, (long) Math.ceil(hours / hoursPerDay));
-        return from.plus(days, ChronoUnit.DAYS);
     }
 
     /** Individual-order completion = equal-weighted average of each stage's own
@@ -144,19 +166,19 @@ public class OrderCalculator {
     /** Computes a variant's per-unit and total cost/time and returns an updated copy of the
      *  variant with those fields (and each line's own cost/time) filled in — the caller
      *  saves the result. */
-    public Variant priceVariant(Variant variant, double overheadPct, double profitMarginPct) {
+    public Variant priceVariant(Variant variant, double profitMarginPct, double hourlyWage) {
         variant.getComponents().forEach(this::priceComponent);
         double mandatoryItemsCost = mandatoryItemsCost(variant.getMandatoryItems());
         double addOnsCost = lineItemsCost(variant.getAddOns());
         double componentsCost = componentsCost(variant.getComponents());
         double packagingCost = variant.getPackaging() == null ? 0 : variant.getPackaging().cost();
-        double gross = grossCost(mandatoryItemsCost + componentsCost, addOnsCost, packagingCost);
-        double overhead = overheadAmount(gross, overheadPct);
-        double profit = profitAmount(gross, overhead, profitMarginPct);
-        double perUnitCost = finalCost(gross, overhead, profit);
         double componentsTimeHours = componentsTimeHours(variant.getComponents());
         double perUnitTimeHours = grossTimeHours(variant.getCraftingTimeHours() + componentsTimeHours, variant.getAssemblyTimeHours(),
                 variant.getPackaging() == null ? Order.Packaging.builder().itemizedList(List.of()).build() : variant.getPackaging());
+        double labor = laborCost(perUnitTimeHours, hourlyWage);
+        double gross = grossCost(mandatoryItemsCost + componentsCost, addOnsCost, packagingCost, labor);
+        double profit = profitAmount(gross, profitMarginPct);
+        double perUnitCost = finalCost(gross, profit);
 
         variant.setPerUnitCost(perUnitCost);
         variant.setTotalCost(perUnitCost * variant.getQuantity());
@@ -190,14 +212,18 @@ public class OrderCalculator {
         return hours <= 0 ? 0 : (long) Math.ceil(hours / hoursPerDay);
     }
 
-    /** computedDueDate = orderReceivedDate + max(creatorDueOffsetDays across all involved
-     *  creators) + a manual buffer if the shipment plan includes an INTERNAL_TRANSFER stop
-     *  before final delivery (spec §9 steps 4-5). */
-    public Instant computeBulkDueDate(Instant orderReceivedDate, List<CreatorWorkload> workloads, int bufferDays) {
+    /** Round 5 redesign: computedDueDate = max(creatorDueOffsetDays across all involved
+     *  creators) + the manual logistics buffer (internal-transfer leg, spec §9 steps 4-5) +
+     *  the delivery-tier buffer (round 5), all padded by the time-overhead percentage and
+     *  rounded up — same shape as the individual-order formula. */
+    public Instant computeBulkDueDate(Instant orderReceivedDate, List<CreatorWorkload> workloads,
+                                      int logisticsBufferDays, int deliveryBufferDays, double overheadPercentage) {
         long maxDays = workloads.stream()
                 .mapToLong(w -> Math.max(1, (long) Math.ceil(w.hours() / w.hoursPerDay())))
                 .max().orElse(1);
-        return orderReceivedDate.plus(maxDays + bufferDays, ChronoUnit.DAYS);
+        double padded = (maxDays + logisticsBufferDays + deliveryBufferDays) * (1 + overheadPercentage);
+        long totalDays = Math.max(1, (long) Math.ceil(padded));
+        return orderReceivedDate.plus(totalDays, ChronoUnit.DAYS);
     }
 
     /**

@@ -37,6 +37,7 @@ public class CostConfigChangeRequest {
 
     private double proposedOverheadPercentage;
     private double proposedProfitMarginPercentage;
+    private double proposedHourlyWage;
 
     private String proposedByUserId;
     @Builder.Default

@@ -33,7 +33,8 @@ public class CostConfigChangeController {
     @PostMapping
     public CostConfigChangeRequest propose(@PathVariable String groupId, @RequestBody ProposeRequest request,
                                            @AuthenticationPrincipal AuthUser actor) {
-        return service.propose(groupId, actor.id(), request.overheadPercentage(), request.profitMarginPercentage());
+        return service.propose(groupId, actor.id(), request.overheadPercentage(), request.profitMarginPercentage(),
+                request.hourlyWage());
     }
 
     @PostMapping("/{requestId}/approve")
@@ -48,6 +49,6 @@ public class CostConfigChangeController {
         return service.reject(groupId, actor.id(), requestId);
     }
 
-    public record ProposeRequest(double overheadPercentage, double profitMarginPercentage) {
+    public record ProposeRequest(double overheadPercentage, double profitMarginPercentage, double hourlyWage) {
     }
 }

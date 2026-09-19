@@ -25,9 +25,16 @@ import {
   type MandatoryItemDraft,
   type VariantDraft,
 } from "../OrderFormFields";
-import type { BusinessConfig, ComponentTemplate, Creator, Customer, OrderFinalizationView, OrderStatus, OrderView, PaymentType, PresetOption, TimeStage } from "../types";
+import type { BusinessConfig, ComponentTemplate, Creator, Customer, DeliveryTier, OrderFinalizationView, OrderStatus, OrderView, PaymentType, PresetOption, TimeStage } from "../types";
 
 const STATUSES: OrderStatus[] = ["INQUIRY", "CONFIRMED", "IN_PROGRESS", "READY_TO_SHIP", "SHIPPED", "DELIVERED", "CANCELLED"];
+
+const DELIVERY_TIER_LABELS: Record<DeliveryTier, string> = {
+  SAME_CITY: "Same city",
+  SAME_STATE: "Same state",
+  OTHER_STATE: "Other state",
+  INTERNATIONAL: "International",
+};
 
 /** Work stages are configurable per business, so this is a best-effort visual cue for the
  *  common ones rather than a strict mapping — an unrecognized stageKey still gets a
@@ -92,6 +99,7 @@ function EditOrderForm({
   const [itemName, setItemName] = useState(order.itemName ?? "");
   const [orderReceivedDate, setOrderReceivedDate] = useState(order.orderReceivedDate?.slice(0, 10) ?? "");
   const [quotedDeliveryDate, setQuotedDeliveryDate] = useState(order.quotedDeliveryDate?.slice(0, 10) ?? "");
+  const [deliveryTier, setDeliveryTier] = useState<DeliveryTier>(order.deliveryTier);
   const [patternType, setPatternType] = useState(order.pattern?.patternType ?? "");
   const [templateName, setTemplateName] = useState(order.pattern?.templateName ?? "");
   const [customPatternNotes, setCustomPatternNotes] = useState(order.pattern?.customPatternNotes ?? "");
@@ -137,6 +145,7 @@ function EditOrderForm({
         itemName,
         orderReceivedDate: orderReceivedDate ? new Date(orderReceivedDate).toISOString() : null,
         quotedDeliveryDate: quotedDeliveryDate ? new Date(quotedDeliveryDate).toISOString() : null,
+        deliveryTier,
         pattern: (() => {
           const recipeSteps = recipeStepsText.split("\n").map((s) => s.trim()).filter(Boolean);
           return patternType || recipeSteps.length > 0
@@ -189,6 +198,16 @@ function EditOrderForm({
         <div className="form-row">
           <label htmlFor="eod-quoted-delivery">Quoted delivery</label>
           <input id="eod-quoted-delivery" type="date" value={quotedDeliveryDate} onChange={(e) => setQuotedDeliveryDate(e.target.value)} />
+        </div>
+        <div className="form-row">
+          <label htmlFor="eod-delivery-tier">Shipping to</label>
+          <select id="eod-delivery-tier" value={deliveryTier} onChange={(e) => setDeliveryTier(e.target.value as DeliveryTier)}>
+            {Object.entries(DELIVERY_TIER_LABELS).map(([value, label]) => (
+              <option key={value} value={value}>
+                {label}
+              </option>
+            ))}
+          </select>
         </div>
       </div>
       <div className="form-row">
@@ -323,6 +342,7 @@ function EditBulkDetailsForm({
   const [itemName, setItemName] = useState(order.itemName ?? "");
   const [orderReceivedDate, setOrderReceivedDate] = useState(order.orderReceivedDate?.slice(0, 10) ?? "");
   const [quotedDeliveryDate, setQuotedDeliveryDate] = useState(order.quotedDeliveryDate?.slice(0, 10) ?? "");
+  const [deliveryTier, setDeliveryTier] = useState<DeliveryTier>(order.deliveryTier);
   const [patternType, setPatternType] = useState(order.pattern?.patternType ?? "");
   const [templateName, setTemplateName] = useState(order.pattern?.templateName ?? "");
   const [customPatternNotes, setCustomPatternNotes] = useState(order.pattern?.customPatternNotes ?? "");
@@ -374,6 +394,7 @@ function EditBulkDetailsForm({
         itemName,
         orderReceivedDate: orderReceivedDate ? new Date(orderReceivedDate).toISOString() : null,
         quotedDeliveryDate: quotedDeliveryDate ? new Date(quotedDeliveryDate).toISOString() : null,
+        deliveryTier,
         pattern: (() => {
           const recipeSteps = recipeStepsText.split("\n").map((s) => s.trim()).filter(Boolean);
           return patternType || recipeSteps.length > 0
@@ -435,6 +456,16 @@ function EditBulkDetailsForm({
         <div className="form-row">
           <label htmlFor="ebd-quoted-delivery">Quoted delivery</label>
           <input id="ebd-quoted-delivery" type="date" value={quotedDeliveryDate} onChange={(e) => setQuotedDeliveryDate(e.target.value)} />
+        </div>
+        <div className="form-row">
+          <label htmlFor="ebd-delivery-tier">Shipping to</label>
+          <select id="ebd-delivery-tier" value={deliveryTier} onChange={(e) => setDeliveryTier(e.target.value as DeliveryTier)}>
+            {Object.entries(DELIVERY_TIER_LABELS).map(([value, label]) => (
+              <option key={value} value={value}>
+                {label}
+              </option>
+            ))}
+          </select>
         </div>
       </div>
       <div className="form-row">
@@ -1343,6 +1374,12 @@ export default function OrderDetailPage() {
           </p>
           {order.orderType === "INDIVIDUAL" && order.costEstimate ? (
             <>
+              {config && !config.hourlyWageConfirmed && (
+                <p className="hint" style={{ marginTop: 0 }}>
+                  ⚠ Labor is priced at the default rate ({config.currency} {config.hourlyWage}/h) — confirm your
+                  business's real rate in Business Settings.
+                </p>
+              )}
               {order.costEstimate.itemizedBreakdown.map((b) => (
                 <div className="row" key={b.label}><span className="k">{b.label}</span><span className="v">₹{b.amount.toFixed(2)}</span></div>
               ))}
@@ -1354,6 +1391,21 @@ export default function OrderDetailPage() {
               <div className="row"><span className="k">Total quantity</span><span className="v">{order.bulkDetails?.totalQuantity}</span></div>
               <div className="cost-total"><span className="k">Estimated total cost</span><span className="v">₹{order.bulkDetails?.totalFinalCost.toFixed(2)}</span></div>
               <div className="row" style={{ marginTop: 8 }}><span className="k">Estimated total time</span><span className="v">{order.bulkDetails?.totalTimeHours}h</span></div>
+            </>
+          )}
+
+          <div className="row" style={{ marginTop: 12 }}><span className="k">Shipping to</span>
+            <span className="v">{DELIVERY_TIER_LABELS[order.deliveryTier]}</span></div>
+          {order.orderType === "INDIVIDUAL" && order.costEstimate && (
+            <>
+              <div className="row"><span className="k">Work days</span>
+                <span className="v">{order.costEstimate.workDays}d (allocated {order.costEstimate.grossTimeHours}h ÷ hours/day)</span></div>
+              <div className="row"><span className="k">Delivery buffer</span>
+                <span className="v">+{order.costEstimate.deliveryBufferDays}d</span></div>
+              {config && (
+                <div className="row"><span className="k">Time overhead</span>
+                  <span className="v">×{(1 + config.overheadPercentage).toFixed(2)}</span></div>
+              )}
             </>
           )}
           <div className="row"><span className="k">Estimated delivery</span>

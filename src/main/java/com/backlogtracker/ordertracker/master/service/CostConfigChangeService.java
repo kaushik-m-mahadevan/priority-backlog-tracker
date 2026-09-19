@@ -42,7 +42,8 @@ public class CostConfigChangeService {
     private final Clock clock;
 
     public CostConfigChangeRequest propose(String groupId, String userId,
-                                           double overheadPercentage, double profitMarginPercentage) {
+                                           double overheadPercentage, double profitMarginPercentage,
+                                           double hourlyWage) {
         Group group = groupService.requireMember(groupId, userId);
         repository.findByGroupIdAndStatus(groupId, CostConfigChangeStatus.PENDING).ifPresent(existing -> {
             throw new ResponseStatusException(HttpStatus.CONFLICT,
@@ -52,6 +53,7 @@ public class CostConfigChangeService {
                 .groupId(groupId)
                 .proposedOverheadPercentage(overheadPercentage)
                 .proposedProfitMarginPercentage(profitMarginPercentage)
+                .proposedHourlyWage(hourlyWage)
                 .proposedByUserId(userId)
                 .status(CostConfigChangeStatus.PENDING)
                 .createdAt(Instant.now(clock))
@@ -110,7 +112,7 @@ public class CostConfigChangeService {
 
     private void applyResolvedConfig(CostConfigChangeRequest request) {
         businessConfigService.applyCostConfig(request.getGroupId(), request.getProposedOverheadPercentage(),
-                request.getProposedProfitMarginPercentage());
+                request.getProposedProfitMarginPercentage(), request.getProposedHourlyWage());
     }
 
     public CostConfigChangeRequest reject(String groupId, String userId, String requestId) {

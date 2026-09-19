@@ -35,7 +35,9 @@ public class BusinessConfigController {
     @PutMapping
     public BusinessConfig update(@PathVariable String groupId, @RequestBody UpdateRequest request,
                                  @AuthenticationPrincipal AuthUser actor) {
-        return service.update(groupId, actor.id(), request.currency(), request.workStages());
+        return service.update(groupId, actor.id(), request.currency(), request.workStages(),
+                request.deliveryBufferSameCityDays(), request.deliveryBufferSameStateDays(),
+                request.deliveryBufferOtherStateDays(), request.deliveryBufferInternationalDays());
     }
 
     @PostMapping("/setup/start")
@@ -48,8 +50,12 @@ public class BusinessConfigController {
         return service.completeSetup(groupId, actor.id());
     }
 
-    /** overheadPercentage/profitMarginPercentage are not here on purpose — see
-     *  CostConfigChangeController for changing those, which requires unanimous approval. */
-    public record UpdateRequest(String currency, List<WorkStageType> workStages) {
+    /** overheadPercentage/profitMarginPercentage/hourlyWage are not here on purpose — see
+     *  CostConfigChangeController for changing those, which requires unanimous approval.
+     *  Delivery-buffer tiers are logistics guesses, not pricing, so they're freely editable
+     *  here (round 5 delivery-estimate redesign). */
+    public record UpdateRequest(String currency, List<WorkStageType> workStages,
+                                int deliveryBufferSameCityDays, int deliveryBufferSameStateDays,
+                                int deliveryBufferOtherStateDays, int deliveryBufferInternationalDays) {
     }
 }

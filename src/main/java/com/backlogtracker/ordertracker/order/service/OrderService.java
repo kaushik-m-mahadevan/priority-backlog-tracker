@@ -20,6 +20,7 @@ import com.backlogtracker.ordertracker.master.domain.PresetOption;
 import com.backlogtracker.ordertracker.master.service.BusinessConfigService;
 import com.backlogtracker.ordertracker.master.service.CreatorService;
 import com.backlogtracker.ordertracker.master.service.MasterDataService;
+import com.backlogtracker.ordertracker.order.domain.DeliveryTier;
 import com.backlogtracker.ordertracker.order.domain.Order;
 import com.backlogtracker.ordertracker.order.domain.Order.LineItem;
 import com.backlogtracker.ordertracker.order.domain.Order.MandatoryItem;
@@ -183,6 +184,7 @@ public class OrderService {
                 .itemName(request.itemName())
                 .orderReceivedDate(orderReceivedDate)
                 .quotedDeliveryDate(request.quotedDeliveryDate())
+                .deliveryTier(request.deliveryTier() == null ? DeliveryTier.SAME_CITY : request.deliveryTier())
                 .pattern(toPattern(request.pattern()))
                 .researchItems(toResearchItems(request.researchItems()))
                 .researchTimeHours(request.researchTimeHours())
@@ -206,7 +208,8 @@ public class OrderService {
                     .assemblyTimeHours(request.assemblyTimeHours())
                     .costEstimate(calculator.estimateIndividual(mandatoryItems, addOns, components, packaging,
                             request.craftingTimeHours(), request.assemblyTimeHours(), request.researchTimeHours(),
-                            cfg.getOverheadPercentage(), cfg.getProfitMarginPercentage(),
+                            cfg.getOverheadPercentage(), cfg.getProfitMarginPercentage(), cfg.effectiveHourlyWage(),
+                            cfg.bufferDaysFor(request.deliveryTier() == null ? DeliveryTier.SAME_CITY : request.deliveryTier()),
                             orderReceivedDate, createdBy.getHoursAvailablePerDay()))
                     .stageAssignments(cfg.getWorkStages().stream()
                             .map(s -> Order.StageAssignment.builder().stageKey(s.stageKey())
@@ -235,6 +238,7 @@ public class OrderService {
                                     .totalUnits(variants.stream().mapToInt(Variant::getQuantity).sum()).build())
                             .collect(Collectors.toList()))
                     .logisticsBufferDays(request.logisticsBufferDays())
+                    .deliveryBufferDays(cfg.bufferDaysFor(request.deliveryTier() == null ? DeliveryTier.SAME_CITY : request.deliveryTier()))
                     .build();
             recomputeBulkTotals(details, cfg, orderReceivedDate, request.researchTimeHours());
             builder.bulkDetails(details);
@@ -261,6 +265,9 @@ public class OrderService {
         order.setItemName(request.itemName());
         order.setOrderReceivedDate(request.orderReceivedDate());
         order.setQuotedDeliveryDate(request.quotedDeliveryDate());
+        if (request.deliveryTier() != null) {
+            order.setDeliveryTier(request.deliveryTier());
+        }
         order.setPattern(toPattern(request.pattern()));
         order.setResearchItems(toResearchItems(request.researchItems()));
         order.setResearchTimeHours(request.researchTimeHours());
@@ -278,7 +285,8 @@ public class OrderService {
         order.setAssemblyTimeHours(request.assemblyTimeHours());
         order.setCostEstimate(calculator.estimateIndividual(mandatoryItems, addOns, components, packaging,
                 request.craftingTimeHours(), request.assemblyTimeHours(), request.researchTimeHours(),
-                cfg.getOverheadPercentage(), cfg.getProfitMarginPercentage(),
+                cfg.getOverheadPercentage(), cfg.getProfitMarginPercentage(), cfg.effectiveHourlyWage(),
+                cfg.bufferDaysFor(order.getDeliveryTier() == null ? DeliveryTier.SAME_CITY : order.getDeliveryTier()),
                 order.getOrderReceivedDate() == null ? clock.instant() : order.getOrderReceivedDate(),
                 createdBy.getHoursAvailablePerDay()));
         order.setUpdatedAt(clock.instant());
@@ -308,6 +316,9 @@ public class OrderService {
             order.setOrderReceivedDate(request.orderReceivedDate());
         }
         order.setQuotedDeliveryDate(request.quotedDeliveryDate());
+        if (request.deliveryTier() != null) {
+            order.setDeliveryTier(request.deliveryTier());
+        }
         order.setPattern(toPattern(request.pattern()));
         order.setResearchItems(toResearchItems(request.researchItems()));
         order.setResearchTimeHours(request.researchTimeHours());
@@ -342,6 +353,7 @@ public class OrderService {
         details.setVariants(newVariants);
         details.setCoordinatingCreatorId(request.coordinatingCreatorId());
         details.setLogisticsBufferDays(request.logisticsBufferDays());
+        details.setDeliveryBufferDays(cfg.bufferDaysFor(order.getDeliveryTier() == null ? DeliveryTier.SAME_CITY : order.getDeliveryTier()));
         // batch-tracked stage totals track total quantity — resize without losing progress,
         // but clamp unitsCompleted down too: shrinking the total below what was already
         // marked done would otherwise report completion over 100%.
@@ -647,7 +659,7 @@ public class OrderService {
                                 .stageProgress(new ArrayList<>()).build())
                         .collect(Collectors.toCollection(ArrayList::new)))
                 .build();
-        return calculator.priceVariant(variant, cfg.getOverheadPercentage(), cfg.getProfitMarginPercentage());
+        return calculator.priceVariant(variant, cfg.getProfitMarginPercentage(), cfg.effectiveHourlyWage());
     }
 
     private void recomputeBulkTotals(Order.BulkDetails details, BusinessConfig cfg, Instant orderReceivedDate,
@@ -674,7 +686,8 @@ public class OrderService {
                 .getHoursAvailablePerDay();
         int researchDays = (int) calculator.extraDaysFor(researchTimeHours, researchHoursPerDay);
         details.setComputedDueDate(calculator.computeBulkDueDate(orderReceivedDate, workloads,
-                details.getLogisticsBufferDays() + researchDays));
+                details.getLogisticsBufferDays() + researchDays, details.getDeliveryBufferDays(),
+                cfg.getOverheadPercentage()));
     }
 
     private Order.Packaging buildPackaging(String groupId, String userId, String presetId,

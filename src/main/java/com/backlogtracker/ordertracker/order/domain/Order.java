@@ -66,6 +66,12 @@ public class Order {
     private Instant quotedDeliveryDate;
     private Instant actualDeliveryDate;
 
+    /** Which of {@code BusinessConfig}'s flat buffer day-counts pads the delivery estimate
+     *  (round 5 delivery-estimate redesign) — manually picked, since there's no structured
+     *  customer address to detect it from yet. Defaults to {@code SAME_CITY} when unset. */
+    @Builder.Default
+    private DeliveryTier deliveryTier = DeliveryTier.SAME_CITY;
+
     // ---- 5.3 pattern ----
     private Pattern pattern;
 
@@ -263,8 +269,12 @@ public class Order {
         private double amount;
     }
 
-    /** Computed snapshot (spec §5.10) — recomputed and overwritten whenever any cost/time
-     *  input changes, never hand-edited directly. */
+    /** Computed snapshot (spec §5.10, round 5 pricing/delivery redesign) — recomputed and
+     *  overwritten whenever any cost/time input changes, never hand-edited directly.
+     *  {@code overheadAmount} is gone: overhead is a delivery-time concept only now (see
+     *  {@code workDays}/{@code deliveryBufferDays}/{@code computedDueDate}), never a cost
+     *  line. {@code laborCost} is treated as a raw-material-like cost, folded into
+     *  {@code grossCost} before {@code profitAmount} applies — not overhead, not profit. */
     @Getter
     @Setter
     @Builder
@@ -274,13 +284,24 @@ public class Order {
         private double mandatoryItemsCost;
         private double addOnsCost;
         private double packagingCost;
+        /** totalHours × the business's effective hourly wage. */
+        private double laborCost;
+        /** materials + addOns + packaging + laborCost. */
         private double grossCost;
-        private double overheadAmount;
         private double profitAmount;
         private double finalCost;
+        /** Total allocated hours across research + crafting + assembly + packaging — the
+         *  same figure {@link #laborCost} is derived from and {@link #workDays} is derived
+         *  from, so the cost and delivery breakdowns are always looking at one number. */
         private double grossTimeHours;
+        /** ceil(grossTimeHours / the assigned creator's hours/day). */
+        private int workDays;
+        /** Flat days from {@code BusinessConfig.bufferDaysFor(order.deliveryTier)}. */
+        private int deliveryBufferDays;
         @Builder.Default
         private List<BreakdownLine> itemizedBreakdown = new ArrayList<>();
+        /** The quotable delivery date: ceil((workDays + deliveryBufferDays) ×
+         *  (1 + overheadPercentage)) days after the order was received. */
         private Instant computedDueDate;
     }
 
@@ -557,10 +578,18 @@ public class Order {
          *  includes an INTERNAL_TRANSFER stop before final delivery (spec §9 step 5). Zero
          *  when there's no consolidation leg. */
         private int logisticsBufferDays;
+        /** Flat days from {@code BusinessConfig.bufferDaysFor(order.deliveryTier)} — the
+         *  same round 5 delivery-tier concept as the individual order's
+         *  {@code costEstimate.deliveryBufferDays}, additive with the manual
+         *  {@link #logisticsBufferDays} above rather than replacing it (that one is
+         *  specifically for an internal-transfer consolidation leg; this one is the
+         *  everyday "how far is the customer" padding every order gets). */
+        private int deliveryBufferDays;
         /** Spec §9 computes this (max-of-offsets across every involved creator, plus the
          *  logistics buffer) but the §8 field table omits it — kept here since it's the
          *  bulk order's promised-delivery date, same role as the individual order's
-         *  {@code costEstimate.computedDueDate}. */
+         *  {@code costEstimate.computedDueDate}. Now also padded by the time-overhead
+         *  percentage, same formula as the individual order (round 5 redesign). */
         private Instant computedDueDate;
     }
 }

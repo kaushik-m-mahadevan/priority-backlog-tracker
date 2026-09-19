@@ -52,12 +52,22 @@ export default function SetupWizardPage({ onDone }: { onDone: () => void }) {
     if (!config) return;
     setSavingStep1(true);
     try {
-      await orderTrackerApi.updateBusinessConfig(groupId, { currency, workStages: config.workStages });
+      await orderTrackerApi.updateBusinessConfig(groupId, {
+        currency,
+        workStages: config.workStages,
+        deliveryBufferSameCityDays: config.deliveryBufferSameCityDays,
+        deliveryBufferSameStateDays: config.deliveryBufferSameStateDays,
+        deliveryBufferOtherStateDays: config.deliveryBufferOtherStateDays,
+        deliveryBufferInternationalDays: config.deliveryBufferInternationalDays,
+      });
       // A brand-new business has exactly one member (its creator) at this point, so this
       // unanimous-approval proposal auto-resolves immediately — see ApprovalService's own
-      // solo-proposer rule. Skipped entirely if unchanged from the seeded defaults.
+      // solo-proposer rule. Skipped entirely if unchanged from the seeded defaults. Hourly
+      // wage isn't a wizard field (kept for Business Settings later) — carried through
+      // unchanged so a real overhead/margin tweak here doesn't accidentally "confirm" the
+      // still-default wage.
       if (overheadPct / 100 !== config.overheadPercentage || marginPct / 100 !== config.profitMarginPercentage) {
-        await orderTrackerApi.proposeCostConfigChange(groupId, overheadPct / 100, marginPct / 100);
+        await orderTrackerApi.proposeCostConfigChange(groupId, overheadPct / 100, marginPct / 100, config.hourlyWage);
       }
       setStep(2);
     } finally {

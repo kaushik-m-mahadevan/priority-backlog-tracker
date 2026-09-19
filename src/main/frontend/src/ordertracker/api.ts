@@ -9,15 +9,23 @@ export const orderTrackerApi = {
   completeBusinessSetup: (groupId: string) => api.post<BusinessConfig>(`${base(groupId)}/business-config/setup/complete`),
   updateBusinessConfig: (
     groupId: string,
-    body: { currency: string; workStages: WorkStageType[] }
+    body: {
+      currency: string;
+      workStages: WorkStageType[];
+      deliveryBufferSameCityDays: number;
+      deliveryBufferSameStateDays: number;
+      deliveryBufferOtherStateDays: number;
+      deliveryBufferInternationalDays: number;
+    }
   ) => api.put<BusinessConfig>(`${base(groupId)}/business-config`, body),
 
   costConfigChangeRequests: (groupId: string) =>
     api.get<CostConfigChangeRequest[]>(`${base(groupId)}/business-config/change-requests`),
-  proposeCostConfigChange: (groupId: string, overheadPercentage: number, profitMarginPercentage: number) =>
+  proposeCostConfigChange: (groupId: string, overheadPercentage: number, profitMarginPercentage: number, hourlyWage: number) =>
     api.post<CostConfigChangeRequest>(`${base(groupId)}/business-config/change-requests`, {
       overheadPercentage,
       profitMarginPercentage,
+      hourlyWage,
     }),
   approveCostConfigChange: (groupId: string, requestId: string) =>
     api.post<CostConfigChangeRequest>(`${base(groupId)}/business-config/change-requests/${requestId}/approve`),

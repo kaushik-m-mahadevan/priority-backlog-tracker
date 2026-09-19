@@ -5,6 +5,7 @@ import java.util.List;
 
 import com.backlogtracker.commons.pattern.domain.Pattern;
 import com.backlogtracker.commons.pattern.domain.PatternType;
+import com.backlogtracker.ordertracker.order.domain.DeliveryTier;
 import com.backlogtracker.ordertracker.order.domain.Order;
 import com.backlogtracker.ordertracker.order.domain.OrderStatus;
 import com.backlogtracker.ordertracker.order.domain.OrderType;
@@ -13,6 +14,7 @@ import com.backlogtracker.ordertracker.order.domain.PaymentStatus;
 public record OrderView(String id, String orderNumber, OrderType orderType, String customerId,
                         String createdByCreatorId, OrderStatus status,
                         String itemName, Instant orderReceivedDate, Instant quotedDeliveryDate,
+                        DeliveryTier deliveryTier,
                         Instant actualDeliveryDate, PatternView pattern, List<ResearchItemView> researchItems,
                         double researchTimeHours, String assemblyPackagingInstructions,
                         String notes, List<MandatoryItemView> mandatoryItems, List<LineItemView> addOns,
@@ -75,16 +77,17 @@ public record OrderView(String id, String orderNumber, OrderType orderType, Stri
     }
 
     public record CostEstimateView(double mandatoryItemsCost, double addOnsCost, double packagingCost,
-                                   double grossCost, double overheadAmount, double profitAmount,
-                                   double finalCost, double grossTimeHours, List<BreakdownLineView> itemizedBreakdown,
-                                   Instant computedDueDate) {
+                                   double laborCost, double grossCost, double profitAmount,
+                                   double finalCost, double grossTimeHours, int workDays, int deliveryBufferDays,
+                                   List<BreakdownLineView> itemizedBreakdown, Instant computedDueDate) {
         static CostEstimateView of(Order.CostEstimate c) {
             if (c == null) {
                 return null;
             }
             return new CostEstimateView(c.getMandatoryItemsCost(), c.getAddOnsCost(), c.getPackagingCost(),
-                    c.getGrossCost(), c.getOverheadAmount(), c.getProfitAmount(), c.getFinalCost(),
-                    c.getGrossTimeHours(), c.getItemizedBreakdown().stream().map(BreakdownLineView::of).toList(),
+                    c.getLaborCost(), c.getGrossCost(), c.getProfitAmount(), c.getFinalCost(),
+                    c.getGrossTimeHours(), c.getWorkDays(), c.getDeliveryBufferDays(),
+                    c.getItemizedBreakdown().stream().map(BreakdownLineView::of).toList(),
                     c.getComputedDueDate());
         }
     }
@@ -182,7 +185,7 @@ public record OrderView(String id, String orderNumber, OrderType orderType, Stri
                                   double totalTimeHours, String coordinatingCreatorId,
                                   List<StageAssignmentView> stageAssignments,
                                   List<BulkStageProgressView> stageProgress, int logisticsBufferDays,
-                                  Instant computedDueDate) {
+                                  int deliveryBufferDays, Instant computedDueDate) {
         static BulkDetailsView of(Order.BulkDetails d) {
             if (d == null) {
                 return null;
@@ -191,14 +194,14 @@ public record OrderView(String id, String orderNumber, OrderType orderType, Stri
                     d.getTotalFinalCost(), d.getTotalTimeHours(), d.getCoordinatingCreatorId(),
                     d.getStageAssignments().stream().map(StageAssignmentView::of).toList(),
                     d.getStageProgress().stream().map(BulkStageProgressView::of).toList(), d.getLogisticsBufferDays(),
-                    d.getComputedDueDate());
+                    d.getDeliveryBufferDays(), d.getComputedDueDate());
         }
     }
 
     public static OrderView of(Order o, double completionPercentage, double netPaid, double balanceAmount) {
         return new OrderView(o.getId(), o.getOrderNumber(), o.getOrderType(), o.getCustomerId(),
                 o.getCreatedByCreatorId(), o.getStatus(), o.getItemName(), o.getOrderReceivedDate(),
-                o.getQuotedDeliveryDate(), o.getActualDeliveryDate(), PatternView.of(o.getPattern()),
+                o.getQuotedDeliveryDate(), o.getDeliveryTier(), o.getActualDeliveryDate(), PatternView.of(o.getPattern()),
                 o.getResearchItems().stream().map(ResearchItemView::of).toList(), o.getResearchTimeHours(),
                 o.getAssemblyPackagingInstructions(), o.getNotes(),
                 o.getMandatoryItems().stream().map(MandatoryItemView::of).toList(),

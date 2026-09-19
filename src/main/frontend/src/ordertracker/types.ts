@@ -13,6 +13,7 @@ export type PaymentType = "ADVANCE" | "INSTALLMENT" | "FINAL" | "REFUND";
 export type PatternType = "TEMPLATE" | "CUSTOM";
 export type ResearchItemType = "VIDEO" | "LINK" | "IMAGE" | "NOTE";
 export type ShipmentStopType = "INTERNAL_TRANSFER" | "FINAL_DELIVERY";
+export type DeliveryTier = "SAME_CITY" | "SAME_STATE" | "OTHER_STATE" | "INTERNATIONAL";
 
 export interface Customer {
   id: string;
@@ -51,6 +52,7 @@ export interface CostConfigChangeRequest {
   groupId: string;
   proposedOverheadPercentage: number;
   proposedProfitMarginPercentage: number;
+  proposedHourlyWage: number;
   proposedByUserId: string;
   approvedByUserIds: string[];
   status: CostConfigChangeStatus;
@@ -77,6 +79,12 @@ export interface BusinessConfig {
   overheadPercentage: number;
   profitMarginPercentage: number;
   currency: string;
+  hourlyWage: number;
+  hourlyWageConfirmed: boolean;
+  deliveryBufferSameCityDays: number;
+  deliveryBufferSameStateDays: number;
+  deliveryBufferOtherStateDays: number;
+  deliveryBufferInternationalDays: number;
   individualOrderTypeCode: string;
   bulkOrderTypeCode: string;
   workStages: WorkStageType[];
@@ -156,11 +164,13 @@ export interface CostEstimate {
   mandatoryItemsCost: number;
   addOnsCost: number;
   packagingCost: number;
+  laborCost: number;
   grossCost: number;
-  overheadAmount: number;
   profitAmount: number;
   finalCost: number;
   grossTimeHours: number;
+  workDays: number;
+  deliveryBufferDays: number;
   itemizedBreakdown: BreakdownLine[];
   computedDueDate: string;
 }
@@ -268,6 +278,7 @@ export interface BulkDetails {
   stageAssignments: StageAssignment[];
   stageProgress: BulkStageProgress[];
   logisticsBufferDays: number;
+  deliveryBufferDays: number;
   computedDueDate: string | null;
 }
 
@@ -281,6 +292,7 @@ export interface OrderView {
   itemName: string | null;
   orderReceivedDate: string | null;
   quotedDeliveryDate: string | null;
+  deliveryTier: DeliveryTier;
   actualDeliveryDate: string | null;
   pattern: Pattern | null;
   researchItems: ResearchItem[];

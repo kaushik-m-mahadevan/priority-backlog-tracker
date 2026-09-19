@@ -19,9 +19,15 @@ import {
   type MandatoryItemDraft,
   type VariantDraft,
 } from "../OrderFormFields";
-import type { AcquisitionChannel, BusinessConfig, ComponentTemplate, Creator, Customer, OrderType, PatternType, PresetOption } from "../types";
+import type { AcquisitionChannel, BusinessConfig, ComponentTemplate, Creator, Customer, DeliveryTier, OrderType, PatternType, PresetOption } from "../types";
 
 const CHANNELS: AcquisitionChannel[] = ["INSTAGRAM", "WHATSAPP", "REFERRAL", "WORD_OF_MOUTH", "WALK_IN", "OTHER"];
+const DELIVERY_TIERS: { value: DeliveryTier; label: string }[] = [
+  { value: "SAME_CITY", label: "Same city" },
+  { value: "SAME_STATE", label: "Same state" },
+  { value: "OTHER_STATE", label: "Other state" },
+  { value: "INTERNATIONAL", label: "International" },
+];
 
 export default function NewOrderPage() {
   const { currentGroupId } = useBusiness();
@@ -50,6 +56,7 @@ export default function NewOrderPage() {
   const [itemName, setItemName] = useState("");
   const [orderReceivedDate, setOrderReceivedDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [quotedDeliveryDate, setQuotedDeliveryDate] = useState("");
+  const [deliveryTier, setDeliveryTier] = useState<DeliveryTier>("SAME_CITY");
   const [patternType, setPatternType] = useState<PatternType | "">("");
   const [templateName, setTemplateName] = useState("");
   const [customPatternNotes, setCustomPatternNotes] = useState("");
@@ -165,6 +172,7 @@ export default function NewOrderPage() {
         itemName,
         orderReceivedDate: new Date(orderReceivedDate).toISOString(),
         quotedDeliveryDate: quotedDeliveryDate ? new Date(quotedDeliveryDate).toISOString() : null,
+        deliveryTier,
         pattern,
         researchItems: [],
         researchTimeHours,
@@ -332,6 +340,16 @@ export default function NewOrderPage() {
           <div className="form-row">
             <label htmlFor="no-quoted-delivery">Quoted delivery (promised to customer)</label>
             <input id="no-quoted-delivery" type="date" value={quotedDeliveryDate} onChange={(e) => setQuotedDeliveryDate(e.target.value)} />
+          </div>
+          <div className="form-row">
+            <label htmlFor="no-delivery-tier">Shipping to</label>
+            <select id="no-delivery-tier" value={deliveryTier} onChange={(e) => setDeliveryTier(e.target.value as DeliveryTier)}>
+              {DELIVERY_TIERS.map((t) => (
+                <option key={t.value} value={t.value}>
+                  {t.label}
+                </option>
+              ))}
+            </select>
           </div>
         </div>
 

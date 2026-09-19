@@ -5,11 +5,13 @@ import java.util.List;
 import java.util.Map;
 
 import com.backlogtracker.commons.pattern.domain.PatternType;
+import com.backlogtracker.ordertracker.order.domain.DeliveryTier;
 import com.backlogtracker.ordertracker.order.domain.Order.MaterialKind;
 import com.backlogtracker.ordertracker.order.domain.Order.ResearchItemType;
 
 public record CreateOrderRequest(String customerId, String orderType, String createdByCreatorId,
                                  String itemName, Instant orderReceivedDate, Instant quotedDeliveryDate,
+                                 DeliveryTier deliveryTier,
                                  PatternInput pattern, List<ResearchItemInput> researchItems,
                                  double researchTimeHours, String assemblyPackagingInstructions, String notes,
                                  // individual-only

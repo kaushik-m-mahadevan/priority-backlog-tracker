@@ -3,6 +3,7 @@ package com.backlogtracker.ordertracker.order.dto;
 import java.time.Instant;
 import java.util.List;
 
+import com.backlogtracker.ordertracker.order.domain.DeliveryTier;
 import com.backlogtracker.ordertracker.order.dto.CreateOrderRequest.PatternInput;
 import com.backlogtracker.ordertracker.order.dto.CreateOrderRequest.ResearchItemInput;
 import com.backlogtracker.ordertracker.order.dto.CreateOrderRequest.VariantInput;
@@ -15,7 +16,7 @@ import com.backlogtracker.ordertracker.order.dto.CreateOrderRequest.VariantInput
  *  the stageKey still matches; a variant with no id (or an id the order doesn't already
  *  have) is treated as new. */
 public record UpdateBulkDetailsRequest(String customerId, String itemName, Instant orderReceivedDate,
-                                       Instant quotedDeliveryDate, PatternInput pattern,
+                                       Instant quotedDeliveryDate, DeliveryTier deliveryTier, PatternInput pattern,
                                        List<ResearchItemInput> researchItems, double researchTimeHours,
                                        String assemblyPackagingInstructions, String notes,
                                        List<VariantInput> variants, String coordinatingCreatorId,
