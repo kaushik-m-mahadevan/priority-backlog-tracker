@@ -109,6 +109,81 @@ class CustomerApiTest {
         assertThat(raw.getString("acquisitionChannel")).isEqualTo("REFERRAL");
     }
 
+    /** Regression coverage for CustomerService.search — the entire blind-index
+     *  duplicate-detection feature had zero tests at any layer before this. */
+    @Test
+    void searchFindsAnExistingCustomerByEmailOrInstagramOrPhoneCaseAndWhitespaceInsensitively() throws Exception {
+        mvc.perform(auth(post("/api/ordertracker/groups/" + groupId + "/customers"), token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"name":"Priya Sharma","contactNumber":"9876543210",
+                                 "email":"Priya@Example.com","instagramHandle":"@Priya.Crochets",
+                                 "acquisitionChannel":"INSTAGRAM"}"""))
+                .andExpect(status().isOk());
+
+        // Case/whitespace differences from how it was originally entered still match, since
+        // the blind index normalizes (trim + lowercase) before hashing.
+        mvc.perform(auth(get("/api/ordertracker/groups/" + groupId + "/customers/search")
+                        .param("email", "  priya@example.com  "), token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].name").value("Priya Sharma"));
+
+        mvc.perform(auth(get("/api/ordertracker/groups/" + groupId + "/customers/search")
+                        .param("instagramHandle", "@PRIYA.CROCHETS"), token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(1));
+
+        mvc.perform(auth(get("/api/ordertracker/groups/" + groupId + "/customers/search")
+                        .param("contactNumber", "9876543210"), token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(1));
+    }
+
+    @Test
+    void searchReturnsNothingWhenNoFieldMatchesAndDedupesAMultiFieldMatch() throws Exception {
+        String body = mvc.perform(auth(post("/api/ordertracker/groups/" + groupId + "/customers"), token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"name":"Rahul Nair","contactNumber":"9123456780",
+                                 "email":"rahul@example.com","acquisitionChannel":"REFERRAL"}"""))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+        String customerId = mapper.readTree(body).get("id").asText();
+
+        mvc.perform(auth(get("/api/ordertracker/groups/" + groupId + "/customers/search")
+                        .param("email", "nobody@example.com"), token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(0));
+
+        // Matching on both email AND phone for the same customer must not return them twice.
+        mvc.perform(auth(get("/api/ordertracker/groups/" + groupId + "/customers/search")
+                        .param("email", "rahul@example.com")
+                        .param("contactNumber", "9123456780"), token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].id").value(customerId));
+    }
+
+    @Test
+    void searchIsIsolatedPerGroupAndRequiresMembership() throws Exception {
+        mvc.perform(auth(post("/api/ordertracker/groups/" + groupId + "/customers"), token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"name":"Pooja Desai","email":"pooja@example.com","acquisitionChannel":"REFERRAL"}"""))
+                .andExpect(status().isOk());
+
+        String otherGroupId = AuthTestSupport.createGroup(mvc, mapper, token, "Other Search Group " + System.nanoTime());
+        mvc.perform(auth(get("/api/ordertracker/groups/" + otherGroupId + "/customers/search")
+                        .param("email", "pooja@example.com"), token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(0));
+
+        mvc.perform(auth(get("/api/ordertracker/groups/" + groupId + "/customers/search")
+                        .param("email", "pooja@example.com"), outsiderToken))
+                .andExpect(status().isForbidden());
+    }
+
     @Test
     void nonMemberCannotAccessGroupsCustomers() throws Exception {
         mvc.perform(auth(get("/api/ordertracker/groups/" + groupId + "/customers"), outsiderToken))
