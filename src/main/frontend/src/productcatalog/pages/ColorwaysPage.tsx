@@ -19,6 +19,62 @@ const toRecipeSteps = (text: string): string[] | null => {
   return steps.length > 0 ? steps : null;
 };
 
+/** The 5 fields shared between the "new colorway" and "edit colorway" forms — previously
+ *  declared twice. Renders just the fields, not the surrounding form/buttons, since the
+ *  two call sites wrap them differently (a real <form> for create, plain buttons for
+ *  inline edit). */
+function ColorwayForm({
+  idPrefix,
+  draft,
+  onChange,
+}: {
+  idPrefix: string;
+  draft: NewColorwayDraft;
+  onChange: (next: NewColorwayDraft) => void;
+}) {
+  const set = <K extends keyof NewColorwayDraft>(key: K, value: NewColorwayDraft[K]) =>
+    onChange({ ...draft, [key]: value });
+
+  return (
+    <>
+      <div className="form-grid">
+        <div className="form-row">
+          <label htmlFor={`${idPrefix}-name`}>Name</label>
+          <input id={`${idPrefix}-name`} value={draft.name} onChange={(e) => set("name", e.target.value)} required />
+        </div>
+        <div className="form-row">
+          <label htmlFor={`${idPrefix}-colour`}>Colour</label>
+          <input id={`${idPrefix}-colour`} value={draft.colour} onChange={(e) => set("colour", e.target.value)} required />
+        </div>
+        <div className="form-row">
+          <label htmlFor={`${idPrefix}-cost`}>Estimated cost (optional)</label>
+          <input
+            id={`${idPrefix}-cost`}
+            type="number"
+            min={0}
+            step={0.01}
+            value={draft.estimatedCost}
+            onChange={(e) => set("estimatedCost", e.target.value)}
+          />
+        </div>
+      </div>
+      <div className="form-row">
+        <label htmlFor={`${idPrefix}-notes`}>Notes (optional)</label>
+        <input id={`${idPrefix}-notes`} value={draft.notes} onChange={(e) => set("notes", e.target.value)} />
+      </div>
+      <div className="form-row">
+        <label htmlFor={`${idPrefix}-recipe`}>Recipe steps (optional, one per line)</label>
+        <textarea
+          id={`${idPrefix}-recipe`}
+          rows={4}
+          value={draft.recipeSteps}
+          onChange={(e) => set("recipeSteps", e.target.value)}
+        />
+      </div>
+    </>
+  );
+}
+
 /** Idea box vs. catalog (design decision: the ideabox flag is a simple flip, no other
  *  side effects) — any business member can add or edit a colorway (same precedent as
  *  Material Inventory's yarn types). v1 keeps the create/edit form to name, colour,
@@ -145,40 +201,7 @@ export default function ColorwaysPage() {
     if (isEditing) {
       return (
         <div className="card" key={c.id}>
-          <div className="form-grid">
-            <div className="form-row">
-              <label htmlFor={`edit-name-${c.id}`}>Name</label>
-              <input id={`edit-name-${c.id}`} value={editDraft.name} onChange={(e) => setEditDraft({ ...editDraft, name: e.target.value })} required />
-            </div>
-            <div className="form-row">
-              <label htmlFor={`edit-colour-${c.id}`}>Colour</label>
-              <input id={`edit-colour-${c.id}`} value={editDraft.colour} onChange={(e) => setEditDraft({ ...editDraft, colour: e.target.value })} required />
-            </div>
-            <div className="form-row">
-              <label htmlFor={`edit-cost-${c.id}`}>Estimated cost (optional)</label>
-              <input
-                id={`edit-cost-${c.id}`}
-                type="number"
-                min={0}
-                step={0.01}
-                value={editDraft.estimatedCost}
-                onChange={(e) => setEditDraft({ ...editDraft, estimatedCost: e.target.value })}
-              />
-            </div>
-          </div>
-          <div className="form-row">
-            <label htmlFor={`edit-notes-${c.id}`}>Notes (optional)</label>
-            <input id={`edit-notes-${c.id}`} value={editDraft.notes} onChange={(e) => setEditDraft({ ...editDraft, notes: e.target.value })} />
-          </div>
-          <div className="form-row">
-            <label htmlFor={`edit-recipe-${c.id}`}>Recipe steps (optional, one per line)</label>
-            <textarea
-              id={`edit-recipe-${c.id}`}
-              rows={4}
-              value={editDraft.recipeSteps}
-              onChange={(e) => setEditDraft({ ...editDraft, recipeSteps: e.target.value })}
-            />
-          </div>
+          <ColorwayForm idPrefix={`edit-${c.id}`} draft={editDraft} onChange={setEditDraft} />
           <div className="toolbar">
             <button className="primary" type="button" onClick={() => saveEdit(c.id)}>
               Save
@@ -225,40 +248,7 @@ export default function ColorwaysPage() {
 
   const newForm = (
     <form onSubmit={submitNew} style={{ marginTop: 12 }}>
-      <div className="form-grid">
-        <div className="form-row">
-          <label htmlFor="new-name">Name</label>
-          <input id="new-name" value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} required />
-        </div>
-        <div className="form-row">
-          <label htmlFor="new-colour">Colour</label>
-          <input id="new-colour" value={draft.colour} onChange={(e) => setDraft({ ...draft, colour: e.target.value })} required />
-        </div>
-        <div className="form-row">
-          <label htmlFor="new-cost">Estimated cost (optional)</label>
-          <input
-            id="new-cost"
-            type="number"
-            min={0}
-            step={0.01}
-            value={draft.estimatedCost}
-            onChange={(e) => setDraft({ ...draft, estimatedCost: e.target.value })}
-          />
-        </div>
-      </div>
-      <div className="form-row">
-        <label htmlFor="new-notes">Notes (optional)</label>
-        <input id="new-notes" value={draft.notes} onChange={(e) => setDraft({ ...draft, notes: e.target.value })} />
-      </div>
-      <div className="form-row">
-        <label htmlFor="new-recipe">Recipe steps (optional, one per line)</label>
-        <textarea
-          id="new-recipe"
-          rows={4}
-          value={draft.recipeSteps}
-          onChange={(e) => setDraft({ ...draft, recipeSteps: e.target.value })}
-        />
-      </div>
+      <ColorwayForm idPrefix="new" draft={draft} onChange={setDraft} />
       <div className="toolbar">
         <button className="primary" type="submit">
           Add
