@@ -1,11 +1,11 @@
 package com.backlogtracker.ordertracker.master.service;
 
-import java.security.SecureRandom;
 import java.util.List;
 
 import org.springframework.stereotype.Service;
 
 import com.backlogtracker.commons.group.service.GroupService;
+import com.backlogtracker.ordertracker.OrderCodeWidths;
 import com.backlogtracker.ordertracker.master.domain.BusinessConfig;
 import com.backlogtracker.ordertracker.master.domain.BusinessConfig.WorkStageType;
 import com.backlogtracker.ordertracker.master.repository.BusinessConfigRepository;
@@ -18,7 +18,7 @@ public class BusinessConfigService {
 
     private final BusinessConfigRepository repository;
     private final GroupService groupService;
-    private final SecureRandom random = new SecureRandom();
+    private final RandomCodeAssigner codeAssigner;
 
     public BusinessConfig get(String groupId, String userId) {
         groupService.requireMember(groupId, userId);
@@ -83,17 +83,13 @@ public class BusinessConfigService {
 
     private BusinessConfig seed(String groupId) {
         BusinessConfig cfg = BusinessConfig.defaultsFor(groupId);
-        String individual = randomTwoDigit();
-        String bulk = randomTwoDigit();
+        String individual = codeAssigner.randomDigits(OrderCodeWidths.ORDER_TYPE_CODE_DIGITS);
+        String bulk = codeAssigner.randomDigits(OrderCodeWidths.ORDER_TYPE_CODE_DIGITS);
         while (bulk.equals(individual)) {
-            bulk = randomTwoDigit();
+            bulk = codeAssigner.randomDigits(OrderCodeWidths.ORDER_TYPE_CODE_DIGITS);
         }
         cfg.setIndividualOrderTypeCode(individual);
         cfg.setBulkOrderTypeCode(bulk);
         return repository.save(cfg);
-    }
-
-    private String randomTwoDigit() {
-        return String.format("%02d", random.nextInt(100));
     }
 }

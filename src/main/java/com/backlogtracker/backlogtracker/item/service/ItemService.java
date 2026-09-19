@@ -12,7 +12,6 @@ import org.springframework.web.server.ResponseStatusException;
 import com.backlogtracker.backlogtracker.config.domain.AppConfig;
 import com.backlogtracker.backlogtracker.config.service.ConfigService;
 import com.backlogtracker.backlogtracker.config.service.GroupCategoryService;
-import com.backlogtracker.commons.counter.CounterService;
 import com.backlogtracker.commons.group.service.GroupService;
 import com.backlogtracker.backlogtracker.item.domain.Item;
 import com.backlogtracker.backlogtracker.item.domain.ItemStatus;
@@ -38,7 +37,7 @@ public class ItemService {
     private final ItemRepository items;
     private final ConfigService configService;
     private final GroupCategoryService groupCategoryService;
-    private final CounterService counters;
+    private final ItemIdGenerator itemIdGenerator;
     private final UserRepository users;
     private final GroupService groupService;
     private final Clock clock;
@@ -60,7 +59,7 @@ public class ItemService {
                 : clock.instant().plus(Duration.ofDays(cfg.getDefaultDueDateOffsetDays()));
 
         Item item = Item.builder()
-                .itemId(counters.nextSharedItemId())
+                .itemId(itemIdGenerator.next())
                 .title(r.title().trim())
                 .category(r.category())
                 .priority(r.priority())

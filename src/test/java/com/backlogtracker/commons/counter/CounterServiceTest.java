@@ -67,12 +67,6 @@ class CounterServiceTest {
         }
     }
 
-    @Test
-    void formatsItemIds() {
-        assertThat(counterService.nextSharedItemId()).isEqualTo("ITM-001");
-        assertThat(counterService.nextSharedItemId()).isEqualTo("ITM-002");
-    }
-
     private static Long get(Future<Long> f) {
         try {
             return f.get();

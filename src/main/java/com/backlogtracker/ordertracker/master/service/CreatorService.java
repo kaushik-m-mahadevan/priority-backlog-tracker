@@ -7,6 +7,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
 import com.backlogtracker.commons.group.service.GroupService;
+import com.backlogtracker.ordertracker.OrderCodeWidths;
 import com.backlogtracker.ordertracker.master.domain.Creator;
 import com.backlogtracker.ordertracker.master.domain.LocationCode;
 import com.backlogtracker.ordertracker.master.repository.CreatorRepository;
@@ -54,7 +55,7 @@ public class CreatorService {
             return repository.save(existing);
         }
 
-        return codeAssigner.assign(3, code -> repository.save(Creator.builder()
+        return codeAssigner.assign(OrderCodeWidths.CREATOR_CODE_DIGITS, code -> repository.save(Creator.builder()
                 .groupId(groupId)
                 .userId(userId)
                 .name(name)

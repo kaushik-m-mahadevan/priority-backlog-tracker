@@ -95,6 +95,12 @@ export interface WorkloadOverview {
   owners: OwnerWorkload[];
 }
 
+/** The three ways a live item leaves the backlog (mirrors the backend's TerminalStatus
+ *  enum) — the single source for this list; anywhere that needs to iterate the options
+ *  (e.g. a "complete as..." picker) should map over this array, not redeclare it. */
+export const TERMINAL_STATUSES = ["RESOLVED", "REJECTED", "ARCHIVED"] as const;
+export type TerminalStatus = (typeof TERMINAL_STATUSES)[number];
+
 export interface ArchivedItem {
   id: string;
   itemId: string;
@@ -105,7 +111,7 @@ export interface ArchivedItem {
   dueDate: string | null;
   groupId: string;
   ownerId: string | null;
-  terminalStatus: "RESOLVED" | "REJECTED" | "ARCHIVED";
+  terminalStatus: TerminalStatus;
   completionDate: string | null;
   movedAt: string | null;
   createdAt: string | null;

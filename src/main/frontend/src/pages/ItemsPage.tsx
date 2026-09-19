@@ -14,6 +14,7 @@ import { useGroupCategories } from "../groups/GroupCategoriesContext";
 import { useConfig } from "../config/ConfigContext";
 import { useItemsChanged, notifyItemsChanged } from "../lib/events";
 import { effortLabel, formatDate } from "../lib/format";
+import { TERMINAL_STATUSES } from "../types";
 import type { Item, Page } from "../types";
 
 const SIZE = 25;
@@ -226,7 +227,7 @@ export default function ItemsPage() {
                               minWidth: 140,
                             }}
                           >
-                            {["RESOLVED", "REJECTED", "ARCHIVED"].map((t) => (
+                            {TERMINAL_STATUSES.map((t) => (
                               <button
                                 key={t}
                                 className="ghost"

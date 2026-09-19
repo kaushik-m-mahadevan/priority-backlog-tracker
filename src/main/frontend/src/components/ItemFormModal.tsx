@@ -7,6 +7,7 @@ import { useGroupCategories } from "../groups/GroupCategoriesContext";
 import { notifyItemsChanged } from "../lib/events";
 import { formatDateTime } from "../lib/format";
 import MarkdownField from "./MarkdownField";
+import { TERMINAL_STATUSES } from "../types";
 import type { Item } from "../types";
 
 interface Props {
@@ -334,7 +335,7 @@ export default function ItemFormModal({ existing, onClose, onSaved, onComplete }
           {editing && onComplete && (
             <div className="mark-as">
               <span>Mark as</span>
-              {(["RESOLVED", "REJECTED", "ARCHIVED"] as const).map((t) => (
+              {TERMINAL_STATUSES.map((t) => (
                 <button key={t} type="button" onClick={() => onComplete(t)} disabled={busy}>
                   {t === "ARCHIVED" ? "Request archive…" : t[0] + t.slice(1).toLowerCase()}
                 </button>

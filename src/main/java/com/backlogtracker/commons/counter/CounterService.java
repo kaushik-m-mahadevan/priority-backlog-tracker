@@ -20,8 +20,6 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class CounterService {
 
-    static final String SHARED_KEY = "shared";
-
     private static final FindAndModifyOptions INCREMENT_AND_RETURN =
             new FindAndModifyOptions().returnNew(true).upsert(true);
 
@@ -36,10 +34,5 @@ public class CounterService {
                 Counter.class);
         // returnNew + upsert guarantees a non-null result
         return counter.getSeq();
-    }
-
-    /** Next globally sequential item id, e.g. {@code ITM-001} (§20). */
-    public String nextSharedItemId() {
-        return "ITM-%03d".formatted(next(SHARED_KEY));
     }
 }

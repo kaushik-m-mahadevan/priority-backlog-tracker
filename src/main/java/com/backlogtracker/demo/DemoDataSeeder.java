@@ -19,12 +19,12 @@ import org.springframework.stereotype.Component;
 import com.backlogtracker.backlogtracker.archive.domain.ArchivedItem;
 import com.backlogtracker.backlogtracker.archive.domain.TerminalStatus;
 import com.backlogtracker.backlogtracker.archive.repository.ArchivedItemRepository;
-import com.backlogtracker.commons.counter.CounterService;
 import com.backlogtracker.backlogtracker.item.domain.EffortEstimate;
 import com.backlogtracker.backlogtracker.item.domain.EffortUnit;
 import com.backlogtracker.backlogtracker.item.domain.Item;
 import com.backlogtracker.backlogtracker.item.domain.ItemStatus;
 import com.backlogtracker.backlogtracker.item.repository.ItemRepository;
+import com.backlogtracker.backlogtracker.item.service.ItemIdGenerator;
 import com.backlogtracker.commons.user.domain.AccountStatus;
 import com.backlogtracker.commons.user.domain.Role;
 import com.backlogtracker.commons.user.domain.User;
@@ -82,7 +82,7 @@ public class DemoDataSeeder implements ApplicationRunner {
     private final PasswordEncoder passwordEncoder;
     private final ItemRepository items;
     private final ArchivedItemRepository archived;
-    private final CounterService counters;
+    private final ItemIdGenerator itemIdGenerator;
     private final MongoOperations mongo;
     private final org.springframework.core.env.Environment env;
     private final BusinessConfigService businessConfigService;
@@ -171,7 +171,7 @@ public class DemoDataSeeder implements ApplicationRunner {
         Instant now = Instant.now();
         for (Spec s : specs) {
             Item saved = items.save(Item.builder()
-                    .itemId(counters.nextSharedItemId())
+                    .itemId(itemIdGenerator.next())
                     .title(s.title()).category(s.category()).priority(s.priority())
                     .effortEstimate(s.effort())
                     .dueDate(now.plus(s.dueInDays(), ChronoUnit.DAYS))
@@ -342,7 +342,7 @@ public class DemoDataSeeder implements ApplicationRunner {
                               int createdDaysAgo, int completedDaysAgo) {
         Instant now = Instant.now();
         archived.save(ArchivedItem.builder()
-                .itemId(counters.nextSharedItemId())
+                .itemId(itemIdGenerator.next())
                 .title(title).category(category).priority(priority).effortEstimate(effort)
                 .dueDate(now.minus(completedDaysAgo + 2L, ChronoUnit.DAYS))
                 .groupId(groupId).ownerId(ownerId)

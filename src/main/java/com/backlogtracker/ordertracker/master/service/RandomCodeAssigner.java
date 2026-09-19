@@ -23,16 +23,23 @@ public class RandomCodeAssigner {
     /** {@code save} should attempt to persist using the generated code and let a
      *  {@link DuplicateKeyException} propagate (via a unique index) on a collision. */
     public <T> T assign(int digits, Function<String, T> save) {
-        int bound = (int) Math.pow(10, digits);
         for (int attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
-            String code = String.format("%0" + digits + "d", random.nextInt(bound));
             try {
-                return save.apply(code);
+                return save.apply(randomDigits(digits));
             } catch (DuplicateKeyException e) {
                 // regenerate and retry
             }
         }
         throw new IllegalStateException(
                 "Could not assign a unique " + digits + "-digit code after " + MAX_ATTEMPTS + " attempts");
+    }
+
+    /** The bare random-digit generation {@link #assign} uses internally, exposed for a
+     *  caller that needs its own uniqueness rule instead of a DB unique-index check — e.g.
+     *  two codes that must merely differ from each other, not from every other document's
+     *  (see {@code BusinessConfigService.seed}'s individual/bulk order-type codes). */
+    public String randomDigits(int digits) {
+        int bound = (int) Math.pow(10, digits);
+        return String.format("%0" + digits + "d", random.nextInt(bound));
     }
 }

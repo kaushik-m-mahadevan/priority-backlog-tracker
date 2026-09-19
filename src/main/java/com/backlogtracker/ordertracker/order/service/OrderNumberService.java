@@ -3,6 +3,7 @@ package com.backlogtracker.ordertracker.order.service;
 import org.springframework.stereotype.Service;
 
 import com.backlogtracker.commons.counter.CounterService;
+import com.backlogtracker.ordertracker.OrderCodeWidths;
 
 import lombok.RequiredArgsConstructor;
 
@@ -20,7 +21,10 @@ public class OrderNumberService {
 
     public String next(String groupId, String locationCode, String creatorCode, String orderTypeCode) {
         long seq = counterService.next("ordertracker-order-" + groupId + "-" + orderTypeCode);
-        return pad(locationCode, 3) + pad(creatorCode, 3) + pad(orderTypeCode, 2) + "%06d".formatted(seq);
+        return pad(locationCode, OrderCodeWidths.LOCATION_CODE_DIGITS)
+                + pad(creatorCode, OrderCodeWidths.CREATOR_CODE_DIGITS)
+                + pad(orderTypeCode, OrderCodeWidths.ORDER_TYPE_CODE_DIGITS)
+                + "%06d".formatted(seq);
     }
 
     private String pad(String value, int width) {
