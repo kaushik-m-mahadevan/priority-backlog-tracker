@@ -7,9 +7,178 @@ new item is decided, started, or finished — don't let decisions live only in c
 Source context: `docs/REVIEW_FINDINGS_ROUND4_2026-09-18.md` (technical panel review), the
 "Everything But The Hook" automation audit (five-round, multi-persona UX/automation review,
 2026-09-18 — published as a Claude artifact, not checked into the repo; ask the project owner
-for the link if it's needed again), and a 2026-09-19 seven-agent code-quality/SOLID audit
-covering every backend package and every frontend area (findings folded into the
-"Code quality" section below).
+for the link if it's needed again), and a 2026-09-19 seven-agent code-quality/SOLID audit and a same-day five-agent test-coverage
+audit, both covering every backend package and every frontend area (findings folded into the
+"Code quality" and "Testing" sections below).
+
+---
+
+## Testing — coverage backlog (2026-09-19 audit)
+
+Five agents read every backend package's production code against its actual test file, and
+the whole frontend against its actual (very sparse — 4 unit/component test files + 2
+Playwright e2e specs) test suite. Organized by priority. As with the code-quality section,
+nothing here needs a product decision — proceed on engineering judgment, and prefer the
+**"keep as template"** patterns below when writing new tests rather than inventing new
+conventions.
+
+### Highest-value gaps — real business rules with zero test coverage anywhere
+
+- **`ConfigService.addPriority`/`removePriority` (Backlog Tracker) — zero tests, any layer.**
+  All three safe-removal branches (block/reassign/delete-outright) are completely untested,
+  even though the *identical* logic on the category side (`GroupCategoryService`) is well
+  tested. This is the single largest gap in the whole audit.
+- **`CustomerService.search` (Order Tracker) — the entire blind-index duplicate-detection
+  feature has zero tests.** Not exercised by any endpoint test, at any layer.
+- **`OrderBusinessRules.requireSplitAllocationSumsToQuantity` — a named, user-facing
+  validation rule with zero test coverage**, on both the create and bulk-update paths.
+- **`TransferRequestService`'s `unreserve()` compensating-rollback path — the one behavior
+  its own class-level javadoc specifically calls out — has zero coverage.** No test forces
+  the inventory-move step to fail after a successful reservation.
+- **`BlindIndexService` (commons/crypto) — no test file exists at all.** Hash normalization,
+  null/blank handling, and domain-separation are entirely unverified.
+- **JWT token expiry has never been tested, and currently *can't* be tested deterministically
+  — `JwtService` calls `Instant.now()` directly** instead of the injected `Clock` bean every
+  other time-sensitive service in this codebase correctly uses (`ApprovalService`,
+  `ImageService`, `ArchiveService`, `ScoringService`, `AgingService`, `ConfigService` all take
+  `Clock`). Fix the injection first, then add the expiry test it unblocks.
+- **`BusinessConfig.bufferDaysFor` — zero direct tests; 3 of the 4 `DeliveryTier` values
+  (`SAME_STATE`/`OTHER_STATE`/`INTERNATIONAL`) are never exercised by any test in the
+  codebase, and the "configured value is 0, fall back to the built-in default" branch is
+  never hit either.**
+- **`hourlyWageConfirmed`'s effect on a real order's price is never verified** — the
+  confirm/unconfirm *flag* is well tested (`CostConfigChangeApiTest`), but no test actually
+  re-prices an order before/after confirmation to prove `effectiveHourlyWage()` changes what
+  a customer is quoted.
+- **Day-boundary threshold tests are missing everywhere aging/staleness math exists** —
+  `AgingService.needsAttention`'s `staleThresholdDays`/`buriedThresholdDays` exact boundaries
+  (14/15, 30/31) are never tested (existing tests use values comfortably far from the
+  boundary on both sides); same gap pattern in `AgingService.health()`'s stage thresholds
+  (3/6/10).
+- **`OrderService.updateStatus` has zero test coverage** — worth adding as a documented
+  baseline of today's "any status → any status, no state machine" behavior before the Kanban
+  workflow rework changes it, plus the untested `actualDeliveryDate` auto-stamp-once behavior.
+- **Payment-status exact boundaries are never tested with real numbers** — `net == finalCost`
+  exactly, and `finalCost ± 1`, are all untested; existing tests use round numbers with wide
+  margins from any boundary.
+- **Non-member-caller authorization is a codebase-wide blind spot in Material Inventory,
+  Finance Tracker, and Product Catalog** — every service method is gated by
+  `groupService.requireMember(...)`, and *none* of the five test files covering those three
+  applets test what happens when the caller isn't a member (as opposed to being a member
+  acting on the wrong resource, which mostly *is* tested).
+- **Group-isolation (non-member access) is entirely untested in Backlog Tracker's own test
+  suite** — no test anywhere has a second, non-member user attempt to hit any Backlog Tracker
+  read/write endpoint for a group they don't belong to.
+
+### Concurrency — claimed in comments, never actually raced
+
+- **Two of three explicit "this guards against a concurrent race" claims in `commons` have
+  no concurrent test at all** (only sequential/single-threaded tests exist):
+  `ApprovalService.approve`'s optimistic-lock retry loop, and `GroupLinkService.link`'s
+  duplicate-key race handling. (The third, `CounterService`, **is** well-tested with real
+  threads — see "keep as template" below.)
+- **`CostConfigChangeService.approve`'s retry loop (Order Tracker) has the same gap** — no
+  concurrent test proves two members approving at once doesn't lose an update.
+- **The four concurrency tests that *do* use real thread pools** (`TransferRequestServiceTest`
+  ×2, `MaterialInventoryServiceTest`, `LedgerEntryServiceTest`) **all share a structural
+  weakness**: none use a `CountDownLatch`/`CyclicBarrier` to force genuinely simultaneous
+  submission — they rely on `ExecutorService.invokeAll` alone, which only *probably* overlaps.
+  Strengthen with a latch-gated "release all threads at once" pattern rather than rewriting
+  from scratch.
+- **`ArchiveRequestServiceTest`'s concurrent-approval test checks the live-item side of the
+  archive race but never asserts no duplicate `ArchivedItem` was created** — the exact
+  failure mode `ArchiveService.move`'s own javadoc says the atomic `findAndRemove` prevents.
+
+### Frontend — the real gap is breadth, not quality
+
+The 4 existing test files (`format.test.ts`, `tz.test.ts`, `OrderFormFields.test.ts`,
+`OrderFormFields.component.test.tsx`) are genuinely well-written — real assertions, no
+snapshot tests, no "renders without crashing" filler, good boundary-case habits where they
+exist at all. The problem is almost everything else in the frontend has **zero** test
+coverage:
+
+- **Every custom hook** — `useSetupGate` (decides which of 3 very different UIs a business
+  sees — 0% covered), `useLinkedYarnTypes`/`useLinkedNeedleTypes`/`useMyYarnInventory`/
+  `useMyNeedleInventory` (same cancel-on-unmount/error-fallback shape 4 times, one test
+  pattern would cover all four), `useBusiness`/`useAuth`/`useGroups` context hooks,
+  `useKeepAlive`, `useItemsChanged`.
+- **Components with real branching logic** — `OrderDueDate` (the overdue boolean, cheap and
+  high-value), `TimeTracking`'s slider math (`roundToStep`/`clampHours`/
+  `valueFromClientY`), `ProgressRing`'s clamping, `Connections`' full link/unlink state
+  machine, `Bell`'s actionable-type branching, `ItemFormModal`'s validation table and
+  dirty-check diff.
+- **`api/client.ts`'s `request()`** — the one module every network call in the app funnels
+  through — has zero tests despite being trivially testable today (mock `fetch`) with no
+  extraction needed.
+- **Business logic still tangled inline in `OrderDetailPage.tsx`'s render body** (the
+  hours-percentage calc, the per-creator ETA math) is currently untestable without a full
+  component-render harness — extracting it (already recommended in the code-quality audit for
+  unrelated reasons) would unlock testing the highest-risk, most duplicated calculation logic
+  in the frontend as a side effect. Do the extraction once, get both benefits.
+- **`OrderFormFields.tsx`'s own `AddOnsFields`/`ComponentsFields`/`duplicateVariant`/
+  `blankComponent`** sit right next to the well-tested `validateSplits`/
+  `MandatoryItemsFields` in the same file, completely untested.
+- Two Playwright e2e specs exist (`core-flow.spec.ts`, `order-tracker-flow.spec.ts`) — thin
+  but real smoke coverage for Backlog Tracker's core loop and Order Tracker's individual-order
+  path. No e2e coverage at all for Finance Tracker, Material Inventory, Product Catalog, or
+  Order Tracker's bulk-order path.
+
+### Redundant / overlapping tests to consolidate
+
+- `OrderCalculatorTest.individualEstimateFollowsTheRound5CostFormula` and
+  `.laborCostAndDeliveryFormulaMatchTheWorkedExample` are near-duplicates post-rework — merge
+  or narrow the first to only the "no overhead cost line" assertion it's uniquely there for.
+- `TransferRequestServiceTest`'s two concurrency tests share near-identical setup boilerplate
+  — worth parameterizing into one test with two cases rather than true duplication.
+- `YarnTypeService`/`NeedleTypeService` test files re-derive nearly line-for-line identical
+  "duplicate on create"/"any member can edit" scenarios — a shared parameterized base would
+  cut ~40 lines per file with no coverage loss.
+- `GroupLinkServiceTest.enforcesOneFinanceGroupPerBusinessAndOneBusinessPerFinanceGroup` and
+  `RegisterApiTest.rejectsABadHandleOrShortPassword` each bundle several unrelated assertions
+  into one test method — split so a failure in one doesn't silently hide a regression in the
+  others.
+
+### Weak/brittle assertions to strengthen
+
+- `OrderApiTest.bulkSplitAndBatchStageProgressRollUpIntoCompletionPercentage` asserts only
+  `completionPercentage &gt; 0` — should assert the exact expected percentage, given the
+  underlying math is already precisely unit-tested elsewhere.
+- `UserHandleLegacyDataTest.resavingTwoLegacyUsersWithNoHandleCollide` and a few
+  `GroupLinkServiceTest` tests assert only "an exception was thrown" / "is a
+  `ResponseStatusException`" with no message or status-code check — a wrong-but-still-an-error
+  regression would pass silently.
+- `TransferRequestServiceTest.rejectsFulfillingMoreThanTheTargetHasOnHand` has no message
+  assertion, unlike every sibling test in the same file — could silently swap with the
+  adjacent "more than requested" 400 path without failing.
+- Several archive-request-lifecycle tests never re-fetch the item's own fields
+  (title/priority/category) to confirm they stay untouched while a request is pending, despite
+  that being an explicit design invariant.
+
+### Test organization
+
+- `OrderApiTest` (Order Tracker) is trending into a dumping ground — individual CRUD, bulk
+  CRUD, stage-assignment, payments, shipment-plan, and change-log assertions all in one file,
+  while time-log and finalization were correctly split into their own files. Consider a
+  dedicated pricing-focused split given how much round-5 logic lives here now.
+- No `BusinessConfigTest` pure-unit-test file exists — `effectiveHourlyWage()`/`bufferDaysFor()`
+  are only proven indirectly through full order-creation integration tests.
+- `ConfigApiTest` mixes config-weight tests and group-category tests in one file where every
+  other pairing in the codebase (e.g. `ArchiveRequestApiTest` vs. `ArchiveApiTest`) is
+  correctly split by production class.
+
+### Keep as the template for new tests
+
+- **`CounterServiceTest.concurrentCallsProduceNoDuplicates`** — real `ExecutorService`, 50
+  tasks across a 16-thread pool, asserts the exact `1..n` sequence with no duplicates. The
+  strongest concurrency test in the codebase; new concurrency tests should match this shape
+  (and add the latch-gating improvement noted above).
+- **`ScoringServiceTest`'s `Clock.fixed(NOW, ZoneOffset.UTC)` pattern** — the correct way to
+  test date-boundary logic deterministically; `InsightsApiTest` and others relying on real
+  `Instant.now()` arithmetic should be converted to this pattern, not just given wider
+  thresholds to paper over the flakiness risk.
+- **`OrderFormFields.test.ts`'s `validateSplits` coverage** — genuinely thorough (exact-sum,
+  under/over-sum with message-substring checks, duplicate creators, blank rows ignored,
+  multi-variant correctness) — the bar every new frontend logic test should clear.
 
 ---
 
