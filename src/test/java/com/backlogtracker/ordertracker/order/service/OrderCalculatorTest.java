@@ -206,6 +206,37 @@ class OrderCalculatorTest {
         assertThat(calc.derivePaymentStatus(List.of(), 0)).isEqualTo(PaymentStatus.UNPAID);
     }
 
+    /** Exact-boundary coverage for derivePaymentStatus's three cutoffs — the general test
+     *  above only ever lands exactly on a boundary or comfortably inside a range, never the
+     *  ±1 either side that would catch an off-by-one in the < / <= choice at each cutoff. */
+    @Test
+    void paymentStatusResolvesCorrectlyOnEitherSideOfEachExactBoundary() {
+        // net == 0 boundary: UNPAID at exactly 0 (no refund entry), PARTIALLY_PAID at 0 + 1
+        assertThat(calc.derivePaymentStatus(List.of(payment(PaymentType.ADVANCE, 0)), 1000))
+                .isEqualTo(PaymentStatus.UNPAID);
+        assertThat(calc.derivePaymentStatus(List.of(payment(PaymentType.ADVANCE, 1)), 1000))
+                .isEqualTo(PaymentStatus.PARTIALLY_PAID);
+
+        // net == finalCost boundary: PARTIALLY_PAID at finalCost - 1, PAID_IN_FULL at exactly
+        // finalCost and again at finalCost + 1
+        assertThat(calc.derivePaymentStatus(List.of(payment(PaymentType.ADVANCE, 999)), 1000))
+                .isEqualTo(PaymentStatus.PARTIALLY_PAID);
+        assertThat(calc.derivePaymentStatus(List.of(payment(PaymentType.ADVANCE, 1000)), 1000))
+                .isEqualTo(PaymentStatus.PAID_IN_FULL);
+        assertThat(calc.derivePaymentStatus(List.of(payment(PaymentType.ADVANCE, 1001)), 1000))
+                .isEqualTo(PaymentStatus.PAID_IN_FULL);
+
+        // net < 0 boundary (only reachable via a REFUND entry): -1 is REFUNDED, but net == 0
+        // reached via a refund that exactly cancels out is also REFUNDED, not UNPAID, since a
+        // REFUND entry's presence is what distinguishes "refunded to zero" from "never paid"
+        List<PaymentEntry> oneRupeeOverRefunded = List.of(
+                payment(PaymentType.ADVANCE, 500), payment(PaymentType.REFUND, 501));
+        assertThat(calc.derivePaymentStatus(oneRupeeOverRefunded, 1000)).isEqualTo(PaymentStatus.REFUNDED);
+        List<PaymentEntry> exactlyCancelledOut = List.of(
+                payment(PaymentType.ADVANCE, 500), payment(PaymentType.REFUND, 500));
+        assertThat(calc.derivePaymentStatus(exactlyCancelledOut, 1000)).isEqualTo(PaymentStatus.REFUNDED);
+    }
+
     private PaymentEntry payment(PaymentType type, double amount) {
         return PaymentEntry.builder().paymentId("p").type(type).amount(EncryptedString.of(Double.toString(amount)))
                 .date(Instant.now()).build();
