@@ -3,7 +3,14 @@ package com.backlogtracker.commons.approval;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -142,6 +149,60 @@ class ApprovalServiceTest {
         ApprovalRequest reproposed = approvalService.propose(group.getId(), userId, KIND, Map.of("value", 2));
 
         assertThat(reproposed.getStatus()).isEqualTo(ApprovalStatus.APPROVED);
+    }
+
+    /** Real concurrent coverage for approve()'s retry loop: previously only ever called
+     *  sequentially in tests, so the OptimisticLockingFailureException retry path (two
+     *  members racing to append their own id to the same approvedByUserIds list) was never
+     *  actually exercised under real contention. */
+    @Test
+    void concurrentApprovalsFromEveryMemberAllSucceedAndResolveExactlyOnce() throws Exception {
+        Group group = groupService.create("Crowd", userId, Group.APPLET_ORDER_TRACKER);
+        List<User> extraMembers = new ArrayList<>();
+        for (int i = 0; i < 2; i++) {
+            User member = users.save(User.builder().name("Approval Racer " + i)
+                    .email("approval-racer-" + i + "@x.test").passwordHash("x").role(Role.USER)
+                    .status(AccountStatus.ACTIVE).handle("approvalracer" + i).build());
+            extraMembers.add(member);
+            groupService.addMember(group.getId(), member.getId());
+        }
+        groupService.addMember(group.getId(), otherId);
+
+        ApprovalRequest proposed = approvalService.propose(group.getId(), userId, KIND, Map.of("value", 1));
+        List<String> racers = extraMembers.stream().map(User::getId).collect(Collectors.toList());
+        racers.add(otherId);
+
+        ExecutorService pool = Executors.newFixedThreadPool(racers.size());
+        CountDownLatch ready = new CountDownLatch(racers.size());
+        CountDownLatch go = new CountDownLatch(1);
+        try {
+            List<java.util.concurrent.Future<ApprovalRequest>> futures = racers.stream()
+                    .map(memberId -> pool.submit(() -> {
+                        ready.countDown();
+                        go.await();
+                        return approvalService.approve(group.getId(), memberId, proposed.getId());
+                    }))
+                    .collect(Collectors.toList());
+            assertThat(ready.await(5, TimeUnit.SECONDS)).isTrue();
+            go.countDown();
+
+            List<ApprovalRequest> results = new ArrayList<>();
+            for (var f : futures) {
+                results.add(f.get(10, TimeUnit.SECONDS));
+            }
+
+            ApprovalRequest finalState = requests.findById(proposed.getId()).orElseThrow();
+            assertThat(finalState.getStatus()).isEqualTo(ApprovalStatus.APPROVED);
+            List<String> expectedApprovers = new ArrayList<>(racers);
+            expectedApprovers.add(userId);
+            assertThat(finalState.getApprovedByUserIds()).containsExactlyInAnyOrderElementsOf(expectedApprovers);
+            // every racing call must have completed without throwing (no lost update ever
+            // surfaces as a permanent OptimisticLockingFailureException after MAX_RETRIES)
+            assertThat(results).hasSize(racers.size());
+        } finally {
+            pool.shutdownNow();
+            extraMembers.forEach(m -> users.deleteById(m.getId()));
+        }
     }
 
     @Test
