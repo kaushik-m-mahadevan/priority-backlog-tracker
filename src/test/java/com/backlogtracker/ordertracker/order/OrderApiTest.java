@@ -594,6 +594,13 @@ class OrderApiTest {
                 .isEqualTo(java.time.Instant.parse("2026-01-01T00:00:00Z").plus(java.time.Duration.ofDays(15)));
     }
 
+    /** to-5: the previous version of this test only ever updated the split-tracked
+     *  crocheting stage, never a batch-tracked one, despite its own name claiming both --
+     *  and only asserted completionPercentage was "greater than 0" rather than its exact
+     *  value. Now exercises both kinds of stage and asserts the exact weighted-average
+     *  result: crocheting 10/20=50%, packaging 5/20=25%, assembly and shipment untouched
+     *  at 0% each -- averaged equally across all 4 configured work stages =
+     *  (0.5 + 0 + 0.25 + 0) / 4 = 18.75%. */
     @Test
     void bulkSplitAndBatchStageProgressRollUpIntoCompletionPercentage() throws Exception {
         String orderId = createBasicBulkOrder();
@@ -605,10 +612,15 @@ class OrderApiTest {
                                 .formatted(firstVariantId(orderId), creatorAId)))
                 .andExpect(status().isOk());
 
+        mvc.perform(auth(patch("/api/ordertracker/groups/" + groupId + "/orders/" + orderId + "/bulk-stage-progress/packaging"), token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"unitsCompleted\":5}"))
+                .andExpect(status().isOk());
+
         mvc.perform(get("/api/ordertracker/groups/" + groupId + "/orders/" + orderId)
                         .header("Authorization", "Bearer " + token))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.completionPercentage").value(org.hamcrest.Matchers.greaterThan(0.0)));
+                .andExpect(jsonPath("$.completionPercentage").value(18.75));
     }
 
     @Test

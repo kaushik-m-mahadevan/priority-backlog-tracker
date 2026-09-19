@@ -168,7 +168,9 @@ class GroupLinkServiceTest {
         Group finance = groupService.create("Finance", outsiderId, Group.APPLET_FINANCE_TRACKER);
 
         assertThatThrownBy(() -> linkService.link(business.getId(), userId, finance.getId()))
-                .isInstanceOf(ResponseStatusException.class);
+                .isInstanceOf(ResponseStatusException.class)
+                .satisfies(e -> assertThat(((ResponseStatusException) e).getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN))
+                .hasMessageContaining("not a member");
     }
 
     @Test
@@ -178,7 +180,9 @@ class GroupLinkServiceTest {
         linkService.link(business.getId(), userId, finance.getId());
 
         assertThatThrownBy(() -> linkService.linkedGroupId(business.getId(), outsiderId, Group.APPLET_FINANCE_TRACKER))
-                .isInstanceOf(ResponseStatusException.class);
+                .isInstanceOf(ResponseStatusException.class)
+                .satisfies(e -> assertThat(((ResponseStatusException) e).getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN))
+                .hasMessageContaining("not a member");
     }
 
     @Test

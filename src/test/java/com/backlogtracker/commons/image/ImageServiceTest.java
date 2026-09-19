@@ -14,6 +14,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.http.HttpStatus;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -149,15 +150,29 @@ class ImageServiceTest {
         assertThat(imageService.list(group.getId(), userId, OWNER_TYPE, OWNER_ID)).isEmpty();
     }
 
+    /** to-5: the previous version of this test never actually exercised delete() despite
+     *  its own name claiming to, and none of its assertions checked status/message -- only
+     *  that some ResponseStatusException was thrown. Now covers all three operations and
+     *  confirms each is specifically a 403 "not a member" rejection, not just any error. */
     @Test
     void aNonMemberCannotUploadOrListOrDelete() throws Exception {
         String outsiderId = users.save(User.builder().name("Outsider").email("image-outsider@x.test")
                 .passwordHash("x").role(Role.USER).status(AccountStatus.ACTIVE).handle("imageoutsider").build()).getId();
         try {
+            ImageMetaView uploadedByAMember = imageService.upload(group.getId(), userId, OWNER_TYPE, OWNER_ID, pngFile(20, 20));
+
             assertThatThrownBy(() -> imageService.upload(group.getId(), outsiderId, OWNER_TYPE, OWNER_ID, pngFile(20, 20)))
-                    .isInstanceOf(ResponseStatusException.class);
+                    .isInstanceOf(ResponseStatusException.class)
+                    .satisfies(e -> assertThat(((ResponseStatusException) e).getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN))
+                    .hasMessageContaining("not a member");
             assertThatThrownBy(() -> imageService.list(group.getId(), outsiderId, OWNER_TYPE, OWNER_ID))
-                    .isInstanceOf(ResponseStatusException.class);
+                    .isInstanceOf(ResponseStatusException.class)
+                    .satisfies(e -> assertThat(((ResponseStatusException) e).getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN))
+                    .hasMessageContaining("not a member");
+            assertThatThrownBy(() -> imageService.delete(group.getId(), outsiderId, uploadedByAMember.id()))
+                    .isInstanceOf(ResponseStatusException.class)
+                    .satisfies(e -> assertThat(((ResponseStatusException) e).getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN))
+                    .hasMessageContaining("not a member");
         } finally {
             users.deleteById(outsiderId);
         }

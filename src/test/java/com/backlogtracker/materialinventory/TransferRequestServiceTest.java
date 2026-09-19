@@ -121,13 +121,20 @@ class TransferRequestServiceTest {
                 .hasMessageContaining("more than is still requested");
     }
 
+    /** to-5: strengthening this assertion surfaced a real gap -- the target's on-hand
+     *  quantity was never actually set below the fulfillment amount, so the test was
+     *  silently exercising the SAME "more than is still requested" cap as the test above
+     *  rather than InventoryService.adjustQuantity's own "not enough on hand" rejection.
+     *  Fixed by giving the target genuinely insufficient stock relative to what's requested. */
     @Test
     void rejectsFulfillingMoreThanTheTargetHasOnHand() {
+        inventoryService.setMyQuantity(inventoryGroup.getId(), targetId, wool.id(), 2.0);
         TransferRequestView created = transferRequestService.create(inventoryGroup.getId(), requesterId,
                 new CreateTransferRequestRequest(targetId, wool.id(), 3.0));
 
-        assertThatThrownBy(() -> transferRequestService.fulfill(inventoryGroup.getId(), targetId, created.id(), 3.0 + 1.0))
-                .isInstanceOf(ResponseStatusException.class);
+        assertThatThrownBy(() -> transferRequestService.fulfill(inventoryGroup.getId(), targetId, created.id(), 3.0))
+                .isInstanceOf(ResponseStatusException.class)
+                .hasMessageContaining("Not enough on hand");
     }
 
     /** Regression coverage for unreserve()'s compensating rollback — the one behavior the
