@@ -19,9 +19,9 @@ import {
   type MandatoryItemDraft,
   type VariantDraft,
 } from "../OrderFormFields";
-import type { AcquisitionChannel, BusinessConfig, ComponentTemplate, Creator, Customer, DeliveryTier, OrderType, PatternType, PresetOption } from "../types";
+import { NewCustomerFields, blankNewCustomerFieldsDraft, type NewCustomerFieldsDraft } from "../NewCustomerFields";
+import type { BusinessConfig, ComponentTemplate, Creator, Customer, DeliveryTier, OrderType, PatternType, PresetOption } from "../types";
 
-const CHANNELS: AcquisitionChannel[] = ["INSTAGRAM", "WHATSAPP", "REFERRAL", "WORD_OF_MOUTH", "WALK_IN", "OTHER"];
 const DELIVERY_TIERS: { value: DeliveryTier; label: string }[] = [
   { value: "SAME_CITY", label: "Same city" },
   { value: "SAME_STATE", label: "Same state" },
@@ -47,11 +47,7 @@ export default function NewOrderPage() {
   const [customerId, setCustomerId] = useState("");
   const [customerMode, setCustomerMode] = useState<"existing" | "new">("existing");
   const [newCustomerName, setNewCustomerName] = useState("");
-  const [newCustomerContact, setNewCustomerContact] = useState("");
-  const [newCustomerEmail, setNewCustomerEmail] = useState("");
-  const [newCustomerInstagram, setNewCustomerInstagram] = useState("");
-  const [newCustomerChannel, setNewCustomerChannel] = useState<AcquisitionChannel>("INSTAGRAM");
-  const [existingMatch, setExistingMatch] = useState<Customer | null>(null);
+  const [newCustomerDraft, setNewCustomerDraft] = useState<NewCustomerFieldsDraft>(blankNewCustomerFieldsDraft());
   const [createdByCreatorId, setCreatedByCreatorId] = useState("");
   const [itemName, setItemName] = useState("");
   const [orderReceivedDate, setOrderReceivedDate] = useState(() => new Date().toISOString().slice(0, 10));
@@ -97,28 +93,10 @@ export default function NewOrderPage() {
     });
   }, [groupId]);
 
-  const checkForExistingCustomer = async () => {
-    if (!newCustomerEmail.trim() && !newCustomerInstagram.trim()) {
-      setExistingMatch(null);
-      return;
-    }
-    try {
-      const matches = await orderTrackerApi.searchCustomers(groupId, {
-        email: newCustomerEmail.trim() || undefined,
-        instagramHandle: newCustomerInstagram.trim() || undefined,
-      });
-      setExistingMatch(matches[0] ?? null);
-    } catch {
-      setExistingMatch(null);
-    }
-  };
-
-  const useExistingMatch = () => {
-    if (!existingMatch) return;
-    setCustomers((prev) => (prev.some((c) => c.id === existingMatch.id) ? prev : [...prev, existingMatch]));
-    setCustomerId(existingMatch.id);
+  const useExistingMatch = (match: Customer) => {
+    setCustomers((prev) => (prev.some((c) => c.id === match.id) ? prev : [...prev, match]));
+    setCustomerId(match.id);
     setCustomerMode("existing");
-    setExistingMatch(null);
   };
 
   const submit = async (e: React.FormEvent) => {
@@ -158,10 +136,10 @@ export default function NewOrderPage() {
       if (customerMode === "new") {
         const newCustomer = await orderTrackerApi.createCustomer(groupId, {
           name: newCustomerName.trim(),
-          contactNumber: newCustomerContact,
-          email: newCustomerEmail.trim() || null,
-          instagramHandle: newCustomerInstagram.trim() || null,
-          acquisitionChannel: newCustomerChannel,
+          contactNumber: newCustomerDraft.contactNumber,
+          email: newCustomerDraft.email.trim() || null,
+          instagramHandle: newCustomerDraft.instagramHandle.trim() || null,
+          acquisitionChannel: newCustomerDraft.acquisitionChannel,
         });
         finalCustomerId = newCustomer.id;
       }
@@ -287,44 +265,14 @@ export default function NewOrderPage() {
         </div>
 
         {customerMode === "new" && (
-          <>
-            <div className="form-grid">
-              <div className="form-row">
-                <label htmlFor="no-contact">Contact number</label>
-                <input id="no-contact" value={newCustomerContact} onChange={(e) => setNewCustomerContact(e.target.value)} />
-              </div>
-              <div className="form-row">
-                <label htmlFor="no-channel">Acquisition channel</label>
-                <select id="no-channel" value={newCustomerChannel} onChange={(e) => setNewCustomerChannel(e.target.value as AcquisitionChannel)}>
-                  {CHANNELS.map((c) => (
-                    <option key={c} value={c}>
-                      {c.replace(/_/g, " ")}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-            <div className="form-grid">
-              <div className="form-row">
-                <label htmlFor="no-email">Email</label>
-                <input id="no-email" type="email" value={newCustomerEmail} onChange={(e) => setNewCustomerEmail(e.target.value)}
-                  onBlur={checkForExistingCustomer} />
-              </div>
-              <div className="form-row">
-                <label htmlFor="no-instagram">Instagram handle</label>
-                <input id="no-instagram" value={newCustomerInstagram} onChange={(e) => setNewCustomerInstagram(e.target.value)}
-                  onBlur={checkForExistingCustomer} />
-              </div>
-            </div>
-            {existingMatch && (
-              <div className="hint" style={{ marginBottom: 12 }}>
-                Found an existing customer: <strong>{existingMatch.name}</strong>.{" "}
-                <button type="button" onClick={useExistingMatch}>
-                  Use this customer instead
-                </button>
-              </div>
-            )}
-          </>
+          <NewCustomerFields
+            groupId={groupId}
+            draft={newCustomerDraft}
+            onChange={setNewCustomerDraft}
+            onUseExisting={useExistingMatch}
+            useExistingLabel="Use this customer instead"
+            idPrefix="no"
+          />
         )}
 
         <div className="form-row">
