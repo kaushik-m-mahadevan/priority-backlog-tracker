@@ -644,7 +644,6 @@ either. Implementer's judgment call on the exact internal shape.
   everything is per-order. Revisit if that ever changes.
 - **A real P&L / monthly summary view.**
 - **Invite-a-stranger-by-email** (today you can only invite someone already registered).
-- **Basic mobile installability** (no PWA manifest exists today).
 - **Real Instagram/WhatsApp DM intake.**
 
 ---
@@ -679,3 +678,131 @@ either. Implementer's judgment call on the exact internal shape.
 - Zero-quantity inventory rows disappearing automatically.
 - The atomic Mongo `findAndModify` concurrency patterns (transfer fulfillment, inventory
   adjust) — do not simplify these away in the name of a new feature.
+- Photo-attached receipts/payment screenshots on ledger entries (the attach-a-file mechanism
+  itself) — **note:** the 2026-09-19 UI/UX audit below adds direct in-app *camera capture* as
+  a new way to produce that photo, additive to this existing attach flow, not a replacement.
+
+---
+
+## Governing UI/UX design principles (2026-09-19)
+
+Established during the mobile/web UI/UX audit below; apply these to all new UI, not just the
+items that prompted them.
+
+- **Header — exactly 4 fixed elements, nothing else:** home icon (→ console), applet name
+  (→ that applet's own group/business chooser — see below), notification bell, avatar/profile
+  menu. No business/group switcher and no Connections button in the header — see "applet
+  group/business chooser screen" below for where those moved.
+- **Bottom nav — max 5 icons, icon-only, one per function.** If an applet has more than 5
+  destinations, the first 4 keep their own icon and a 5th "More" slot holds the rest. No text
+  labels on primary nav.
+- **Minimal-to-no horizontal scrolling**, especially on mobile — a table/list that can't fit
+  needs a real narrower layout, not `overflow-x: auto`.
+- **Icons over verbose text wherever a common action repeats** — e.g. "+ New X" buttons become
+  a bare "+", labeled "Remove" buttons become a small corner "×", etc. Applies app-wide, not
+  just to whichever screen first prompted it.
+- **No redundancy** — don't show the same control, label, or piece of chrome twice on one
+  screen.
+- **Minimum 44×44px tappable area on every icon-only control**, achieved via padding/hit-area
+  around the glyph, not by inflating the glyph itself.
+- **Every boolean setting is a switch, never a checkbox.** Any accompanying description stays
+  to one line max, on both phone and desktop — further explanation goes behind a "?" icon
+  button, not inline expanded text.
+- **Swipe gestures on list rows with one destructive + one promoting action** (first applied to
+  Orders, extend elsewhere the same shape genuinely fits — Customers, Product Catalog,
+  Material Inventory rows): swipe left launches the destructive flow (e.g. order cancellation —
+  opens its full question flow, never a silent delete); swipe right promotes to the next
+  adjacent state with a "Moved to [state]. Undo?" toast, not a blocking confirmation.
+- **Applet group/business chooser screen** (new, one per applet): tapping the applet name in
+  the header always lands here — a simple list of that applet's groups/businesses (tap to
+  enter) plus a "+" to create a new one. Always shown, even when there's only one group —
+  never auto-skipped, since the user may still want to add another. The group's own home page,
+  once entered, no longer carries any switcher/create-new UI — that's now this chooser's job
+  entirely.
+
+---
+
+## UI/UX audit — mobile & web (2026-09-19)
+
+Full-app UI/UX review across mobile and web, mobile weighted more heavily since that's the
+primary usage pattern. Discussed and finalized item-by-item before writing here, per the
+project owner's request. All items below are approved designs, not yet built, unless noted.
+
+### 1. Header overflow (measured, reproduced live)
+Confirmed live at 375px viewport: header content overflows the viewport by 29px because it
+carries more than the 4 fixed elements (business switcher + Connections button, on top of
+home/applet-name/bell/avatar). **Fix:** both move to the new applet group/business chooser
+screen (see principles above) — no new page logic needed beyond that chooser itself.
+
+### 2. Material Inventory "Who has what" table — compact identity, no collapse needed
+Confirmed live: the table adds one full column per group member with no cap, and already
+risks horizontal scroll at today's 4-person businesses — directly against the no-scroll
+principle. **Fix — a compact "nickname" identity instead of collapsing columns:**
+- **Brand** — abbreviated text, max 5 characters.
+- **Shade** — icon only (a colour swatch matching the yarn's recorded colour from a palette, or
+  a blended swatch for a variegated/mixed colour, or the closest palette variant) — no colour
+  name spelled out in the row. Tapping the swatch reveals the exact recorded shade text.
+- **Size** — icon only, one glyph per standard weight class (lace / fingering / sport / DK /
+  worsted / bulky / super bulky), same tap-to-reveal-detail pattern as Shade.
+- With the identity column this small, the table always shows the full per-member breakdown
+  directly — no accordion/expand-collapse needed.
+- Same compact-identity + icon pattern applies to the Hooks & Needles table too, for
+  consistency between the two.
+
+### 3. Order Tracker bottom nav — icon-only, 4 destinations
+Confirmed via the actual code (`ordertracker/pages/`) that Customers is genuinely part of
+Order Tracker (scoped `groupId`-per-business, encrypted per Order Tracker's own §4/§5 design —
+not a generic CRM entity), while Product Catalog is a real separate applet. Final bottom nav
+for Order Tracker: **Orders** (list by default, long-press → Kanban view, tap an order →
+detail) — **New Order** ("+", center position) — **Customers** — **More** (Business Settings,
+Manage Business, the historic/completed-orders archive). Only 4 destinations needed; no forced
+5th icon.
+
+### 4. NewOrderPage — collapsible sections
+Reuses the existing `Section` component (already used by `OrderDetailPage`, defaults collapsed
+on mobile) instead of exposing every field group at once. All sections collapsed by default on
+mobile **except Summary, which starts open.**
+
+### 5. ItemFormModal — full-screen on mobile
+Below the existing mobile breakpoint (768px, matching `Section`'s own check), the modal goes
+edge-to-edge as a full-screen sheet instead of a centered card with margins.
+
+### 6. Bulk-variant nesting — flatten to a divided list
+Bulk order variants currently render as cards nested inside a card. **Fix:** one outer
+container, each variant as a row separated by a divider — no nested card chrome.
+
+### 7. SettingsPage — sectioned and collapsible
+Same `Section` collapse pattern as item 4, rather than a separate tab-strip jump-nav. Paired
+with the new toggle/description principles above (switches not checkboxes; one-line
+descriptions with a "?" button for more) — applied to every toggle/setting in the app, not
+just this page.
+
+### 8. Dropdown/popover viewport-overflow risk
+Some dropdowns render partially off-screen near a viewport edge. **Fix:** edge-aware
+positioning (flip/clamp within the viewport) added once to the shared dropdown/popover
+component(s), not patched per call site.
+
+### 9. Touch target sizing + swipe gestures
+Systemic 44×44px minimum tappable area (see principles above), plus the new swipe-gesture
+convention (left = destructive flow, right = promote with undo toast) — first applied to the
+Orders list, extended elsewhere the same shape fits.
+
+### 10. Sticky action bar on the order detail page
+Orders list gets the swipe gestures from item 9; the order detail page (a single-item view,
+where swipe doesn't apply the same way) additionally gets a sticky bottom action bar,
+icon-only, so the primary action is always reachable without scrolling.
+
+### 11. PWA installability — good to have
+Add a proper manifest.json, icon set, and theme-color (plus, optionally, a basic service
+worker for offline-shell caching) so the app becomes installable to a phone home screen.
+Approved as a nice-to-have, not urgent — build when there's room, not before higher-priority
+items.
+
+### 12. Product Catalog — photo + link support
+Catalog items get both an external image URL/link *and* direct photo upload with app-managed
+storage — both, not either/or.
+
+### 13. Camera capture for receipts (Finance Tracker) — good to have
+Direct in-app camera capture on the ledger-entry form, using the same photo-upload
+infrastructure as item 12, additive to the existing photo-attachment flow (see "Already
+well-designed" above) rather than replacing it. Approved as a nice-to-have.
