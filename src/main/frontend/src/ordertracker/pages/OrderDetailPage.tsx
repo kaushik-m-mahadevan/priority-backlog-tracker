@@ -163,7 +163,7 @@ function EditOrderForm({
           ...c, mandatoryItems: c.mandatoryItems.filter((m) => m.value.trim()), addOns: c.addOns.filter((a) => a.name.trim()),
         })),
         packagingPresetId: packagingPresetId || null,
-        itemizedPackaging: [],
+        itemizedPackaging: order.packaging?.itemizedList ?? [],
         craftingTimeHours,
         assemblyTimeHours,
       });
