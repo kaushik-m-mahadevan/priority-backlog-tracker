@@ -92,6 +92,46 @@ class ConfigApiTest {
                 .andExpect(jsonPath("$[0].changedBy").value(actorId));
     }
 
+    /** Regression coverage for removePriority's three safe-removal branches (design §7) —
+     *  the identical rule already well-tested on the category side (see
+     *  blocksRemovingACategoryTwoItemsUse / removesACategoryOneItemUsesAfterReassignment
+     *  below), but never exercised for priorities until now. */
+    @Test
+    void blocksRemovingAPriorityTwoItemsUse() throws Exception {
+        createItem("a", "Project", "Medium");
+        createItem("b", "Project", "Medium");
+        mvc.perform(auth(delete("/api/config/priorities/Medium")))
+                .andExpect(status().isConflict());
+    }
+
+    @Test
+    void removesAPriorityOneItemUsesAfterReassignment() throws Exception {
+        createItem("only", "Project", "Medium");
+        mvc.perform(auth(delete("/api/config/priorities/Medium").param("reassignTo", "Low")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.priorities", org.hamcrest.Matchers.not(
+                        org.hamcrest.Matchers.hasItem("Medium"))));
+        mvc.perform(auth(get("/api/items")).param("groupId", groupId))
+                .andExpect(jsonPath("$.content[0].priority").value("Low"));
+    }
+
+    @Test
+    void removesAnUnusedPriorityOutright() throws Exception {
+        mvc.perform(auth(delete("/api/config/priorities/Medium")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.priorities", org.hamcrest.Matchers.not(
+                        org.hamcrest.Matchers.hasItem("Medium"))));
+    }
+
+    @Test
+    void refusesToRemoveTheLastRemainingPriority() throws Exception {
+        for (String p : new String[] {"High", "Medium", "Low"}) {
+            mvc.perform(auth(delete("/api/config/priorities/" + p))).andExpect(status().isOk());
+        }
+        mvc.perform(auth(delete("/api/config/priorities/Critical")))
+                .andExpect(status().isBadRequest());
+    }
+
     @Test
     void savesValidWeightsAndWritesHistory() throws Exception {
         mvc.perform(auth(put("/api/config")).contentType(MediaType.APPLICATION_JSON)
