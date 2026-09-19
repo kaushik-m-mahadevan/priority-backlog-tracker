@@ -216,27 +216,10 @@ class TransferRequestServiceTest {
                 new CreateTransferRequestRequest(targetId, wool.id(), 10.0));
 
         int n = 20;
-        ExecutorService pool = Executors.newFixedThreadPool(n); // must fit every task at once for the latch below
-        CountDownLatch ready = new CountDownLatch(n);
-        CountDownLatch go = new CountDownLatch(1);
-        try {
-            List<Callable<Void>> tasks = IntStream.range(0, n)
-                    .<Callable<Void>>mapToObj(i -> () -> {
-                        ready.countDown();
-                        go.await();
-                        transferRequestService.fulfill(inventoryGroup.getId(), targetId, created.id(), 0.25);
-                        return null;
-                    })
-                    .toList();
-            List<java.util.concurrent.Future<Void>> futures = tasks.stream().map(pool::submit).toList();
-            assertThat(ready.await(5, TimeUnit.SECONDS)).isTrue();
-            go.countDown();
-            for (var f : futures) {
-                f.get();
-            }
-        } finally {
-            pool.shutdownNow();
-        }
+        runSimultaneously(n, i -> {
+            transferRequestService.fulfill(inventoryGroup.getId(), targetId, created.id(), 0.25);
+            return null;
+        });
 
         TransferRequestView finalState = transferRequestService.list(inventoryGroup.getId(), requesterId).stream()
                 .filter(t -> t.id().equals(created.id())).findFirst().orElseThrow();
@@ -259,30 +242,16 @@ class TransferRequestServiceTest {
                 new CreateTransferRequestRequest(targetId, wool.id(), 10.0));
 
         int n = 20;
-        ExecutorService pool = Executors.newFixedThreadPool(n); // must fit every task at once for the latch below
-        CountDownLatch ready = new CountDownLatch(n);
-        CountDownLatch go = new CountDownLatch(1);
-        try {
-            List<Callable<Boolean>> tasks = IntStream.range(0, n)
-                    .<Callable<Boolean>>mapToObj(i -> () -> {
-                        ready.countDown();
-                        go.await();
-                        try {
-                            transferRequestService.fulfill(inventoryGroup.getId(), targetId, created.id(), 1.0);
-                            return true;
-                        } catch (ResponseStatusException e) {
-                            return false;
-                        }
-                    })
-                    .toList();
-            List<java.util.concurrent.Future<Boolean>> futures = tasks.stream().map(pool::submit).toList();
-            assertThat(ready.await(5, TimeUnit.SECONDS)).isTrue();
-            go.countDown();
-            long succeeded = futures.stream().map(TransferRequestServiceTest::get).filter(Boolean::booleanValue).count();
-            assertThat(succeeded).isEqualTo(10);
-        } finally {
-            pool.shutdownNow();
-        }
+        List<Boolean> results = runSimultaneously(n, i -> {
+            try {
+                transferRequestService.fulfill(inventoryGroup.getId(), targetId, created.id(), 1.0);
+                return true;
+            } catch (ResponseStatusException e) {
+                return false;
+            }
+        });
+        long succeeded = results.stream().filter(Boolean::booleanValue).count();
+        assertThat(succeeded).isEqualTo(10);
 
         TransferRequestView finalState = transferRequestService.list(inventoryGroup.getId(), requesterId).stream()
                 .filter(t -> t.id().equals(created.id())).findFirst().orElseThrow();
@@ -291,11 +260,35 @@ class TransferRequestServiceTest {
         assertThat(inventoryService.mine(inventoryGroup.getId(), targetId).get(0).quantity()).isEqualTo(10.0);
     }
 
-    private static <T> T get(java.util.concurrent.Future<T> f) {
+    /** Shared latch-gated "release all n threads at once" harness for the two concurrency
+     *  tests above — previously each hand-rolled its own identical pool/latch bookkeeping. */
+    private <T> List<T> runSimultaneously(int n, IntFunctionThrows<T> task) throws Exception {
+        ExecutorService pool = Executors.newFixedThreadPool(n); // must fit every task at once for the latch below
+        CountDownLatch ready = new CountDownLatch(n);
+        CountDownLatch go = new CountDownLatch(1);
         try {
-            return f.get();
-        } catch (Exception e) {
-            throw new RuntimeException(e);
+            List<Callable<T>> tasks = IntStream.range(0, n)
+                    .<Callable<T>>mapToObj(i -> () -> {
+                        ready.countDown();
+                        go.await();
+                        return task.apply(i);
+                    })
+                    .toList();
+            List<java.util.concurrent.Future<T>> futures = tasks.stream().map(pool::submit).toList();
+            assertThat(ready.await(5, TimeUnit.SECONDS)).isTrue();
+            go.countDown();
+            List<T> results = new java.util.ArrayList<>();
+            for (var f : futures) {
+                results.add(f.get());
+            }
+            return results;
+        } finally {
+            pool.shutdownNow();
         }
+    }
+
+    @FunctionalInterface
+    private interface IntFunctionThrows<T> {
+        T apply(int i) throws Exception;
     }
 }
