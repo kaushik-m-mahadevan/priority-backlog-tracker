@@ -6,8 +6,10 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.concurrent.Callable;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.IntStream;
 
 import org.junit.jupiter.api.AfterEach;
@@ -353,10 +355,14 @@ class LedgerEntryServiceTest {
         // debt would be settled more than once over.
         int n = 20;
         BigDecimal chunk = new BigDecimal("5.00");
-        ExecutorService pool = Executors.newFixedThreadPool(10);
+        ExecutorService pool = Executors.newFixedThreadPool(n); // must fit every task at once for the latch below
+        CountDownLatch ready = new CountDownLatch(n);
+        CountDownLatch go = new CountDownLatch(1);
         try {
             List<Callable<Boolean>> tasks = IntStream.range(0, n)
                     .<Callable<Boolean>>mapToObj(i -> () -> {
+                        ready.countDown();
+                        go.await();
                         try {
                             ledgerEntryService.settleUp(financeGroup.getId(), payerId,
                                     new CreateSettlementRequest(SplitPartyType.PERSON, personAId, chunk));
@@ -366,7 +372,10 @@ class LedgerEntryServiceTest {
                         }
                     })
                     .toList();
-            long succeeded = pool.invokeAll(tasks).stream().map(LedgerEntryServiceTest::get).filter(Boolean::booleanValue).count();
+            List<java.util.concurrent.Future<Boolean>> futures = tasks.stream().map(pool::submit).toList();
+            assertThat(ready.await(5, TimeUnit.SECONDS)).isTrue();
+            go.countDown();
+            long succeeded = futures.stream().map(LedgerEntryServiceTest::get).filter(Boolean::booleanValue).count();
             assertThat(succeeded).isEqualTo(10);
         } finally {
             pool.shutdownNow();

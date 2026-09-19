@@ -5,8 +5,10 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.util.List;
 import java.util.concurrent.Callable;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.IntStream;
 
 import org.junit.jupiter.api.AfterEach;
@@ -214,15 +216,22 @@ class TransferRequestServiceTest {
                 new CreateTransferRequestRequest(targetId, wool.id(), 10.0));
 
         int n = 20;
-        ExecutorService pool = Executors.newFixedThreadPool(8);
+        ExecutorService pool = Executors.newFixedThreadPool(n); // must fit every task at once for the latch below
+        CountDownLatch ready = new CountDownLatch(n);
+        CountDownLatch go = new CountDownLatch(1);
         try {
             List<Callable<Void>> tasks = IntStream.range(0, n)
                     .<Callable<Void>>mapToObj(i -> () -> {
+                        ready.countDown();
+                        go.await();
                         transferRequestService.fulfill(inventoryGroup.getId(), targetId, created.id(), 0.25);
                         return null;
                     })
                     .toList();
-            for (var f : pool.invokeAll(tasks)) {
+            List<java.util.concurrent.Future<Void>> futures = tasks.stream().map(pool::submit).toList();
+            assertThat(ready.await(5, TimeUnit.SECONDS)).isTrue();
+            go.countDown();
+            for (var f : futures) {
                 f.get();
             }
         } finally {
@@ -250,10 +259,14 @@ class TransferRequestServiceTest {
                 new CreateTransferRequestRequest(targetId, wool.id(), 10.0));
 
         int n = 20;
-        ExecutorService pool = Executors.newFixedThreadPool(10);
+        ExecutorService pool = Executors.newFixedThreadPool(n); // must fit every task at once for the latch below
+        CountDownLatch ready = new CountDownLatch(n);
+        CountDownLatch go = new CountDownLatch(1);
         try {
             List<Callable<Boolean>> tasks = IntStream.range(0, n)
                     .<Callable<Boolean>>mapToObj(i -> () -> {
+                        ready.countDown();
+                        go.await();
                         try {
                             transferRequestService.fulfill(inventoryGroup.getId(), targetId, created.id(), 1.0);
                             return true;
@@ -262,7 +275,10 @@ class TransferRequestServiceTest {
                         }
                     })
                     .toList();
-            long succeeded = pool.invokeAll(tasks).stream().map(TransferRequestServiceTest::get).filter(Boolean::booleanValue).count();
+            List<java.util.concurrent.Future<Boolean>> futures = tasks.stream().map(pool::submit).toList();
+            assertThat(ready.await(5, TimeUnit.SECONDS)).isTrue();
+            go.countDown();
+            long succeeded = futures.stream().map(TransferRequestServiceTest::get).filter(Boolean::booleanValue).count();
             assertThat(succeeded).isEqualTo(10);
         } finally {
             pool.shutdownNow();

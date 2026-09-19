@@ -7,8 +7,10 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.concurrent.Callable;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.IntStream;
 
 import org.junit.jupiter.api.AfterEach;
@@ -260,15 +262,22 @@ class MaterialInventoryServiceTest {
         int n = 50;
         inventoryService.setMyQuantity(inventoryGroup.getId(), userAId, wool.id(), n);
 
-        ExecutorService pool = Executors.newFixedThreadPool(16);
+        ExecutorService pool = Executors.newFixedThreadPool(n); // must fit every task at once for the latch below
+        CountDownLatch ready = new CountDownLatch(n);
+        CountDownLatch go = new CountDownLatch(1);
         try {
             List<Callable<Void>> tasks = IntStream.range(0, n)
                     .<Callable<Void>>mapToObj(i -> () -> {
+                        ready.countDown();
+                        go.await();
                         inventoryService.adjustQuantity(inventoryGroup.getId(), userAId, wool.id(), -1.0);
                         return null;
                     })
                     .toList();
-            for (var f : pool.invokeAll(tasks)) {
+            List<java.util.concurrent.Future<Void>> futures = tasks.stream().map(pool::submit).toList();
+            assertThat(ready.await(5, TimeUnit.SECONDS)).isTrue();
+            go.countDown();
+            for (var f : futures) {
                 f.get();
             }
         } finally {
