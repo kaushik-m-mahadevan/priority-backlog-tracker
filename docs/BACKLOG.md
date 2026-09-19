@@ -205,8 +205,6 @@ on engineering judgment.
   stage-progress inputs on `OrderDetailPage.tsx` call the API with no try/catch at all —
   every other mutation on the same page (edit forms, finalization) surfaces `err.message` via
   an `error` state; these six call sites just fail invisibly.
-- **Accessibility inconsistency**: `NavMenu`, `Connections`, and `GroupSwitcher` all close on
-  Escape; `Bell` (the notifications popover) is the one dropdown that doesn't.
 - **Audit-trail bug**: `ConfigService.addPriority` hardcodes `changedBy: null` in the config
   history — every other config change (including `removePriority`) correctly records the real
   actor. The "added priority" row in Settings' audit history permanently shows no one made it.
@@ -297,8 +295,12 @@ on engineering judgment.
   isolation. Largest line-count win in the whole audit; also the highest-risk (touches
   group-switching in 3 apps) — do with real test coverage, not a rushed pass.
 - Four duplicated "dismissable dropdown" implementations (`NavMenu`, `Connections`,
-  `GroupSwitcher`, and `Bell` — the last one is also the a11y bug above) — one
-  `useDismissableMenu()` hook fixes the bug and removes ~60 duplicated lines at once.
+  `GroupSwitcher`, and `Bell`) — a shared `useDismissableMenu()` hook removes ~60 duplicated
+  lines. **Note (2026-09-19 UI/UX audit):** `GroupSwitcher` is being removed entirely (replaced
+  by the new applet group/business chooser screen) and `Connections` moves from a header
+  popover to the group's own home page — reduce this consolidation to whichever of
+  `NavMenu`/`Bell`/`Connections` are still genuine dropdowns once that redesign lands, rather
+  than building for four when it'll really be two or three.
 - No shared `formatMoney()` — 7 files, 27 occurrences of hand-rolled `₹${n.toFixed(2)}`,
   including three subtly different variants (one handles negative amounts, others don't).
   Build this **before** the ledger Debit/Credit rewrite lands, so the new ledger UI doesn't
@@ -673,14 +675,13 @@ either. Implementer's judgment call on the exact internal shape.
 ## Already well-designed — do not touch
 - Automatic order numbering, existing cost/due-date auto-recompute plumbing.
 - Component templates as a reuse mechanic.
-- Photo-attached receipts/payment screenshots on ledger entries.
+- Photo-attached receipts/payment screenshots on ledger entries (the attach-a-file mechanism
+  itself) — **note:** the 2026-09-19 UI/UX audit below adds direct in-app *camera capture* as
+  a new way to produce that photo, additive to this existing attach flow, not a replacement.
 - Approvals auto-resolving instantly for a solo business.
 - Zero-quantity inventory rows disappearing automatically.
 - The atomic Mongo `findAndModify` concurrency patterns (transfer fulfillment, inventory
   adjust) — do not simplify these away in the name of a new feature.
-- Photo-attached receipts/payment screenshots on ledger entries (the attach-a-file mechanism
-  itself) — **note:** the 2026-09-19 UI/UX audit below adds direct in-app *camera capture* as
-  a new way to produce that photo, additive to this existing attach flow, not a replacement.
 
 ---
 
@@ -691,8 +692,11 @@ items that prompted them.
 
 - **Header — exactly 4 fixed elements, nothing else:** home icon (→ console), applet name
   (→ that applet's own group/business chooser — see below), notification bell, avatar/profile
-  menu. No business/group switcher and no Connections button in the header — see "applet
-  group/business chooser screen" below for where those moved.
+  menu. No business/group switcher and no Connections button in the header — the switcher
+  moves to the new applet group/business chooser screen (below); Connections moves to the
+  group's own home page, since it links one specific already-selected group and needs that
+  active context (the chooser screen, listing multiple groups pre-selection, has no single
+  "current" group for it to act on).
 - **Bottom nav — max 5 icons, icon-only, one per function.** If an applet has more than 5
   destinations, the first 4 keep their own icon and a 5th "More" slot holds the rest. No text
   labels on primary nav.
@@ -731,8 +735,11 @@ project owner's request. All items below are approved designs, not yet built, un
 ### 1. Header overflow (measured, reproduced live)
 Confirmed live at 375px viewport: header content overflows the viewport by 29px because it
 carries more than the 4 fixed elements (business switcher + Connections button, on top of
-home/applet-name/bell/avatar). **Fix:** both move to the new applet group/business chooser
-screen (see principles above) — no new page logic needed beyond that chooser itself.
+home/applet-name/bell/avatar). **Fix:** the business switcher moves to the new applet
+group/business chooser screen; the Connections button moves to the group's own home page
+(it links one specific selected group, so it needs that active context — the chooser screen,
+which lists multiple groups pre-selection, has no single "current" group for it to act on).
+No new page logic needed beyond the chooser itself and relocating the existing Connections UI.
 
 ### 2. Material Inventory "Who has what" table — compact identity, no collapse needed
 Confirmed live: the table adds one full column per group member with no cap, and already
@@ -748,6 +755,11 @@ principle. **Fix — a compact "nickname" identity instead of collapsing columns
   directly — no accordion/expand-collapse needed.
 - Same compact-identity + icon pattern applies to the Hooks & Needles table too, for
   consistency between the two.
+- **Reservation breakdown (total/reserved/available, from the inventory-decrement design
+  above) does not live inside this compact row at all** — it gets its own separate
+  row/section per yarn type (below or beside the main quantity table), rather than being
+  packed into the per-member quantity cell. Keeps the main table's row height uniform and
+  compact regardless of whether reservation is active on a given yarn.
 
 ### 3. Order Tracker bottom nav — icon-only, 4 destinations
 Confirmed via the actual code (`ordertracker/pages/`) that Customers is genuinely part of
