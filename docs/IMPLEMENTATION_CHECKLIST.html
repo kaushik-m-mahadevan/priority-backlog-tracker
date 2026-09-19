@@ -385,7 +385,7 @@
     <div class="items">
       <div class="item"><input type="checkbox" id="tg-1" checked><label for="tg-1">Test ConfigService.addPriority/removePriority's three safe-removal branches <span class="note">single largest gap in the audit</span></label></div>
       <div class="item"><input type="checkbox" id="tg-2" checked><label for="tg-2">Test CustomerService.search's blind-index duplicate detection</label></div>
-      <div class="item"><input type="checkbox" id="tg-3"><label for="tg-3">Test OrderBusinessRules.requireSplitAllocationSumsToQuantity (create + bulk-update)</label></div>
+      <div class="item"><input type="checkbox" id="tg-3" checked><label for="tg-3">Test OrderBusinessRules.requireSplitAllocationSumsToQuantity (create + bulk-update)</label></div>
       <div class="item"><input type="checkbox" id="tg-4" checked><label for="tg-4">Test TransferRequestService.unreserve()'s compensating-rollback path <span class="note">writing this test surfaced a real bug: unreserve() rolled back fulfilledQuantity but never reverted status, leaving a request stuck showing PARTIALLY_FULFILLED forever after a failed first attempt — fixed alongside the test</span></label></div>
       <div class="item"><input type="checkbox" id="tg-5" checked><label for="tg-5">Add a BlindIndexService test file (hash normalization, null/blank, domain separation)</label></div>
       <div class="item"><input type="checkbox" id="tg-6" checked><label for="tg-6">Fix JwtService to use the injected Clock, then add a deterministic expiry test</label></div>

@@ -395,6 +395,60 @@ class OrderApiTest {
         assertThat(perUnitCost).isCloseTo(expectedFinal, org.assertj.core.data.Offset.offset(0.01));
     }
 
+    /** Regression coverage for OrderBusinessRules.requireSplitAllocationSumsToQuantity —
+     *  a named, user-facing validation rule with zero test coverage on either the create or
+     *  the bulk-update path, despite completion-percentage and due-date math both silently
+     *  going wrong if a variant's split ever drifts from its declared quantity. */
+    @Test
+    void rejectsCreatingABulkOrderWhoseSplitAllocationDoesNotSumToTheVariantQuantity() throws Exception {
+        mvc.perform(auth(post("/api/ordertracker/groups/" + groupId + "/orders"), token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"customerId":"%s","orderType":"BULK","createdByCreatorId":"%s",
+                                 "itemName":"Mismatched split","orderReceivedDate":"2026-01-01T00:00:00Z",
+                                 "variants":[{"label":"Blue flower","quantity":20,
+                                   "mandatoryItems":[{"kind":"YARN","value":"Blue","quantity":1,"unitCost":100}],
+                                   "craftingTimeHours":1,
+                                   "splitAllocation":[{"creatorId":"%s","quantityAssigned":15}]}]}"""
+                                .formatted(customerId, creatorAId, creatorAId)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.allOf(
+                        org.hamcrest.Matchers.containsString("quantity of 20"),
+                        org.hamcrest.Matchers.containsString("adds up to 15"))));
+    }
+
+    @Test
+    void rejectsUpdatingBulkDetailsWhoseSplitAllocationDoesNotSumToTheVariantQuantity() throws Exception {
+        String body = mvc.perform(auth(post("/api/ordertracker/groups/" + groupId + "/orders"), token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"customerId":"%s","orderType":"BULK","createdByCreatorId":"%s",
+                                 "itemName":"Valid at first","orderReceivedDate":"2026-01-01T00:00:00Z",
+                                 "variants":[{"label":"Blue flower","quantity":20,
+                                   "mandatoryItems":[{"kind":"YARN","value":"Blue","quantity":1,"unitCost":100}],
+                                   "craftingTimeHours":1,
+                                   "splitAllocation":[{"creatorId":"%s","quantityAssigned":20}]}]}"""
+                                .formatted(customerId, creatorAId, creatorAId)))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+        String orderId = mapper.readTree(body).get("id").asText();
+
+        mvc.perform(auth(put("/api/ordertracker/groups/" + groupId + "/orders/" + orderId + "/bulk-details"), token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"customerId":"%s","itemName":"Now mismatched","orderReceivedDate":"2026-01-01T00:00:00Z",
+                                 "researchTimeHours":0,"variants":[{"label":"Blue flower","quantity":20,
+                                   "mandatoryItems":[{"kind":"YARN","value":"Blue","quantity":1,"unitCost":100}],
+                                   "craftingTimeHours":1,
+                                   "splitAllocation":[{"creatorId":"%s","quantityAssigned":8}]}],
+                                 "logisticsBufferDays":0}"""
+                                .formatted(customerId, creatorAId)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.allOf(
+                        org.hamcrest.Matchers.containsString("quantity of 20"),
+                        org.hamcrest.Matchers.containsString("adds up to 8"))));
+    }
+
     @Test
     void bulkVariantAssemblyTimeAndOrderLevelResearchTimeBothPadTheDueDate() throws Exception {
         // creator A is 4h/day (setUp) and is both the sole split assignee and (by default,
