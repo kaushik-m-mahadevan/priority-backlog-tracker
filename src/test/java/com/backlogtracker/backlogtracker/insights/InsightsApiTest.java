@@ -102,6 +102,33 @@ class InsightsApiTest {
                 .andExpect(jsonPath("$.owners[?(@.ownerId=='" + uid + "')].criticalHighCount").value(1));
     }
 
+    /** Regression test: WorkloadService used to hardcode "Critical"/"High" as literal
+     *  strings — renaming or reweighting priorities silently zeroed the hot count instead
+     *  of tracking whatever the two highest-weighted tiers actually are. Adding a new
+     *  higher-weighted priority should bump "High" (weight 3) out of the top two. */
+    @Test
+    void hotPriorityCountFollowsConfiguredWeightsNotHardcodedNames() throws Exception {
+        mvc.perform(post("/api/config/priorities").header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"name":"Urgent","value":10}"""))
+                .andExpect(status().isOk());
+
+        String uid = mapper.readTree(mvc.perform(get("/api/auth/me")
+                        .header("Authorization", "Bearer " + token))
+                .andReturn().getResponse().getContentAsString()).get("id").asText();
+
+        createViaApi("owned-urgent", "Urgent", uid);
+        createViaApi("owned-critical", "Critical", uid);
+        createViaApi("owned-high", "High", uid);
+
+        mvc.perform(get("/api/insights/workload").param("groupId", groupId).header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                // Urgent(10) and Critical(4) are now the top two weights; High(3) no longer
+                // qualifies, even though it was one of the two hardcoded literals before.
+                .andExpect(jsonPath("$.owners[?(@.ownerId=='" + uid + "')].criticalHighCount").value(2));
+    }
+
     @Test
     void healthCountsOverdueAndStaleAndDerivesAStage() throws Exception {
         seed("ITM-OD1", "High", ItemStatus.BACKLOG, 3, -10);   // overdue

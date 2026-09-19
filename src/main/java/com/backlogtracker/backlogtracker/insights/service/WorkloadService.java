@@ -10,6 +10,8 @@ import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
 
+import com.backlogtracker.backlogtracker.config.domain.AppConfig;
+import com.backlogtracker.backlogtracker.config.service.ConfigService;
 import com.backlogtracker.backlogtracker.insights.dto.OwnerWorkloadView;
 import com.backlogtracker.backlogtracker.item.domain.Item;
 import com.backlogtracker.backlogtracker.item.service.ItemService;
@@ -19,22 +21,25 @@ import lombok.RequiredArgsConstructor;
 
 /**
  * Owner Workload Overview (design §6): open item count, category breakdown, and
- * Critical/High count per owner. Items with no owner go in an explicit "Unassigned"
- * bucket rather than being dropped.
+ * "hot" (highest-weighted) priority count per owner. Items with no owner go in an
+ * explicit "Unassigned" bucket rather than being dropped.
  */
 @Service
 @RequiredArgsConstructor
 public class WorkloadService {
 
     private static final String UNASSIGNED = "__unassigned__";
-    private static final Set<String> HOT_PRIORITIES = Set.of("Critical", "High");
 
     private final ItemService itemService;
     private final UserRepository users;
+    private final ConfigService configService;
 
     public OwnerWorkloadView.Overview overview(String groupId) {
         Map<String, String> nameById = users.findAll().stream()
                 .collect(Collectors.toMap(u -> u.getId(), u -> u.getName(), (a, b) -> a));
+
+        AppConfig cfg = configService.getConfig();
+        Set<String> hotPriorities = hotPriorities(cfg);
 
         Map<String, List<Item>> byOwner = itemService.listLive(groupId).stream()
                 .collect(Collectors.groupingBy(
@@ -43,7 +48,7 @@ public class WorkloadService {
                         LinkedHashMap::new, Collectors.toList()));
 
         List<OwnerWorkloadView> rows = byOwner.entrySet().stream()
-                .map(e -> toRow(e.getKey(), e.getValue(), nameById))
+                .map(e -> toRow(e.getKey(), e.getValue(), nameById, hotPriorities))
                 .sorted(Comparator
                         .comparing(OwnerWorkloadView::ownerName, String.CASE_INSENSITIVE_ORDER))
                 .toList();
@@ -51,7 +56,19 @@ public class WorkloadService {
         return new OwnerWorkloadView.Overview(rows);
     }
 
-    private OwnerWorkloadView toRow(String ownerKey, List<Item> items, Map<String, String> nameById) {
+    /** "Hot" = the two highest-weighted priority tiers configured right now (Critical/High
+     *  by default), derived from {@code priorityValues} rather than hardcoded names — so
+     *  renaming a priority, or reordering the weights, can't silently zero this count out. */
+    private static Set<String> hotPriorities(AppConfig cfg) {
+        return cfg.getPriorityValues().entrySet().stream()
+                .sorted(Map.Entry.<String, Integer>comparingByValue().reversed())
+                .limit(2)
+                .map(Map.Entry::getKey)
+                .collect(Collectors.toUnmodifiableSet());
+    }
+
+    private OwnerWorkloadView toRow(String ownerKey, List<Item> items, Map<String, String> nameById,
+                                    Set<String> hotPriorities) {
         boolean unassigned = UNASSIGNED.equals(ownerKey);
         String ownerId = unassigned ? null : ownerKey;
         String ownerName = unassigned ? "Unassigned"
@@ -61,7 +78,7 @@ public class WorkloadService {
                 .collect(Collectors.groupingBy(Item::getCategory, TreeMap::new, Collectors.counting()));
 
         long criticalHigh = items.stream()
-                .filter(i -> HOT_PRIORITIES.contains(i.getPriority()))
+                .filter(i -> hotPriorities.contains(i.getPriority()))
                 .count();
 
         return new OwnerWorkloadView(ownerId, ownerName, items.size(), byCategory, criticalHigh);

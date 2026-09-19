@@ -26,7 +26,10 @@ function authHeaders(): Record<string, string> {
 export const imagesApi = {
   list: async (groupId: string, ownerType: string, ownerId: string): Promise<ImageMetaView[]> => {
     const res = await fetch(base(groupId, ownerType, ownerId), { headers: authHeaders() });
-    if (!res.ok) throw new ApiError(res.status, `Failed to list images (${res.status})`);
+    if (!res.ok) {
+      const data = await res.json().catch(() => null);
+      throw new ApiError(res.status, data?.message ?? `Failed to list images (${res.status})`);
+    }
     return res.json();
   },
 
@@ -43,7 +46,10 @@ export const imagesApi = {
 
   remove: async (groupId: string, ownerType: string, ownerId: string, imageId: string): Promise<void> => {
     const res = await fetch(`${base(groupId, ownerType, ownerId)}/${imageId}`, { method: "DELETE", headers: authHeaders() });
-    if (!res.ok && res.status !== 204) throw new ApiError(res.status, `Delete failed (${res.status})`);
+    if (!res.ok && res.status !== 204) {
+      const data = await res.json().catch(() => null);
+      throw new ApiError(res.status, data?.message ?? `Delete failed (${res.status})`);
+    }
   },
 
   /** Returns a blob: object URL — an <img src> can't send an Authorization header, so the

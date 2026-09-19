@@ -3,6 +3,7 @@ package com.backlogtracker.backlogtracker.insights.service;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.List;
 
 import org.springframework.data.domain.Sort;
 import org.springframework.data.mongodb.core.MongoOperations;
@@ -11,6 +12,7 @@ import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.stereotype.Service;
 
 import com.backlogtracker.backlogtracker.archive.domain.ArchivedItem;
+import com.backlogtracker.backlogtracker.archive.domain.TerminalStatus;
 
 import lombok.RequiredArgsConstructor;
 
@@ -18,6 +20,11 @@ import lombok.RequiredArgsConstructor;
 @Service
 @RequiredArgsConstructor
 public class CompletionStatsService {
+
+    /** "Finished" excludes {@link TerminalStatus#REJECTED} on purpose — a rejected item
+     *  didn't get done, it got dropped. */
+    private static final List<String> FINISHED_STATUSES =
+            List.of(TerminalStatus.RESOLVED.name(), TerminalStatus.ARCHIVED.name());
 
     private final MongoOperations mongo;
     private final Clock clock;
@@ -29,7 +36,7 @@ public class CompletionStatsService {
         int d = Math.min(Math.max(1, days), 365);
         Criteria done = new Criteria().andOperator(
                 Criteria.where("groupId").is(groupId),
-                Criteria.where("terminalStatus").in("RESOLVED", "ARCHIVED"));
+                Criteria.where("terminalStatus").in(FINISHED_STATUSES));
 
         long count = mongo.count(
                 Query.query(new Criteria().andOperator(done,
