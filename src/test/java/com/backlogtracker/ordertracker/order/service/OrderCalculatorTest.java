@@ -38,31 +38,6 @@ class OrderCalculatorTest {
     }
 
     @Test
-    void individualEstimateFollowsTheRound5CostFormula() {
-        // mandatoryItemsCost = 1*120 = 120, addOnsCost = 1*40 = 40, packagingCost = 60 (preset)
-        List<MandatoryItem> mandatory = List.of(item(1, 120));
-        List<LineItem> addOns = List.of(lineItem(1, 40, 0.2));
-        Packaging packaging = Packaging.builder().presetCost(60).presetTimeHours(0.5).itemizedList(List.of()).build();
-
-        Order.CostEstimate estimate = calc.estimateIndividual(mandatory, addOns, List.of(), packaging, 4.0, 1.0, 0.0,
-                0.15, 0.20, 100.0, 0, Instant.parse("2026-01-01T00:00:00Z"), 4.0);
-
-        assertThat(estimate.getMandatoryItemsCost()).isEqualTo(120);
-        assertThat(estimate.getAddOnsCost()).isEqualTo(40);
-        assertThat(estimate.getPackagingCost()).isEqualTo(60);
-        // grossTimeHours = craftingTimeHours(4) + assemblyTimeHours(1) + packagingTime(0.5) = 5.5 —
-        // the add-on's own unitTimeHours (0.2) is deliberately NOT counted, materials carry no time.
-        assertThat(estimate.getGrossTimeHours()).isCloseTo(5.5, within(1e-9));
-        double labor = 5.5 * 100.0; // 550 — round 5: labor is a cost line now, no overhead cost line at all
-        assertThat(estimate.getLaborCost()).isCloseTo(labor, within(1e-9));
-        double gross = 120 + 40 + 60 + labor; // 770
-        double profit = gross * 0.20; // 154
-        assertThat(estimate.getGrossCost()).isCloseTo(gross, within(1e-9));
-        assertThat(estimate.getProfitAmount()).isCloseTo(profit, within(1e-9));
-        assertThat(estimate.getFinalCost()).isCloseTo(gross + profit, within(1e-9));
-    }
-
-    @Test
     void individualDueDateRoundsUpFromCreatorHoursPerDay() {
         Packaging packaging = Packaging.builder().presetCost(0).presetTimeHours(0).itemizedList(List.of()).build();
         Instant received = Instant.parse("2026-01-01T00:00:00Z");
@@ -89,17 +64,22 @@ class OrderCalculatorTest {
      *  worked "crochet vase with 2 flower types" example agreed with the product owner:
      *  materials ₹425 + add-ons ₹50 + packaging ₹60 + labor (5.5h × ₹100/h = ₹550) = ₹1,085
      *  gross, 20% margin = ₹217 profit, ₹1,302 final. Delivery: 5.5h / 4h-per-day = 2 work
-     *  days, + 1 delivery-buffer day = 3, × 1.15 time-overhead = 3.45, rounds up to 4 days. */
+     *  days, + 1 delivery-buffer day = 3, × 1.15 time-overhead = 3.45, rounds up to 4 days.
+     *  The add-on carries its own unitTimeHours, which is deliberately NOT counted toward
+     *  grossTimeHours — materials/add-ons carry no time, only crafting/assembly/packaging do. */
     @Test
     void laborCostAndDeliveryFormulaMatchTheWorkedExample() {
         List<MandatoryItem> mandatory = List.of(item(1, 425));
-        List<LineItem> addOns = List.of(lineItem(1, 50, null));
+        List<LineItem> addOns = List.of(lineItem(1, 50, 0.2));
         Packaging packaging = Packaging.builder().presetCost(60).presetTimeHours(0.5).itemizedList(List.of()).build();
         Instant received = Instant.parse("2026-01-01T00:00:00Z");
 
         Order.CostEstimate estimate = calc.estimateIndividual(mandatory, addOns, List.of(), packaging,
                 3.5, 1.0, 0.5, 0.15, 0.20, 100.0, 1, received, 4.0);
 
+        assertThat(estimate.getMandatoryItemsCost()).isEqualTo(425);
+        assertThat(estimate.getAddOnsCost()).isEqualTo(50);
+        assertThat(estimate.getPackagingCost()).isEqualTo(60);
         assertThat(estimate.getGrossTimeHours()).isCloseTo(5.5, within(1e-9));
         assertThat(estimate.getLaborCost()).isCloseTo(550, within(1e-9));
         double gross = 425 + 50 + 60 + 550; // 1085
