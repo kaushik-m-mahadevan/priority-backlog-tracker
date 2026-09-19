@@ -66,24 +66,23 @@ public class CustomerService {
 
     public CustomerView create(String groupId, String userId, UpsertCustomerRequest request) {
         groupService.requireMember(groupId, userId);
-        Customer customer = Customer.builder()
-                .groupId(groupId)
-                .name(EncryptedString.of(request.name()))
-                .contactNumber(EncryptedString.of(request.contactNumber()))
-                .email(EncryptedString.of(request.email()))
-                .instagramHandle(EncryptedString.of(request.instagramHandle()))
-                .acquisitionChannel(request.acquisitionChannel())
-                .firstContactDate(request.firstContactDate())
-                .shippingAddress(EncryptedString.of(request.shippingAddress()))
-                .notes(EncryptedString.of(request.notes()))
-                .build();
-        applyHashes(customer, request);
+        Customer customer = new Customer();
+        customer.setGroupId(groupId);
+        applyFields(customer, request);
         return CustomerView.of(repository.save(customer));
     }
 
     public CustomerView update(String groupId, String userId, String customerId, UpsertCustomerRequest request) {
         groupService.requireMember(groupId, userId);
         Customer customer = requireById(groupId, customerId);
+        applyFields(customer, request);
+        return CustomerView.of(repository.save(customer));
+    }
+
+    /** The 8 upsertable fields, shared between create (a blank Customer with just groupId
+     *  set) and update (an existing one) — same fields, same encryption/hashing, just a
+     *  different starting document. */
+    private void applyFields(Customer customer, UpsertCustomerRequest request) {
         customer.setName(EncryptedString.of(request.name()));
         customer.setContactNumber(EncryptedString.of(request.contactNumber()));
         customer.setEmail(EncryptedString.of(request.email()));
@@ -92,11 +91,6 @@ public class CustomerService {
         customer.setFirstContactDate(request.firstContactDate());
         customer.setShippingAddress(EncryptedString.of(request.shippingAddress()));
         customer.setNotes(EncryptedString.of(request.notes()));
-        applyHashes(customer, request);
-        return CustomerView.of(repository.save(customer));
-    }
-
-    private void applyHashes(Customer customer, UpsertCustomerRequest request) {
         customer.setEmailHash(blindIndex.hash(request.email()));
         customer.setInstagramHandleHash(blindIndex.hash(request.instagramHandle()));
         customer.setContactNumberHash(blindIndex.hash(request.contactNumber()));
