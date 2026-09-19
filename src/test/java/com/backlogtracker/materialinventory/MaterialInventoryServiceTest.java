@@ -75,25 +75,9 @@ class MaterialInventoryServiceTest {
                 new CreateYarnTypeRequest("Red Heart", "Worsted (4)", "Sunflower Yellow", null, null, null, null, null, null));
     }
 
-    @Test
-    void anyMemberCanCreateAndEditAYarnType() {
-        YarnTypeView created = createWool();
-        assertThat(created.brand()).isEqualTo("Red Heart");
-
-        YarnTypeView updated = yarnTypeService.update(inventoryGroup.getId(), userBId, created.id(),
-                new CreateYarnTypeRequest("Red Heart", "Worsted (4)", "Sunflower Yellow", null, null, null, null, "slightly faded", null));
-        assertThat(updated.notes()).isEqualTo("slightly faded");
-    }
-
-    @Test
-    void rejectsADuplicateBrandThicknessColourCombination() {
-        createWool();
-
-        assertThatThrownBy(() -> yarnTypeService.create(inventoryGroup.getId(), userBId,
-                new CreateYarnTypeRequest("red heart", "worsted (4)", "sunflower yellow", null, null, null, null, null, null)))
-                .isInstanceOf(ResponseStatusException.class)
-                .hasMessageContaining("already exists");
-    }
+    // create+edit round trip, duplicate-combination rejection, cannot-delete-when-in-use,
+    // and delete-when-unused are covered generically for both Yarn and Needle types in
+    // TypeCrudContractTest (to-3) -- kept here only what's genuinely yarn-specific below.
 
     @Test
     void settingACostOnCreateRecordsTheFirstHistoryEntry() {
@@ -174,25 +158,6 @@ class MaterialInventoryServiceTest {
         inventoryService.setMyQuantity(inventoryGroup.getId(), userAId, wool.id(), 0);
 
         assertThat(inventoryService.mine(inventoryGroup.getId(), userAId)).isEmpty();
-    }
-
-    @Test
-    void cannotDeleteAYarnTypeStillPresentInSomeonesInventory() {
-        YarnTypeView wool = createWool();
-        inventoryService.setMyQuantity(inventoryGroup.getId(), userAId, wool.id(), 1.0);
-
-        assertThatThrownBy(() -> yarnTypeService.delete(inventoryGroup.getId(), userAId, wool.id()))
-                .isInstanceOf(ResponseStatusException.class)
-                .hasMessageContaining("still in");
-    }
-
-    @Test
-    void deletingAnUnusedYarnTypeSucceeds() {
-        YarnTypeView wool = createWool();
-
-        yarnTypeService.delete(inventoryGroup.getId(), userAId, wool.id());
-
-        assertThat(yarnTypeService.list(inventoryGroup.getId(), userAId)).isEmpty();
     }
 
     @Test

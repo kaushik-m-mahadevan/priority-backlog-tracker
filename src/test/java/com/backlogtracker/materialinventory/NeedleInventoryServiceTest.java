@@ -68,25 +68,9 @@ class NeedleInventoryServiceTest {
                 new CreateNeedleTypeRequest(NeedleKind.CROCHET_HOOK, "4mm / US H-8", null));
     }
 
-    @Test
-    void anyMemberCanCreateAndEditANeedleType() {
-        NeedleTypeView created = createHook();
-        assertThat(created.size()).isEqualTo("4mm / US H-8");
-
-        NeedleTypeView updated = needleTypeService.update(inventoryGroup.getId(), userBId, created.id(),
-                new CreateNeedleTypeRequest(NeedleKind.CROCHET_HOOK, "4mm / US H-8", "bent tip"));
-        assertThat(updated.notes()).isEqualTo("bent tip");
-    }
-
-    @Test
-    void rejectsADuplicateKindSizeCombination() {
-        createHook();
-
-        assertThatThrownBy(() -> needleTypeService.create(inventoryGroup.getId(), userBId,
-                new CreateNeedleTypeRequest(NeedleKind.CROCHET_HOOK, "4mm / us h-8", null)))
-                .isInstanceOf(ResponseStatusException.class)
-                .hasMessageContaining("already exists");
-    }
+    // create+edit round trip, duplicate-combination rejection, cannot-delete-when-in-use,
+    // and delete-when-unused are covered generically for both Yarn and Needle types in
+    // TypeCrudContractTest (to-3) -- kept here only what's genuinely needle-specific below.
 
     @Test
     void aCrochetHookAndAKnittingNeedleOfTheSameSizeAreDifferentTypes() {
@@ -123,16 +107,6 @@ class NeedleInventoryServiceTest {
         needleInventoryService.setMyQuantity(inventoryGroup.getId(), userAId, hook.id(), 0);
 
         assertThat(needleInventoryService.mine(inventoryGroup.getId(), userAId)).isEmpty();
-    }
-
-    @Test
-    void cannotDeleteANeedleTypeStillPresentInSomeonesInventory() {
-        NeedleTypeView hook = createHook();
-        needleInventoryService.setMyQuantity(inventoryGroup.getId(), userAId, hook.id(), 1);
-
-        assertThatThrownBy(() -> needleTypeService.delete(inventoryGroup.getId(), userAId, hook.id()))
-                .isInstanceOf(ResponseStatusException.class)
-                .hasMessageContaining("still in");
     }
 
     @Test
