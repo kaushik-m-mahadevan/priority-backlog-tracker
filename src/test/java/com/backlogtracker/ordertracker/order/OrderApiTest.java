@@ -264,6 +264,70 @@ class OrderApiTest {
                 .andExpect(jsonPath("$.costEstimate.laborCost").value(600.0)); // 4h * ₹150
     }
 
+    /** Baseline coverage for OrderService.updateStatus, previously only ever exercised
+     *  incidentally: the status transition itself, that actualDeliveryDate stamps exactly
+     *  once on first reaching DELIVERED and never again on a later status change, and that
+     *  a no-op status update doesn't spuriously add a change-log entry. */
+    @Test
+    void updatingStatusStampsActualDeliveryDateOnlyOnceOnFirstDelivery() throws Exception {
+        String orderId = mvc.perform(auth(post("/api/ordertracker/groups/" + groupId + "/orders"), token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"customerId":"%s","orderType":"INDIVIDUAL","createdByCreatorId":"%s",
+                                 "itemName":"Status test bear","orderReceivedDate":"2026-01-01T00:00:00Z",
+                                 "mandatoryItems":[],"addOns":[],"craftingTimeHours":2}"""
+                                .formatted(customerId, creatorAId)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.actualDeliveryDate").doesNotExist())
+                .andReturn().getResponse().getContentAsString();
+        orderId = mapper.readTree(orderId).get("id").asText();
+
+        mvc.perform(auth(patch("/api/ordertracker/groups/" + groupId + "/orders/" + orderId + "/status"), token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"status\":\"IN_PROGRESS\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("IN_PROGRESS"))
+                .andExpect(jsonPath("$.actualDeliveryDate").doesNotExist());
+
+        String delivered = mvc.perform(auth(patch("/api/ordertracker/groups/" + groupId + "/orders/" + orderId + "/status"), token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"status\":\"DELIVERED\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("DELIVERED"))
+                .andExpect(jsonPath("$.actualDeliveryDate").exists())
+                .andReturn().getResponse().getContentAsString();
+        // MongoDB only round-trips Instant at millisecond precision, so compare truncated
+        // to millis rather than the sub-millisecond string this first, pre-persistence
+        // response happens to carry.
+        java.time.Instant firstStamped = java.time.Instant.parse(
+                mapper.readTree(delivered).get("actualDeliveryDate").asText())
+                .truncatedTo(java.time.temporal.ChronoUnit.MILLIS);
+
+        // A later status change away from and back to DELIVERED must not re-stamp the date.
+        String shipped = mvc.perform(auth(patch("/api/ordertracker/groups/" + groupId + "/orders/" + orderId + "/status"), token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"status\":\"SHIPPED\"}"))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+        assertThat(java.time.Instant.parse(mapper.readTree(shipped).get("actualDeliveryDate").asText()))
+                .isEqualTo(firstStamped);
+
+        String redelivered = mvc.perform(auth(patch("/api/ordertracker/groups/" + groupId + "/orders/" + orderId + "/status"), token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"status\":\"DELIVERED\"}"))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+        assertThat(java.time.Instant.parse(mapper.readTree(redelivered).get("actualDeliveryDate").asText()))
+                .isEqualTo(firstStamped);
+
+        String changeLog = mvc.perform(auth(get("/api/ordertracker/groups/" + groupId + "/orders/" + orderId + "/change-log"), token))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+        // 4 real transitions above (IN_PROGRESS, DELIVERED, SHIPPED, DELIVERED again) — no
+        // no-op update was sent in this test, so every one of them should be logged.
+        assertThat(mapper.readTree(changeLog).get(0).get("orderStatusChangeHistory")).hasSize(4);
+    }
+
     @Test
     void individualOrderCanBeFullyEditedAndRecomputesCost() throws Exception {
         String orderId = createBasicIndividualOrder();
