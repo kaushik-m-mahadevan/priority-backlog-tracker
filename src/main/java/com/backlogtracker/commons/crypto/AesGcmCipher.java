@@ -2,8 +2,6 @@ package com.backlogtracker.commons.crypto;
 
 import java.nio.charset.StandardCharsets;
 import java.security.GeneralSecurityException;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.util.Arrays;
 import java.util.Base64;
@@ -35,7 +33,7 @@ public class AesGcmCipher {
     private final SecretKeySpec key;
 
     public AesGcmCipher(EncryptionProperties props) {
-        this.key = new SecretKeySpec(sha256(props.key()), "AES");
+        this.key = new SecretKeySpec(Sha256.digest(props.key()), "AES");
     }
 
     public String encrypt(String plaintext) {
@@ -64,14 +62,6 @@ public class AesGcmCipher {
             return new String(cipher.doFinal(ciphertext), StandardCharsets.UTF_8);
         } catch (GeneralSecurityException e) {
             throw new IllegalStateException("Decryption failed — wrong key, or the value predates a key rotation", e);
-        }
-    }
-
-    private static byte[] sha256(String s) {
-        try {
-            return MessageDigest.getInstance("SHA-256").digest(s.getBytes(StandardCharsets.UTF_8));
-        } catch (NoSuchAlgorithmException e) {
-            throw new IllegalStateException(e);
         }
     }
 }

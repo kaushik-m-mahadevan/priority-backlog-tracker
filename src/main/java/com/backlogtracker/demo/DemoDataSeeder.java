@@ -1,4 +1,4 @@
-package com.backlogtracker.backlogtracker.demo;
+package com.backlogtracker.demo;
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;

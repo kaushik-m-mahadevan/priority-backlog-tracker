@@ -34,7 +34,7 @@ public class BlindIndexService {
     private final SecretKeySpec key;
 
     public BlindIndexService(EncryptionProperties props) {
-        this.key = new SecretKeySpec(sha256(props.key() + ":blind-index"), "HmacSHA256");
+        this.key = new SecretKeySpec(Sha256.digest(props.key() + ":blind-index"), "HmacSHA256");
     }
 
     /** Normalizes then hashes; null/blank input yields null (nothing to index). */
@@ -49,14 +49,6 @@ public class BlindIndexService {
             return Base64.getEncoder().encodeToString(mac.doFinal(normalized.getBytes(StandardCharsets.UTF_8)));
         } catch (NoSuchAlgorithmException | InvalidKeyException e) {
             throw new IllegalStateException("Blind-index hashing failed", e);
-        }
-    }
-
-    private static byte[] sha256(String s) {
-        try {
-            return java.security.MessageDigest.getInstance("SHA-256").digest(s.getBytes(StandardCharsets.UTF_8));
-        } catch (NoSuchAlgorithmException e) {
-            throw new IllegalStateException(e);
         }
     }
 }

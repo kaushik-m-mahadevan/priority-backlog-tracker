@@ -15,6 +15,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
 import com.backlogtracker.commons.group.service.GroupService;
+import com.backlogtracker.materialinventory.QuarterStep;
 import com.backlogtracker.materialinventory.inventory.domain.InventoryEntry;
 import com.backlogtracker.materialinventory.inventory.dto.InventoryEntryView;
 import com.backlogtracker.materialinventory.inventory.repository.InventoryEntryRepository;
@@ -29,10 +30,6 @@ import lombok.RequiredArgsConstructor;
 @Service
 @RequiredArgsConstructor
 public class InventoryService {
-
-    /** Quantities are in skeins and must land on a quarter-skein step (design decision) —
-     *  compared with a small epsilon since the value arrives as a double. */
-    private static final double QUARTER_STEP_EPSILON = 1e-9;
 
     /** How long an entry can go untouched before it's flagged "stale" in the UI (design
      *  decision: tie staleness to activity). This approximates activity using the entry's
@@ -106,14 +103,14 @@ public class InventoryService {
 
     private void withdraw(String groupId, String userId, String yarnTypeId, double amount) {
         Query query = Query.query(Criteria.where("groupId").is(groupId).and("userId").is(userId)
-                .and("yarnTypeId").is(yarnTypeId).and("quantity").gte(amount - QUARTER_STEP_EPSILON));
+                .and("yarnTypeId").is(yarnTypeId).and("quantity").gte(amount - QuarterStep.EPSILON));
         Update update = new Update().inc("quantity", -amount).set("updatedAt", Instant.now(clock));
         InventoryEntry updated = mongo.findAndModify(query, update,
                 FindAndModifyOptions.options().returnNew(true), InventoryEntry.class);
         if (updated == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Not enough on hand for this transfer");
         }
-        if (updated.getQuantity() <= QUARTER_STEP_EPSILON) {
+        if (updated.getQuantity() <= QuarterStep.EPSILON) {
             repository.deleteById(updated.getId());
         }
     }
@@ -130,11 +127,7 @@ public class InventoryService {
         if (quantity < 0) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "quantity must not be negative");
         }
-        double quarters = quantity * 4;
-        if (Math.abs(quarters - Math.round(quarters)) > QUARTER_STEP_EPSILON) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "quantity must be in quarter-skein steps (e.g. 0.25, 1.5)");
-        }
-        return Math.round(quarters) / 4.0;
+        return QuarterStep.require(quantity);
     }
 
     private void applyQuantity(String groupId, String userId, String yarnTypeId, double quantity) {

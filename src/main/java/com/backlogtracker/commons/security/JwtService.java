@@ -1,8 +1,5 @@
 package com.backlogtracker.commons.security;
 
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Date;
@@ -11,6 +8,7 @@ import javax.crypto.SecretKey;
 
 import org.springframework.stereotype.Service;
 
+import com.backlogtracker.commons.crypto.Sha256;
 import com.backlogtracker.commons.user.domain.User;
 
 import io.jsonwebtoken.JwtException;
@@ -31,7 +29,7 @@ public class JwtService {
     private final Duration ttl;
 
     public JwtService(JwtProperties props) {
-        this.key = Keys.hmacShaKeyFor(sha256(props.secret()));
+        this.key = Keys.hmacShaKeyFor(Sha256.digest(props.secret()));
         this.ttl = Duration.ofMinutes(props.expirationMinutes());
     }
 
@@ -60,14 +58,5 @@ public class JwtService {
                 .parseSignedClaims(token)
                 .getPayload()
                 .getSubject();
-    }
-
-    private static byte[] sha256(String s) {
-        try {
-            return MessageDigest.getInstance("SHA-256")
-                    .digest(s.getBytes(StandardCharsets.UTF_8));
-        } catch (NoSuchAlgorithmException e) {
-            throw new IllegalStateException(e);
-        }
     }
 }

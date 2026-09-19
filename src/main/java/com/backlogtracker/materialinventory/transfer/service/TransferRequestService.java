@@ -15,6 +15,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 import com.backlogtracker.commons.group.domain.Group;
 import com.backlogtracker.commons.group.service.GroupService;
+import com.backlogtracker.materialinventory.QuarterStep;
 import com.backlogtracker.materialinventory.inventory.service.InventoryService;
 import com.backlogtracker.materialinventory.transfer.domain.TransferRequest;
 import com.backlogtracker.materialinventory.transfer.domain.TransferStatus;
@@ -36,8 +37,6 @@ import lombok.extern.slf4j.Slf4j;
 @RequiredArgsConstructor
 @Slf4j
 public class TransferRequestService {
-
-    private static final double QUARTER_STEP_EPSILON = 1e-9;
 
     private final TransferRequestRepository repository;
     private final MongoOperations mongo;
@@ -128,7 +127,7 @@ public class TransferRequestService {
      *  already-fresh read rather than re-fetched, since it's immutable after {@link #create}
      *  ever sets it. */
     private TransferRequest reserveFulfillment(String groupId, String requestId, double amount, double requestedQuantity) {
-        double maxFulfilledBefore = requestedQuantity - amount + QUARTER_STEP_EPSILON;
+        double maxFulfilledBefore = requestedQuantity - amount + QuarterStep.EPSILON;
         Query query = Query.query(Criteria.where("id").is(requestId).and("groupId").is(groupId)
                 .and("status").in(TransferStatus.PENDING, TransferStatus.PARTIALLY_FULFILLED)
                 .and("fulfilledQuantity").lte(maxFulfilledBefore));
@@ -196,10 +195,6 @@ public class TransferRequestService {
     }
 
     private double requireQuarterStep(double quantity) {
-        double quarters = quantity * 4;
-        if (Math.abs(quarters - Math.round(quarters)) > QUARTER_STEP_EPSILON) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "quantity must be in quarter-skein steps (e.g. 0.25, 1.5)");
-        }
-        return Math.round(quarters) / 4.0;
+        return QuarterStep.require(quantity);
     }
 }
