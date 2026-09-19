@@ -3,11 +3,21 @@ package com.backlogtracker.commons.link;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import java.util.List;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
+
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.http.HttpStatus;
 import org.springframework.web.server.ResponseStatusException;
 
 import com.backlogtracker.commons.group.domain.Group;
@@ -88,6 +98,50 @@ class GroupLinkServiceTest {
         assertThatThrownBy(() -> linkService.link(business2.getId(), userId, finance1.getId()))
                 .isInstanceOf(ResponseStatusException.class)
                 .hasMessageContaining("already linked");
+    }
+
+    /** Real concurrent coverage for link()'s duplicate-key race: previously only ever
+     *  called sequentially, so the DuplicateKeyException catch block -- the actual guard
+     *  once two callers race past the findByGroupIdA.../findByGroupIdB... pre-checks --
+     *  was never really exercised under contention. */
+    @Test
+    void concurrentLinkAttemptsOnTheSamePairLeaveExactlyOneLinkAndRejectTheRest() throws Exception {
+        Group business = groupService.create("Business", userId, Group.APPLET_ORDER_TRACKER);
+        Group finance = groupService.create("Finance", userId, Group.APPLET_FINANCE_TRACKER);
+
+        int racers = 8;
+        ExecutorService pool = Executors.newFixedThreadPool(racers);
+        CountDownLatch ready = new CountDownLatch(racers);
+        CountDownLatch go = new CountDownLatch(1);
+        try {
+            List<Future<Object>> futures = IntStream.range(0, racers)
+                    .<Future<Object>>mapToObj(i -> pool.submit(() -> {
+                        ready.countDown();
+                        go.await();
+                        try {
+                            return linkService.link(business.getId(), userId, finance.getId());
+                        } catch (ResponseStatusException e) {
+                            return e;
+                        }
+                    }))
+                    .collect(Collectors.toList());
+            assertThat(ready.await(5, TimeUnit.SECONDS)).isTrue();
+            go.countDown();
+
+            List<Object> results = new java.util.ArrayList<>();
+            for (var f : futures) {
+                results.add(f.get(10, TimeUnit.SECONDS));
+            }
+
+            long succeeded = results.stream().filter(r -> r instanceof com.backlogtracker.commons.link.domain.GroupLink).count();
+            long conflicted = results.stream().filter(r -> r instanceof ResponseStatusException e
+                    && e.getStatusCode() == HttpStatus.CONFLICT).count();
+            assertThat(succeeded).isEqualTo(1);
+            assertThat(conflicted).isEqualTo(racers - 1);
+            assertThat(links.findByGroupIdAAndAppletKeyB(business.getId(), Group.APPLET_FINANCE_TRACKER)).isPresent();
+        } finally {
+            pool.shutdownNow();
+        }
     }
 
     @Test

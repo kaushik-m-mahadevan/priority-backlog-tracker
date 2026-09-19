@@ -409,7 +409,7 @@
     </summary>
     <div class="items">
       <div class="item"><input type="checkbox" id="tc-1" checked><label for="tc-1">Add a real concurrent test for ApprovalService.approve's retry loop <span class="note">4-member group races reliably; a 6+ concurrent race can exhaust MAX_APPROVE_RETRIES=3 — flagged as an open question, not fixed (see below)</span></label></div>
-      <div class="item"><input type="checkbox" id="tc-2"><label for="tc-2">Add a real concurrent test for GroupLinkService.link's duplicate-key race</label></div>
+      <div class="item"><input type="checkbox" id="tc-2" checked><label for="tc-2">Add a real concurrent test for GroupLinkService.link's duplicate-key race</label></div>
       <div class="item"><input type="checkbox" id="tc-3"><label for="tc-3">Add a real concurrent test for CostConfigChangeService.approve's retry loop</label></div>
       <div class="item"><input type="checkbox" id="tc-4"><label for="tc-4">Strengthen the 4 existing thread-pool tests with latch-gated simultaneous submission</label></div>
       <div class="item"><input type="checkbox" id="tc-5"><label for="tc-5">Assert no duplicate ArchivedItem in ArchiveRequestServiceTest's concurrent-approval test</label></div>
