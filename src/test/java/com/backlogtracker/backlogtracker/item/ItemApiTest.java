@@ -40,6 +40,8 @@ class ItemApiTest {
     @Autowired ItemRepository items;
     @Autowired GroupRepository groups;
     @Autowired MongoOperations mongo;
+    @Autowired com.backlogtracker.commons.user.repository.UserRepository users;
+    @Autowired com.backlogtracker.commons.security.JwtService jwt;
 
     private String token;
     private String groupId;
@@ -48,6 +50,7 @@ class ItemApiTest {
     void setUp() throws Exception {
         items.deleteAll();
         mongo.remove(new Query(), Counter.class); // reset ITM- sequence for deterministic ids
+        users.findByEmailIgnoreCase("itemouter@bt.test").ifPresent(users::delete);
         token = AuthTestSupport.devToken(mvc, mapper);
         groups.deleteAll();
         groupId = AuthTestSupport.createGroup(mvc, mapper, token, "Item Test Group");
@@ -55,6 +58,35 @@ class ItemApiTest {
 
     private MockHttpServletRequestBuilder auth(MockHttpServletRequestBuilder b) {
         return b.header("Authorization", "Bearer " + token);
+    }
+
+    private MockHttpServletRequestBuilder auth(MockHttpServletRequestBuilder b, String t) {
+        return b.header("Authorization", "Bearer " + t);
+    }
+
+    /** tg-13: Backlog Tracker's own item list/get/create had no HTTP-level proof that a
+     *  caller who isn't a member of the group is rejected -- every other test in this
+     *  file uses the sole owning token, so this gap was invisible until specifically
+     *  checked for. */
+    @Test
+    void nonMemberIsForbiddenFromListingGettingOrCreatingItems() throws Exception {
+        JsonNode created = create(createBody("Owner's item", "Research", "High", 30, "MINUTES"));
+        String itemId = created.get("id").asText();
+
+        com.backlogtracker.commons.user.domain.User outsider = com.backlogtracker.commons.user.domain.User.builder()
+                .name("Outsider").email("itemouter@bt.test").passwordHash("x")
+                .role(com.backlogtracker.commons.user.domain.Role.USER)
+                .status(com.backlogtracker.commons.user.domain.AccountStatus.ACTIVE)
+                .handle("itemouter").build();
+        String outsiderToken = jwt.issue(users.save(outsider));
+
+        mvc.perform(auth(get("/api/items"), outsiderToken).param("groupId", groupId))
+                .andExpect(status().isForbidden());
+        mvc.perform(auth(get("/api/items/" + itemId), outsiderToken))
+                .andExpect(status().isForbidden());
+        mvc.perform(auth(post("/api/items"), outsiderToken).contentType(MediaType.APPLICATION_JSON)
+                        .content(createBody("Intruder's item", "Research", "High", 30, "MINUTES")))
+                .andExpect(status().isForbidden());
     }
 
     /** GET builder for the item list already carrying groupId. */
