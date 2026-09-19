@@ -1558,7 +1558,15 @@ export default function OrderDetailPage() {
                         <td className="cell-order mono">{e.hours.toFixed(2)}h</td>
                         <td>{creatorName(e.loggedByCreatorId)}</td>
                         <td>
-                          <button type="button" className="linkbtn" onClick={() => removeTime(e.entryId)}>
+                          <button
+                            type="button"
+                            className="linkbtn"
+                            onClick={() => {
+                              if (window.confirm(`Remove this ${e.hours.toFixed(2)}h ${stageLabel(e.stage)} entry?`)) {
+                                removeTime(e.entryId);
+                              }
+                            }}
+                          >
                             remove
                           </button>
                         </td>

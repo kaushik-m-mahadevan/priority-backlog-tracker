@@ -240,8 +240,8 @@
       <span class="badge">0/0</span>
     </summary>
     <div class="items">
-      <div class="item"><input type="checkbox" id="sm-1"><label for="sm-1">Delete the stale @Version field + comment on TransferRequest</label></div>
-      <div class="item"><input type="checkbox" id="sm-2"><label for="sm-2">Add a confirmation dialog before deleting a logged time entry</label></div>
+      <div class="item"><input type="checkbox" id="sm-1" checked><label for="sm-1">Delete the stale @Version field + comment on TransferRequest <span class="note">reviewed — NOT deleted: @Version still provides real optimistic-lock protection for markComplete()/cancel()'s plain read-modify-save path, independent of reserveFulfillment's separate atomic findAndModify; the "stale" claim doesn't hold up</span></label></div>
+      <div class="item"><input type="checkbox" id="sm-2" checked><label for="sm-2">Add a confirmation dialog before deleting a logged time entry</label></div>
       <div class="item"><input type="checkbox" id="sm-3"><label for="sm-3">Re-check a group invite's per-app membership cap at accept time, not just invite time</label></div>
       <div class="item"><input type="checkbox" id="sm-4"><label for="sm-4">Consolidate duplicated new-customer fields into one shared component</label></div>
       <div class="item"><input type="checkbox" id="sm-5"><label for="sm-5">Add a "Pending invites" list to the Manage Business/Group page</label></div>
