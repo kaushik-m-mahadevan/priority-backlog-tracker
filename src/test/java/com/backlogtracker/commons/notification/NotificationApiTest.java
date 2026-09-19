@@ -119,6 +119,33 @@ class NotificationApiTest {
         invite(annToken, "bo", 409);              // duplicate pending invite
     }
 
+    /** Regression test: the per-applet group cap is only checked at invite time — if the
+     *  invitee later fills up their remaining slots before accepting, addMember() must
+     *  re-check the cap so acceptance fails with a clear error for the invitee, rather
+     *  than silently pushing them over the limit. */
+    @Test
+    void acceptingAnInviteReChecksTheMembershipCapEvenIfItWasFineAtInviteTime() throws Exception {
+        invite(annToken, "bo", 201);
+        String nid = notifications.findByUserIdOrderByCreatedAtDesc(
+                users.findByEmailIgnoreCase("bo@n.test").orElseThrow().getId()).get(0).getId();
+
+        // Backlog Tracker's default cap is 5 — Bo fills all 5 slots with other groups
+        // between being invited and accepting.
+        for (int i = 0; i < 5; i++) {
+            AuthTestSupport.createGroup(mvc, mapper, boToken, "Bo's group " + i);
+        }
+
+        mvc.perform(post("/api/notifications/" + nid + "/accept")
+                        .header("Authorization", "Bearer " + boToken))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.message").value(
+                        org.hamcrest.Matchers.containsString("maximum of 5 groups")));
+
+        // Rejected, not silently joined.
+        mvc.perform(get("/api/groups").header("Authorization", "Bearer " + annToken))
+                .andExpect(jsonPath("$[0].members.length()").value(1));
+    }
+
     @Test
     void cannotAcceptSomeoneElsesNotification() throws Exception {
         invite(annToken, "bo", 201);
