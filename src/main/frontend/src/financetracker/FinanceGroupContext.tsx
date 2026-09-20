@@ -1,17 +1,6 @@
-import {
-  createContext,
-  useCallback,
-  useContext,
-  useEffect,
-  useMemo,
-  useState,
-  ReactNode,
-} from "react";
-import { api } from "../api/client";
+import { useMemo, type ReactNode } from "react";
+import { createAppletGroupContext } from "../lib/createAppletGroupContext";
 import type { GroupView } from "../types";
-
-const KEY = "pbt.financetracker.groupId";
-const APPLET_KEY = "financetracker";
 
 interface Ctx {
   financeGroups: GroupView[];
@@ -23,82 +12,31 @@ interface Ctx {
   refresh: () => Promise<void>;
 }
 
-const FinanceGroupCtx = createContext<Ctx | undefined>(undefined);
-
-function readStored(): string | null {
-  try {
-    return localStorage.getItem(KEY);
-  } catch {
-    return null;
-  }
-}
+const { Provider, useAppletGroup } = createAppletGroupContext("financetracker", "financetracker");
 
 /** Finance Tracker's own group picker — same shape as Order Tracker's BusinessContext,
  *  deliberately separate from it and from Backlog Tracker's GroupContext, since a group
  *  is scoped to one applet (platform integration decision). A Finance Tracker group is
  *  its own independent permission scope, on purpose — see GroupLink for how one gets
- *  connected to an Order Tracker business. */
+ *  connected to an Order Tracker business. Built on the shared createAppletGroupContext
+ *  factory (fdup-4); this module just renames the generic shape to Finance Tracker's own
+ *  historical field names so every existing consumer keeps working unchanged. */
 export function FinanceGroupProvider({ children }: { children: ReactNode }) {
-  const [financeGroups, setFinanceGroups] = useState<GroupView[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [selectedId, setSelectedId] = useState<string | null>(readStored());
-
-  const refresh = useCallback(async () => {
-    try {
-      const list = await api.get<GroupView[]>(`/groups?appletKey=${APPLET_KEY}`);
-      setFinanceGroups(list);
-      setSelectedId((prev) => {
-        if (prev && list.some((g) => g.id === prev)) return prev;
-        return list[0]?.id ?? null;
-      });
-    } catch {
-      setFinanceGroups([]);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    void refresh();
-  }, [refresh]);
-
-  const setCurrentFinanceGroup = useCallback((id: string) => {
-    setSelectedId(id);
-    try {
-      localStorage.setItem(KEY, id);
-    } catch {
-      /* private mode */
-    }
-  }, []);
-
-  const createFinanceGroup = useCallback(
-    async (name: string) => {
-      const created = await api.post<GroupView>(`/groups?appletKey=${APPLET_KEY}`, { name });
-      await refresh();
-      setCurrentFinanceGroup(created.id);
-      return created;
-    },
-    [refresh, setCurrentFinanceGroup]
-  );
-
-  const value = useMemo<Ctx>(() => {
-    const currentFinanceGroup = financeGroups.find((g) => g.id === selectedId) ?? null;
-    return {
-      financeGroups,
-      loading,
-      currentFinanceGroup,
-      currentGroupId: currentFinanceGroup?.id ?? null,
-      setCurrentFinanceGroup,
-      createFinanceGroup,
-      refresh,
-    };
-  }, [financeGroups, loading, selectedId, setCurrentFinanceGroup, createFinanceGroup, refresh]);
-
-  return <FinanceGroupCtx.Provider value={value}>{children}</FinanceGroupCtx.Provider>;
+  return <Provider>{children}</Provider>;
 }
 
 export function useFinanceGroup(): Ctx {
-  const ctx = useContext(FinanceGroupCtx);
-  if (!ctx) throw new Error("useFinanceGroup must be used within FinanceGroupProvider");
-  return ctx;
+  const ctx = useAppletGroup();
+  return useMemo(
+    () => ({
+      financeGroups: ctx.groups,
+      loading: ctx.loading,
+      currentFinanceGroup: ctx.currentGroup,
+      currentGroupId: ctx.currentGroupId,
+      setCurrentFinanceGroup: ctx.setCurrentGroup,
+      createFinanceGroup: ctx.createGroup,
+      refresh: ctx.refresh,
+    }),
+    [ctx]
+  );
 }
