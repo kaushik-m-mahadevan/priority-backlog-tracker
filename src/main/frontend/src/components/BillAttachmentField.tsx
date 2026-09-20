@@ -28,7 +28,10 @@ export function BillPreview({
 
 /** The "attach a bill" file input row — only shown while creating (an existing entry's
  *  bill is managed through the {@link ImageGallery} preview instead, same convention this
- *  codebase already uses for Order Tracker's own image attachments). */
+ *  codebase already uses for Order Tracker's own image attachments). `capture="environment"`
+ *  (ui-13) is just a hint — mobile browsers that support it open straight to the back
+ *  camera instead of a file browser; desktop and unsupported browsers ignore it and fall
+ *  back to the ordinary file picker, so it's safe to set unconditionally. */
 export function BillFileInput({
   id,
   editingId,
@@ -42,7 +45,7 @@ export function BillFileInput({
   return (
     <div className="form-row">
       <label htmlFor={id}>Attach a bill (optional)</label>
-      <input id={id} type="file" accept={BILL_ACCEPT} onChange={(e) => onChange(e.target.files?.[0] ?? null)} />
+      <input id={id} type="file" accept={BILL_ACCEPT} capture="environment" onChange={(e) => onChange(e.target.files?.[0] ?? null)} />
     </div>
   );
 }
