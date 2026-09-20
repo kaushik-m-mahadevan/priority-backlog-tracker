@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import { useAuth } from "../../auth/AuthContext";
 import { materialInventoryApi } from "../api";
 import { useMaterialInventory } from "../MaterialInventoryContext";
@@ -41,7 +41,13 @@ const blankNeedleDraft = (): NewNeedleDraft => ({ kind: "CROCHET_HOOK", size: ""
  *
  *  Hooks/needles get their own separate section below (design decision) — they're
  *  reusable tools, not a consumable material, tracked in whole units rather than
- *  quarter-skein steps. */
+ *  quarter-skein steps.
+ *
+ *  ui-2: the yarn identity cell is compact (brand/thickness/colour only) with material
+ *  detail, notes, cost, and price history moved behind a per-row expand toggle instead
+ *  of always shown — the "reservation in its own section" half of ui-2 is deliberately
+ *  not done here: reservation doesn't exist yet (that's ad-2, Order → Material
+ *  Inventory decrement), so there's nothing to give a section to until it lands. */
 export default function MyInventoryPage() {
   const { currentInventoryGroup, currentGroupId } = useMaterialInventory();
   const { user } = useAuth();
@@ -58,6 +64,7 @@ export default function MyInventoryPage() {
   const [editingCost, setEditingCost] = useState<Record<string, string>>({});
   const [savingCost, setSavingCost] = useState<string | null>(null);
   const [showCostHistory, setShowCostHistory] = useState<string | null>(null);
+  const [expandedYarn, setExpandedYarn] = useState<Record<string, boolean>>({});
   const [showNewNeedle, setShowNewNeedle] = useState(false);
   const [newNeedle, setNewNeedle] = useState<NewNeedleDraft>(blankNeedleDraft());
   const [editingNeedleQuantity, setEditingNeedleQuantity] = useState<Record<string, string>>({});
@@ -383,56 +390,23 @@ export default function MyInventoryPage() {
                 </tr>
               </thead>
               <tbody>
-                {yarnTypes.map((y) => (
-                  <tr key={y.id}>
+                {yarnTypes.map((y) => {
+                  const expanded = !!expandedYarn[y.id];
+                  return (
+                  <Fragment key={y.id}>
+                  <tr>
                     <td className="cell-title">
+                      <button
+                        type="button"
+                        className="iconbtn"
+                        style={{ marginRight: 4 }}
+                        aria-expanded={expanded}
+                        aria-label={`${expanded ? "Hide" : "Show"} details for ${y.brand} ${y.colour}`}
+                        onClick={() => setExpandedYarn({ ...expandedYarn, [y.id]: !expanded })}
+                      >
+                        {expanded ? "▾" : "▸"}
+                      </button>
                       {y.brand} — {y.thickness}, {y.colour}
-                      <div className="muted" style={{ fontSize: 12 }}>
-                        {[y.material, y.skeinWeightGrams != null ? `${y.skeinWeightGrams}g` : null,
-                          y.skeinLengthMeters != null ? `${y.skeinLengthMeters}m` : null,
-                          y.recommendedHookSize ? `hook ${y.recommendedHookSize}` : null]
-                          .filter(Boolean).join(" · ")}
-                      </div>
-                      {y.notes && <div className="muted" style={{ fontSize: 12 }}>{y.notes}</div>}
-                      <div className="muted" style={{ fontSize: 12, marginTop: 2 }}>
-                        {editingCost[y.id] !== undefined ? (
-                          <span style={{ display: "inline-flex", gap: 4, alignItems: "center" }}>
-                            <input
-                              aria-label={`Cost per skein for ${y.brand} ${y.colour}`}
-                              type="number"
-                              min={0}
-                              step={0.01}
-                              style={{ width: 72 }}
-                              value={editingCost[y.id]}
-                              onChange={(e) => setEditingCost({ ...editingCost, [y.id]: e.target.value })}
-                            />
-                            <button type="button" disabled={savingCost === y.id} onClick={() => saveCost(y)}>
-                              Save
-                            </button>
-                          </span>
-                        ) : (
-                          <button
-                            type="button"
-                            onClick={() => setEditingCost({ ...editingCost, [y.id]: y.costPerSkein != null ? String(y.costPerSkein) : "" })}
-                          >
-                            {y.costPerSkein != null ? `${formatMoney(y.costPerSkein)}/skein` : "Set cost per skein"}
-                          </button>
-                        )}
-                        {y.costHistory.length > 0 && (
-                          <button type="button" style={{ marginLeft: 6 }} onClick={() => setShowCostHistory(showCostHistory === y.id ? null : y.id)}>
-                            {showCostHistory === y.id ? "hide history" : "price history"}
-                          </button>
-                        )}
-                      </div>
-                      {showCostHistory === y.id && (
-                        <ul style={{ margin: "4px 0 0", paddingLeft: 16, fontSize: 12 }} className="muted">
-                          {y.costHistory.map((c, i) => (
-                            <li key={i}>
-                              {new Date(c.changedAt).toLocaleDateString()}: {c.previousCost != null ? formatMoney(c.previousCost) : "unset"} → {c.newCost != null ? formatMoney(c.newCost) : "unset"}
-                            </li>
-                          ))}
-                        </ul>
-                      )}
                     </td>
                     {members.map((m) => {
                       const isMe = m.id === user?.id;
@@ -484,7 +458,59 @@ export default function MyInventoryPage() {
                       </button>
                     </td>
                   </tr>
-                ))}
+                  {expanded && (
+                    <tr>
+                      <td colSpan={members.length + 2} className="muted" style={{ fontSize: 12 }}>
+                        {[y.material, y.skeinWeightGrams != null ? `${y.skeinWeightGrams}g` : null,
+                          y.skeinLengthMeters != null ? `${y.skeinLengthMeters}m` : null,
+                          y.recommendedHookSize ? `hook ${y.recommendedHookSize}` : null]
+                          .filter(Boolean).join(" · ") || "No material details recorded."}
+                        {y.notes && <div>{y.notes}</div>}
+                        <div style={{ marginTop: 4 }}>
+                          {editingCost[y.id] !== undefined ? (
+                            <span style={{ display: "inline-flex", gap: 4, alignItems: "center" }}>
+                              <input
+                                aria-label={`Cost per skein for ${y.brand} ${y.colour}`}
+                                type="number"
+                                min={0}
+                                step={0.01}
+                                style={{ width: 72 }}
+                                value={editingCost[y.id]}
+                                onChange={(e) => setEditingCost({ ...editingCost, [y.id]: e.target.value })}
+                              />
+                              <button type="button" disabled={savingCost === y.id} onClick={() => saveCost(y)}>
+                                Save
+                              </button>
+                            </span>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => setEditingCost({ ...editingCost, [y.id]: y.costPerSkein != null ? String(y.costPerSkein) : "" })}
+                            >
+                              {y.costPerSkein != null ? `${formatMoney(y.costPerSkein)}/skein` : "Set cost per skein"}
+                            </button>
+                          )}
+                          {y.costHistory.length > 0 && (
+                            <button type="button" style={{ marginLeft: 6 }} onClick={() => setShowCostHistory(showCostHistory === y.id ? null : y.id)}>
+                              {showCostHistory === y.id ? "hide history" : "price history"}
+                            </button>
+                          )}
+                        </div>
+                        {showCostHistory === y.id && (
+                          <ul style={{ margin: "4px 0 0", paddingLeft: 16 }}>
+                            {y.costHistory.map((c, i) => (
+                              <li key={i}>
+                                {new Date(c.changedAt).toLocaleDateString()}: {c.previousCost != null ? formatMoney(c.previousCost) : "unset"} → {c.newCost != null ? formatMoney(c.newCost) : "unset"}
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                      </td>
+                    </tr>
+                  )}
+                  </Fragment>
+                  );
+                })}
               </tbody>
             </table>
           </div>
