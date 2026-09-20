@@ -1,4 +1,4 @@
-import { ReactNode } from "react";
+import { ReactNode, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
 import Bell from "./Bell";
 import Connections from "./Connections";
@@ -37,8 +37,23 @@ export default function AppHeader({
   /** The currently-selected group/business/etc. in this applet, if any. */
   groupId?: string | null;
 }) {
+  // Published as a CSS var (ui-10) so a page-level sticky element (e.g. the order
+  // detail action bar) can sit exactly below this bar regardless of applet — some
+  // applets' headers wrap onto a second row (business switcher + "+ New business"),
+  // so a fixed guessed offset would put the content half under the nav.
+  const navRef = useRef<HTMLElement>(null);
+  useEffect(() => {
+    const el = navRef.current;
+    if (!el) return;
+    const publish = () => document.documentElement.style.setProperty("--app-header-h", `${el.getBoundingClientRect().height}px`);
+    publish();
+    const ro = new ResizeObserver(publish);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
   return (
-    <nav className="nav">
+    <nav className="nav" ref={navRef}>
       <Link to="/" className="iconbtn" title="Back to console" aria-label="Back to console">
         <HomeIcon />
       </Link>

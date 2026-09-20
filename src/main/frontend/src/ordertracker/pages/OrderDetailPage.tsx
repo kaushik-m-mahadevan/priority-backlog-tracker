@@ -803,31 +803,36 @@ export default function OrderDetailPage() {
 
   return (
     <div>
-      {actionError && <div className="error" style={{ marginBottom: 12 }}>{actionError}</div>}
-      <div className="toolbar" style={{ marginBottom: 4 }}>
-        <span className="mono" style={{ fontSize: 20, fontWeight: 700 }}>
-          {order.orderNumber}
-        </span>
-        <span className="badge">{order.orderType}</span>
-        <select
-          aria-label="Order status"
-          value={order.status}
-          onChange={async (e) => runAction(() => orderTrackerApi.updateStatus(groupId, order.id, e.target.value))}
-        >
-          {STATUSES.map((s) => (
-            <option key={s} value={s}>
-              {s.replace(/_/g, " ")}
-            </option>
-          ))}
-        </select>
-        <span className="badge">{order.paymentStatus.replace(/_/g, " ")}</span>
-        <span className="spacer" />
-        <button onClick={() => setAddingToGroup(true)}>Add to Priority Tracker</button>
-        {!editing && (
-          <button onClick={() => setEditing(true)}>Edit order</button>
-        )}
+      {/* Sticky (ui-10): this order's status/edit actions are the ones you reach for
+          while reading the (often long) sections below, so they stay reachable instead
+          of forcing a scroll back to the top every time. */}
+      <div className="order-sticky-actions">
+        {actionError && <div className="error" style={{ marginBottom: 12 }}>{actionError}</div>}
+        <div className="toolbar" style={{ marginBottom: 4 }}>
+          <span className="mono" style={{ fontSize: 20, fontWeight: 700 }}>
+            {order.orderNumber}
+          </span>
+          <span className="badge">{order.orderType}</span>
+          <select
+            aria-label="Order status"
+            value={order.status}
+            onChange={async (e) => runAction(() => orderTrackerApi.updateStatus(groupId, order.id, e.target.value))}
+          >
+            {STATUSES.map((s) => (
+              <option key={s} value={s}>
+                {s.replace(/_/g, " ")}
+              </option>
+            ))}
+          </select>
+          <span className="badge">{order.paymentStatus.replace(/_/g, " ")}</span>
+          <span className="spacer" />
+          <button onClick={() => setAddingToGroup(true)}>Add to Priority Tracker</button>
+          {!editing && (
+            <button onClick={() => setEditing(true)}>Edit order</button>
+          )}
+        </div>
+        <p className="page-sub">{order.itemName}</p>
       </div>
-      <p className="page-sub">{order.itemName}</p>
       {addingToGroup && <AddToGroupModal order={order} onClose={() => setAddingToGroup(false)} />}
 
       <div className="toolbar" style={{ marginBottom: 20 }}>

@@ -2014,6 +2014,18 @@ a.applet-card:hover {
   color: var(--muted);
 }
 
+/* Sticky order-detail action bar (ui-10) — pinned just below the app's own sticky
+   nav (64px, matching .cg-grove / .dash-aside .grove.solo's own top offset) so
+   status/edit stay reachable while scrolling a long order's sections. */
+.order-sticky-actions {
+  position: sticky;
+  top: var(--app-header-h, 64px);
+  z-index: 15;
+  background: var(--bg);
+  padding-top: 8px;
+  margin: -8px 0 12px;
+}
+
 /* ---------- Switch: every boolean setting is a switch, never a checkbox ---------- */
 .switch-field {
   margin-bottom: 4px;
