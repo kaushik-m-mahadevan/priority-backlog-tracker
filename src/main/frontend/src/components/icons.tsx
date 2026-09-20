@@ -82,6 +82,34 @@ export const ItemsGlyph = ({ size = 17 }: P) => (
   </svg>
 );
 
+/* Order Tracker's own bottom-nav glyphs (ui-3: icon-only, matching Backlog Tracker's tabbar) */
+export const OrdersGlyph = ({ size = 17 }: P) => (
+  <svg {...base(size)}>
+    <rect x="4" y="3" width="16" height="18" rx="2" />
+    <path d="M8 8h8 M8 12h8 M8 16h5" />
+  </svg>
+);
+export const NewOrderGlyph = ({ size = 17 }: P) => (
+  <svg {...base(size)}>
+    <circle cx="12" cy="12" r="9" />
+    <path d="M12 8v8 M8 12h8" />
+  </svg>
+);
+export const CustomersGlyph = ({ size = 17 }: P) => (
+  <svg {...base(size)}>
+    <circle cx="9" cy="8" r="3" />
+    <circle cx="17" cy="9" r="2.4" />
+    <path d="M4 19c0-3 2.5-5 5-5s5 2 5 5 M15 19c0-2 1-3.5 3-3.5S21 17 21 19" />
+  </svg>
+);
+export const MoreGlyph = ({ size = 17 }: P) => (
+  <svg {...base(size)}>
+    <circle cx="5" cy="12" r="1.4" fill="currentColor" />
+    <circle cx="12" cy="12" r="1.4" fill="currentColor" />
+    <circle cx="19" cy="12" r="1.4" fill="currentColor" />
+  </svg>
+);
+
 /* age markers for Needs Attention */
 export const AgeIcon = ({ size = 14 }: P) => (
   <svg {...base(size)}>

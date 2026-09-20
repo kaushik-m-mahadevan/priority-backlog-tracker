@@ -1,10 +1,13 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { NavLink, Outlet } from "react-router-dom";
 import AppHeader from "../components/AppHeader";
+import { CustomersGlyph, MoreGlyph, NewOrderGlyph, OrdersGlyph } from "../components/icons";
 import ProfileGatePage from "./ProfileGatePage";
 import SetupWizardPage from "./pages/SetupWizardPage";
 import { useBusiness } from "./BusinessContext";
 import { useSetupGate } from "./useSetupGate";
+import { useDismissableMenu } from "../lib/useDismissableMenu";
+import { usePopoverPosition } from "../lib/usePopoverPosition";
 
 function BusinessSwitcher() {
   const { businesses, currentGroupId, setCurrentBusiness, createBusiness } = useBusiness();
@@ -54,6 +57,44 @@ function BusinessSwitcher() {
       <button type="button" onClick={() => setCreating(true)}>
         + New business
       </button>
+    </div>
+  );
+}
+
+/** Overflow tab for the mobile bottom bar (ui-3: 4 icons max — Orders / New Order /
+ *  Customers / More — so My Work / Team / Business live behind one "more" popover
+ *  instead of stretching the tabbar past a comfortable tap target count). */
+function MoreTab() {
+  const { open, setOpen, ref } = useDismissableMenu<HTMLDivElement>();
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const { popoverRef, style: popoverStyle } = usePopoverPosition(triggerRef, open);
+
+  return (
+    <div ref={ref} style={{ position: "relative", display: "flex" }}>
+      <button
+        type="button"
+        ref={triggerRef}
+        className={open ? "active" : ""}
+        aria-label="More"
+        aria-haspopup="menu"
+        aria-expanded={open}
+        onClick={() => setOpen((o) => !o)}
+      >
+        <MoreGlyph size={22} />
+      </button>
+      {open && (
+        <div className="navmenu-pop" role="menu" ref={popoverRef} style={popoverStyle}>
+          <NavLink to="/ordertracker/my-work" role="menuitem" onClick={() => setOpen(false)}>
+            My Work
+          </NavLink>
+          <NavLink to="/ordertracker/manage-business" role="menuitem" onClick={() => setOpen(false)}>
+            Team
+          </NavLink>
+          <NavLink to="/ordertracker/business-settings" role="menuitem" onClick={() => setOpen(false)}>
+            Business
+          </NavLink>
+        </div>
+      )}
     </div>
   );
 }
@@ -112,14 +153,20 @@ export default function OrderTrackerLayout() {
 
       {/* .nav-links (the desktop nav) hides below 760px, same as Backlog Tracker's own
           Layout — this is Order Tracker's equivalent bottom bar so Business/Customers
-          stay reachable on mobile instead of just disappearing. */}
+          stay reachable on mobile instead of just disappearing. Icon-only (ui-3), matching
+          Backlog Tracker's own tabbar convention — My Work/Team/Business move behind More. */}
       {showNav && (
-        <nav className="tabbar text">
-          <NavLink to="/ordertracker/orders">Orders</NavLink>
-          <NavLink to="/ordertracker/my-work">My Work</NavLink>
-          <NavLink to="/ordertracker/customers">Customers</NavLink>
-          <NavLink to="/ordertracker/manage-business">Team</NavLink>
-          <NavLink to="/ordertracker/business-settings">Business</NavLink>
+        <nav className="tabbar">
+          <NavLink to="/ordertracker/orders" end aria-label="Orders">
+            <OrdersGlyph size={22} />
+          </NavLink>
+          <NavLink to="/ordertracker/orders/new" aria-label="New order">
+            <NewOrderGlyph size={22} />
+          </NavLink>
+          <NavLink to="/ordertracker/customers" aria-label="Customers">
+            <CustomersGlyph size={22} />
+          </NavLink>
+          <MoreTab />
         </nav>
       )}
     </div>

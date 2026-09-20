@@ -1899,16 +1899,22 @@ input[aria-invalid="true"] {
     border-top: 1px solid var(--border);
     z-index: 30;
   }
-  .tabbar a {
+  .tabbar a,
+  .tabbar button {
     color: var(--text-dim);
     display: flex;
     padding: 6px;
+    background: none;
+    border: none;
   }
-  .tabbar a.active {
+  .tabbar a.active,
+  .tabbar button.active {
     color: var(--accent);
   }
-  /* Order Tracker's tabbar carries text labels, not icon glyphs (design: platform
-     integration follow-up) — give those room instead of the icon-sized padding above. */
+  /* Finance Tracker / Product Catalog / Material Inventory still carry text labels, not
+     icon glyphs, in their own bottom bars (design: platform integration follow-up) —
+     give those room instead of the icon-sized padding above. Order Tracker moved to
+     icon-only (ui-3), matching Backlog Tracker's own tabbar. */
   .tabbar.text a {
     flex: 1;
     justify-content: center;
