@@ -8,6 +8,8 @@ import com.backlogtracker.commons.auth.dto.LoginRequest;
 import com.backlogtracker.commons.auth.dto.LoginResponse;
 import com.backlogtracker.commons.auth.dto.RegisterRequest;
 import com.backlogtracker.commons.auth.dto.UserView;
+import com.backlogtracker.commons.notification.domain.NotificationType;
+import com.backlogtracker.commons.notification.service.NotificationOrchestrator;
 import com.backlogtracker.commons.security.JwtService;
 import com.backlogtracker.commons.user.domain.User;
 import com.backlogtracker.commons.user.service.UserService;
@@ -21,6 +23,7 @@ public class AuthService {
     private final UserService userService;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
+    private final NotificationOrchestrator notificationOrchestrator;
 
     public LoginResponse login(LoginRequest request) {
         User user = userService.findByEmail(request.email())
@@ -33,6 +36,8 @@ public class AuthService {
     /** Self-registration → a PENDING account plus a token so the SPA can show the wait screen. */
     public LoginResponse register(RegisterRequest request) {
         User user = userService.register(request);
+        notificationOrchestrator.notifyAdmins(NotificationType.SIGNUP_PENDING,
+                user.getName() + " (" + user.getEmail() + ") signed up and is waiting for approval.");
         return new LoginResponse(jwtService.issue(user), UserView.of(user));
     }
 }

@@ -1,5 +1,6 @@
 package com.backlogtracker.commons.auth;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -14,6 +15,9 @@ import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 
+import com.backlogtracker.commons.notification.domain.NotificationType;
+import com.backlogtracker.commons.notification.repository.NotificationRepository;
+import com.backlogtracker.commons.user.domain.Role;
 import com.backlogtracker.commons.user.repository.UserRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -24,6 +28,7 @@ class RegisterApiTest {
     @Autowired MockMvc mvc;
     @Autowired ObjectMapper mapper;
     @Autowired UserRepository users;
+    @Autowired NotificationRepository notifications;
 
     @AfterEach
     void cleanUp() {
@@ -61,6 +66,19 @@ class RegisterApiTest {
         mvc.perform(get("/api/auth/me").header("Authorization", "Bearer " + token))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("PENDING"));
+    }
+
+    /** ad-4: registration notifies every admin so a new signup doesn't just sit unnoticed
+     *  until someone happens to check Admin. */
+    @Test
+    void registeringNotifiesEveryAdmin() throws Exception {
+        mvc.perform(register("Reg One", "regone", "reg@demo.test", "changeme123"))
+                .andExpect(status().isCreated());
+
+        for (var admin : users.findByRole(Role.ADMIN)) {
+            assertThat(notifications.findByUserIdOrderByCreatedAtDesc(admin.getId()))
+                    .anySatisfy(n -> assertThat(n.getType()).isEqualTo(NotificationType.SIGNUP_PENDING));
+        }
     }
 
     @Test

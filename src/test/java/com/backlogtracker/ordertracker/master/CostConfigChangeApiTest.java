@@ -113,6 +113,28 @@ class CostConfigChangeApiTest {
                 .andExpect(jsonPath("$.status").value("PENDING"));
     }
 
+    /** ad-4: proposing with other members still pending notifies them (not the proposer),
+     *  so they don't have to stumble onto the pending change on their own. A solo proposer
+     *  (the next test) resolves immediately, so nobody needs telling. */
+    @Test
+    void proposingWithOtherMembersPresentNotifiesThemButNotTheProposer() throws Exception {
+        String member2Token = addMember("ccc-member2@ot.test", "cccmember2");
+        String member2Id = mapper.readTree(mvc.perform(auth(get("/api/auth/me"), member2Token))
+                .andReturn().getResponse().getContentAsString()).get("id").asText();
+
+        mvc.perform(auth(post(
+                        "/api/ordertracker/groups/" + groupId + "/business-config/change-requests"), proposerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"overheadPercentage":0.18,"profitMarginPercentage":0.25}"""))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("PENDING"));
+
+        assertThat(notifications.findByUserIdOrderByCreatedAtDesc(member2Id))
+                .anySatisfy(n -> assertThat(n.getType()).isEqualTo(NotificationType.COST_CONFIG_PROPOSED));
+        assertThat(notifications.findByUserIdOrderByCreatedAtDesc(proposerId)).isEmpty();
+    }
+
     @Test
     void aSoloProposerAutoResolvesImmediatelyAndTheSummaryReflectsItWithoutAReload() throws Exception {
         mvc.perform(auth(post(

@@ -22,6 +22,7 @@ import com.backlogtracker.commons.approval.service.ApprovalService;
 import com.backlogtracker.commons.group.domain.Group;
 import com.backlogtracker.commons.group.service.GroupService;
 import com.backlogtracker.commons.notification.domain.NotificationType;
+import com.backlogtracker.commons.notification.service.NotificationOrchestrator;
 import com.backlogtracker.commons.notification.service.NotificationService;
 import com.backlogtracker.financetracker.ledger.domain.LedgerEntryType;
 import com.backlogtracker.financetracker.ledger.domain.SplitPartyType;
@@ -60,6 +61,7 @@ public class ProfitDistributionService {
     private final GroupService groupService;
     private final LedgerEntryService ledgerEntryService;
     private final NotificationService notificationService;
+    private final NotificationOrchestrator notificationOrchestrator;
 
     public List<ProfitDistributionView> list(String groupId, String userId) {
         Group group = groupService.requireMember(groupId, userId);
@@ -92,6 +94,9 @@ public class ProfitDistributionService {
         ApprovalRequest approval = approvalService.propose(groupId, userId, kind(orderReferences), payload);
         if (approval.getStatus() == ApprovalStatus.APPROVED) {
             applyDistribution(groupId, userId, approval);
+        } else {
+            notificationOrchestrator.notifyOtherMembers(group, userId, NotificationType.PROFIT_DISTRIBUTION_PROPOSED,
+                    "A new profit distribution proposal is waiting for your approval.");
         }
         return view(approval, group);
     }

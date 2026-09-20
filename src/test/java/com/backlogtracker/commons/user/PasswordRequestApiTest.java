@@ -6,6 +6,8 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import static org.assertj.core.api.Assertions.assertThat;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -16,6 +18,8 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.web.servlet.MockMvc;
 
 import com.backlogtracker.support.AuthTestSupport;
+import com.backlogtracker.commons.notification.domain.NotificationType;
+import com.backlogtracker.commons.notification.repository.NotificationRepository;
 import com.backlogtracker.commons.user.domain.AccountStatus;
 import com.backlogtracker.commons.user.domain.Role;
 import com.backlogtracker.commons.user.domain.User;
@@ -32,6 +36,7 @@ class PasswordRequestApiTest {
     @Autowired UserRepository users;
     @Autowired PasswordRequestRepository requests;
     @Autowired PasswordEncoder encoder;
+    @Autowired NotificationRepository notifications;
 
     private String adminToken;
     private String userToken;
@@ -83,6 +88,33 @@ class PasswordRequestApiTest {
 
         // now the new password works
         login("pw.user@demo.test", "brandnew2");
+    }
+
+    /** ad-4: both password paths notify every admin so a pending request doesn't just sit
+     *  unnoticed until someone happens to check Admin. */
+    @Test
+    void changeRequestNotifiesEveryAdmin() throws Exception {
+        mvc.perform(post("/api/auth/password-change").header("Authorization", "Bearer " + userToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"currentPassword\":\"origpass1\",\"newPassword\":\"brandnew2\"}"))
+                .andExpect(status().isAccepted());
+
+        for (User admin : users.findByRole(Role.ADMIN)) {
+            assertThat(notifications.findByUserIdOrderByCreatedAtDesc(admin.getId()))
+                    .anySatisfy(n -> assertThat(n.getType()).isEqualTo(NotificationType.PASSWORD_REQUEST_PENDING));
+        }
+    }
+
+    @Test
+    void forgotPasswordNotifiesEveryAdmin() throws Exception {
+        mvc.perform(post("/api/auth/forgot-password").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"email\":\"pw.user@demo.test\"}"))
+                .andExpect(status().isAccepted());
+
+        for (User admin : users.findByRole(Role.ADMIN)) {
+            assertThat(notifications.findByUserIdOrderByCreatedAtDesc(admin.getId()))
+                    .anySatisfy(n -> assertThat(n.getType()).isEqualTo(NotificationType.PASSWORD_REQUEST_PENDING));
+        }
     }
 
     @Test

@@ -18,6 +18,8 @@ import com.backlogtracker.commons.approval.repository.ApprovalRequestRepository;
 import com.backlogtracker.commons.group.domain.Group;
 import com.backlogtracker.commons.group.repository.GroupRepository;
 import com.backlogtracker.commons.group.service.GroupService;
+import com.backlogtracker.commons.notification.domain.NotificationType;
+import com.backlogtracker.commons.notification.repository.NotificationRepository;
 import com.backlogtracker.commons.user.domain.AccountStatus;
 import com.backlogtracker.commons.user.domain.Role;
 import com.backlogtracker.commons.user.domain.User;
@@ -40,6 +42,7 @@ class ProfitDistributionServiceTest {
     @Autowired ApprovalRequestRepository approvalRequests;
     @Autowired GroupRepository groups;
     @Autowired UserRepository users;
+    @Autowired NotificationRepository notifications;
 
     private String coordinatorId;
     private String creatorAId;
@@ -148,6 +151,20 @@ class ProfitDistributionServiceTest {
         assertThatThrownBy(() -> profitDistributionService.propose(financeGroup.getId(), coordinatorId, request))
                 .isInstanceOf(ResponseStatusException.class)
                 .hasMessageContaining("more than the total profit");
+    }
+
+    /** ad-4: proposing notifies the other members (not the proposer) so they know a split
+     *  is waiting on their approval. */
+    @Test
+    void proposingNotifiesTheOtherMembersButNotTheProposer() {
+        profitDistributionService.propose(financeGroup.getId(), coordinatorId, proportionalRequest());
+
+        assertThat(notifications.findByUserIdOrderByCreatedAtDesc(creatorAId))
+                .anySatisfy(n -> assertThat(n.getType()).isEqualTo(NotificationType.PROFIT_DISTRIBUTION_PROPOSED));
+        assertThat(notifications.findByUserIdOrderByCreatedAtDesc(creatorBId))
+                .anySatisfy(n -> assertThat(n.getType()).isEqualTo(NotificationType.PROFIT_DISTRIBUTION_PROPOSED));
+        assertThat(notifications.findByUserIdOrderByCreatedAtDesc(coordinatorId))
+                .noneMatch(n -> n.getType() == NotificationType.PROFIT_DISTRIBUTION_PROPOSED);
     }
 
     @Test

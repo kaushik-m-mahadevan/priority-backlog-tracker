@@ -9,6 +9,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
 import com.backlogtracker.commons.notification.domain.NotificationType;
+import com.backlogtracker.commons.notification.service.NotificationOrchestrator;
 import com.backlogtracker.commons.notification.service.NotificationService;
 import com.backlogtracker.commons.security.AuthUser;
 import com.backlogtracker.commons.user.domain.PasswordRequest;
@@ -33,6 +34,7 @@ public class PasswordRequestService {
     private final UserRepository users;
     private final PasswordEncoder passwordEncoder;
     private final NotificationService notificationService;
+    private final NotificationOrchestrator notificationOrchestrator;
 
     /** Signed-in user asks to change their password; the new one is held until approval.
      *  ad-7: a pending request blocks this UNLESS {@code replaceExisting} is set, in which
@@ -57,6 +59,8 @@ public class PasswordRequestService {
                 .status(Status.PENDING)
                 .newPasswordHash(passwordEncoder.encode(newPassword))
                 .build());
+        notificationOrchestrator.notifyAdmins(NotificationType.PASSWORD_REQUEST_PENDING,
+                user.getName() + " requested a password change and is waiting for approval.");
     }
 
     /** Login-screen "forgot password". Silent about whether the account exists — so unlike
@@ -76,6 +80,11 @@ public class PasswordRequestService {
                     .type(Type.RESET)
                     .status(Status.PENDING)
                     .build());
+            // Safe to name the account here — this goes only to admins, never back to the
+            // (possibly unauthenticated) caller, so it doesn't touch the anti-enumeration
+            // silence this endpoint's own response keeps.
+            notificationOrchestrator.notifyAdmins(NotificationType.PASSWORD_REQUEST_PENDING,
+                    user.getName() + " requested a password reset and is waiting for approval.");
         });
     }
 

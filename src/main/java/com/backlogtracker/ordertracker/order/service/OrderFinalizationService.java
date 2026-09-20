@@ -17,6 +17,7 @@ import com.backlogtracker.commons.approval.service.ApprovalService;
 import com.backlogtracker.commons.group.domain.Group;
 import com.backlogtracker.commons.group.service.GroupService;
 import com.backlogtracker.commons.notification.domain.NotificationType;
+import com.backlogtracker.commons.notification.service.NotificationOrchestrator;
 import com.backlogtracker.commons.notification.service.NotificationService;
 import com.backlogtracker.ordertracker.order.domain.Order;
 import com.backlogtracker.ordertracker.order.dto.OrderFinalizationView;
@@ -44,6 +45,7 @@ public class OrderFinalizationService {
     private final GroupService groupService;
     private final ApprovalService approvalService;
     private final NotificationService notificationService;
+    private final NotificationOrchestrator notificationOrchestrator;
     private final Clock clock;
 
     public OrderFinalizationView get(String groupId, String userId, String orderId) {
@@ -74,6 +76,10 @@ public class OrderFinalizationService {
                 .build());
         applyIfResolved(order, approval);
         orderRepository.save(order);
+        if (approval.getStatus() == ApprovalStatus.PENDING) {
+            notificationOrchestrator.notifyOtherMembers(group, userId, NotificationType.ORDER_FINALIZATION_PROPOSED,
+                    "A final cost/revenue proposal for order " + order.getOrderNumber() + " is waiting for your approval.");
+        }
         return view(order, group, userId);
     }
 

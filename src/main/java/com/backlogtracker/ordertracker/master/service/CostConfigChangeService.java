@@ -14,6 +14,7 @@ import com.backlogtracker.commons.group.domain.Group;
 import com.backlogtracker.commons.group.event.MemberLeftGroupEvent;
 import com.backlogtracker.commons.group.service.GroupService;
 import com.backlogtracker.commons.notification.domain.NotificationType;
+import com.backlogtracker.commons.notification.service.NotificationOrchestrator;
 import com.backlogtracker.commons.notification.service.NotificationService;
 import com.backlogtracker.ordertracker.master.domain.CostConfigChangeRequest;
 import com.backlogtracker.ordertracker.master.domain.CostConfigChangeStatus;
@@ -39,6 +40,7 @@ public class CostConfigChangeService {
     private final GroupService groupService;
     private final BusinessConfigService businessConfigService;
     private final NotificationService notificationService;
+    private final NotificationOrchestrator notificationOrchestrator;
     private final Clock clock;
 
     public CostConfigChangeRequest propose(String groupId, String userId,
@@ -63,6 +65,9 @@ public class CostConfigChangeService {
         CostConfigChangeRequest saved = repository.save(request);
         if (unanimous) {
             applyResolvedConfig(saved);
+        } else {
+            notificationOrchestrator.notifyOtherMembers(group, userId, NotificationType.COST_CONFIG_PROPOSED,
+                    "A new overhead/profit-margin proposal is waiting for your approval.");
         }
         return saved;
     }
