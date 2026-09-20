@@ -29,7 +29,9 @@ public class PasswordRequest {
 
     public enum Type { CHANGE, RESET }
 
-    public enum Status { PENDING, APPROVED, REJECTED }
+    /** SUPERSEDED (ad-7): the requester replaced their own still-pending request with a
+     *  new one — distinct from REJECTED, which is always an admin's decision. */
+    public enum Status { PENDING, APPROVED, REJECTED, SUPERSEDED }
 
     @Id
     private String id;

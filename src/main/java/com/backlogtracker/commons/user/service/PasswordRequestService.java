@@ -34,8 +34,11 @@ public class PasswordRequestService {
     private final PasswordEncoder passwordEncoder;
     private final NotificationService notificationService;
 
-    /** Signed-in user asks to change their password; the new one is held until approval. */
-    public void requestChange(AuthUser actor, String currentPassword, String newPassword) {
+    /** Signed-in user asks to change their password; the new one is held until approval.
+     *  ad-7: a pending request blocks this UNLESS {@code replaceExisting} is set, in which
+     *  case the old one is marked SUPERSEDED first — same "replace pending request?"
+     *  confirmation flow the frontend can now offer on either password path. */
+    public void requestChange(AuthUser actor, String currentPassword, String newPassword, boolean replaceExisting) {
         User user = users.findById(actor.id()).orElseThrow(
                 () -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
         if (!passwordEncoder.matches(currentPassword, user.getPasswordHash())) {
@@ -45,7 +48,7 @@ public class PasswordRequestService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                     "The new password must be different");
         }
-        requireNoPending(user.getId());
+        supersedeOrReject(user.getId(), replaceExisting);
         requests.save(PasswordRequest.builder()
                 .userId(user.getId())
                 .userName(user.getName())
@@ -56,12 +59,16 @@ public class PasswordRequestService {
                 .build());
     }
 
-    /** Login-screen "forgot password". Silent about whether the account exists. */
+    /** Login-screen "forgot password". Silent about whether the account exists — so unlike
+     *  {@link #requestChange}, this never surfaces a "replace pending request?" prompt
+     *  (that would itself leak whether the account/a prior request exists, defeating the
+     *  whole point). Instead it unifies the underlying handling a different way (ad-7):
+     *  resubmitting always quietly supersedes whatever was pending, rather than the old
+     *  behavior of silently doing nothing on a second attempt. */
     public void requestReset(String email) {
         users.findByEmailIgnoreCase(email.trim()).ifPresent(user -> {
-            if (requests.existsByUserIdAndStatus(user.getId(), Status.PENDING)) {
-                return;
-            }
+            requests.findByUserIdAndStatus(user.getId(), Status.PENDING)
+                    .ifPresent(req -> decide(req, Status.SUPERSEDED, null));
             requests.save(PasswordRequest.builder()
                     .userId(user.getId())
                     .userName(user.getName())
@@ -118,11 +125,17 @@ public class PasswordRequestService {
         requests.save(req);
     }
 
-    private void requireNoPending(String userId) {
-        if (requests.existsByUserIdAndStatus(userId, Status.PENDING)) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT,
-                    "You already have a password request awaiting an admin");
-        }
+    /** ad-7: {@code replaceExisting=false} preserves the old blocking behavior (409, so
+     *  the client can ask "replace pending request?"); {@code true} supersedes the old
+     *  pending request instead of blocking. */
+    private void supersedeOrReject(String userId, boolean replaceExisting) {
+        requests.findByUserIdAndStatus(userId, Status.PENDING).ifPresent(existing -> {
+            if (!replaceExisting) {
+                throw new ResponseStatusException(HttpStatus.CONFLICT,
+                        "You already have a password request awaiting an admin");
+            }
+            decide(existing, Status.SUPERSEDED, null);
+        });
     }
 
     private PasswordRequest pendingReq(String id) {

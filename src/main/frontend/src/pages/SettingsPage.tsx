@@ -138,16 +138,31 @@ export default function SettingsPage() {
     );
   }
 
-  function requestPasswordChange() {
+  async function requestPasswordChange(replaceExisting = false) {
     if (newPw.length < 8 || newPw !== confPw) return;
-    call(
-      api.post("/auth/password-change", { currentPassword: curPw, newPassword: newPw }),
-      "Sent to an admin — your password changes once they approve it.",
-    ).then(() => {
+    setBusy(true);
+    setErr(null);
+    setMsg(null);
+    try {
+      await api.post("/auth/password-change", { currentPassword: curPw, newPassword: newPw, replaceExisting });
+      setMsg("Sent to an admin — your password changes once they approve it.");
       setCurPw("");
       setNewPw("");
       setConfPw("");
-    });
+    } catch (e) {
+      // ad-7: same "replace pending request?" confirmation this app already uses
+      // elsewhere for a single-pending-thing conflict, instead of a dead-end error.
+      if (e instanceof ApiError && e.status === 409 && !replaceExisting) {
+        setBusy(false);
+        if (window.confirm("You already have a password request awaiting an admin. Replace it with this one?")) {
+          await requestPasswordChange(true);
+        }
+        return;
+      }
+      setErr(e instanceof ApiError ? e.message : "Something went wrong");
+    } finally {
+      setBusy(false);
+    }
   }
 
   function removeChip(kind: "categories" | "priorities", name: string, others: string[]) {
@@ -238,7 +253,7 @@ export default function SettingsPage() {
             <button
               className="primary"
               disabled={busy || !curPw || newPw.length < 8 || newPw !== confPw}
-              onClick={requestPasswordChange}
+              onClick={() => requestPasswordChange()}
             >
               Request change
             </button>

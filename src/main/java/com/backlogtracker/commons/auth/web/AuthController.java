@@ -60,7 +60,7 @@ public class AuthController {
     @RequiresUser
     public void requestPasswordChange(@Valid @RequestBody ChangePasswordRequest request,
                                       @AuthenticationPrincipal AuthUser actor) {
-        passwordRequestService.requestChange(actor, request.currentPassword(), request.newPassword());
+        passwordRequestService.requestChange(actor, request.currentPassword(), request.newPassword(), request.replaceExisting());
     }
 
     /** Login-screen "forgot password" — notifies an admin, always 202 (no account probing). */

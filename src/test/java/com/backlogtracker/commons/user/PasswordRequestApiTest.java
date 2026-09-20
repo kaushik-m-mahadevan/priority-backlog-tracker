@@ -104,6 +104,32 @@ class PasswordRequestApiTest {
                 .andExpect(status().isConflict());
     }
 
+    /** ad-7: resubmitting with replaceExisting=true supersedes the old pending request
+     *  instead of the 409 above, and the new one is what an admin sees/approves. */
+    @Test
+    void replaceExistingSupersedesThePriorPendingChangeRequest() throws Exception {
+        mvc.perform(post("/api/auth/password-change").header("Authorization", "Bearer " + userToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"currentPassword\":\"origpass1\",\"newPassword\":\"firstpick2\"}"))
+                .andExpect(status().isAccepted());
+        mvc.perform(post("/api/auth/password-change").header("Authorization", "Bearer " + userToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"currentPassword\":\"origpass1\",\"newPassword\":\"secondpick2\",\"replaceExisting\":true}"))
+                .andExpect(status().isAccepted());
+
+        String list = mvc.perform(get("/api/admin/password-requests").header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(1))
+                .andReturn().getResponse().getContentAsString();
+        String reqId = mapper.readTree(list).get(0).get("id").asText();
+
+        mvc.perform(post("/api/admin/password-requests/" + reqId + "/approve")
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isNoContent());
+
+        login("pw.user@demo.test", "secondpick2");
+    }
+
     @Test
     void forgotPasswordIsAlwaysAcceptedAndAdminSetsATempPassword() throws Exception {
         mvc.perform(post("/api/auth/forgot-password").contentType(MediaType.APPLICATION_JSON)
@@ -125,6 +151,26 @@ class PasswordRequestApiTest {
                 .andExpect(status().isNoContent());
 
         login("pw.user@demo.test", "temppass9");
+    }
+
+    /** ad-7: unlike the change-password path, forgot-password never surfaces a "replace
+     *  pending request?" prompt (that would itself leak account/pending-request existence
+     *  to an unauthenticated caller) — but resubmitting still supersedes the old one under
+     *  the hood instead of silently no-op'ing forever, so the admin always sees exactly the
+     *  most recent attempt. */
+    @Test
+    void repeatedForgotPasswordSupersedesThePriorPendingResetRequest() throws Exception {
+        mvc.perform(post("/api/auth/forgot-password").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"email\":\"pw.user@demo.test\"}"))
+                .andExpect(status().isAccepted());
+        mvc.perform(post("/api/auth/forgot-password").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"email\":\"pw.user@demo.test\"}"))
+                .andExpect(status().isAccepted());
+
+        mvc.perform(get("/api/admin/password-requests").header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].type").value("RESET"));
     }
 
     @Test
