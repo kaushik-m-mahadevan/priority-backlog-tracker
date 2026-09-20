@@ -3,6 +3,7 @@ import { api, ApiError } from "../../api/client";
 import { orderTrackerApi } from "../api";
 import { useBusiness } from "../BusinessContext";
 import ProfileGatePage from "../ProfileGatePage";
+import { Switch } from "../../components/Switch";
 import type { BusinessConfig } from "../types";
 
 const STEP_LABELS = ["Business settings", "Your profile", "Invite your team", "Finance & Inventory"];
@@ -201,19 +202,27 @@ export default function SetupWizardPage({ onDone }: { onDone: () => void }) {
         <div className="card">
           <h2>Finance &amp; Inventory</h2>
           <p className="muted" style={{ marginTop: 0, fontSize: 13 }}>
-            Set these up now if you plan to use them — a Finance Tracker group and/or a Material Inventory group get
-            created and linked to {currentBusiness?.name} automatically, named to match. You can always set either
-            up later instead.
+            Set these up now if you plan to use them. You can always set either up later instead.
           </p>
           {finishError && <div className="error">{finishError}</div>}
-          <label style={{ display: "block", marginBottom: 8 }}>
-            <input type="checkbox" checked={setUpFinance} onChange={(e) => setSetUpFinance(e.target.checked)} /> Set up
-            Finance Tracker
-          </label>
-          <label style={{ display: "block", marginBottom: 16 }}>
-            <input type="checkbox" checked={setUpInventory} onChange={(e) => setSetUpInventory(e.target.checked)} /> Set up
-            Material Inventory
-          </label>
+          <div style={{ marginBottom: 8 }}>
+            <Switch
+              id="setup-finance"
+              checked={setUpFinance}
+              onChange={setSetUpFinance}
+              label="Set up Finance Tracker"
+              help={`A Finance Tracker group gets created and linked to ${currentBusiness?.name}, named to match.`}
+            />
+          </div>
+          <div style={{ marginBottom: 16 }}>
+            <Switch
+              id="setup-inventory"
+              checked={setUpInventory}
+              onChange={setSetUpInventory}
+              label="Set up Material Inventory"
+              help={`A Material Inventory group gets created and linked to ${currentBusiness?.name}, named to match.`}
+            />
+          </div>
           <div className="toolbar">
             <button className="primary" disabled={finishing} onClick={finish}>
               {finishing ? "Finishing…" : "Finish setup"}

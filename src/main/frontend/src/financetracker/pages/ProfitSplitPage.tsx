@@ -3,6 +3,7 @@ import { useAuth } from "../../auth/AuthContext";
 import { financeTrackerApi } from "../api";
 import { useFinanceGroup } from "../FinanceGroupContext";
 import { formatMoney } from "../../lib/format";
+import { Switch } from "../../components/Switch";
 import type { ProfitDistributionRecipientInput, ProfitDistributionView } from "../types";
 
 type RecipientDraft = { personId: string; unitsCompleted: string; overrideAmount: string };
@@ -190,14 +191,13 @@ export default function ProfitSplitPage() {
         {showForm && (
           <form onSubmit={submitPropose} style={{ marginTop: 12 }}>
             <div className="form-row">
-              <label style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                <input
-                  type="checkbox"
-                  checked={generalSettlement}
-                  onChange={(e) => setGeneralSettlement(e.target.checked)}
-                />
-                General settlement (not tied to a specific order — e.g. you don't remember which one)
-              </label>
+              <Switch
+                id="profit-split-general-settlement"
+                checked={generalSettlement}
+                onChange={setGeneralSettlement}
+                label="General settlement"
+                help="Not tied to a specific order — use this when you don't remember which one it was."
+              />
             </div>
 
             {!generalSettlement && (

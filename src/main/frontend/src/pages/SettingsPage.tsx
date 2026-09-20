@@ -9,6 +9,8 @@ import { useGroveSettings } from "../grove/GroveSettingsContext";
 import { notifyItemsChanged } from "../lib/events";
 import { TZ_CHOICES, getTzPref, setTzPref } from "../lib/tz";
 import PasswordInput from "../components/PasswordInput";
+import { Section } from "../components/Section";
+import { Switch } from "../components/Switch";
 import type { AppConfig } from "../types";
 
 type Draft = {
@@ -170,6 +172,7 @@ export default function SettingsPage() {
       {err && <div className="error">{err}</div>}
       {msg && <div className="hint" style={{ color: "var(--growth)", marginBottom: 12 }}>{msg}</div>}
 
+      <Section title="Your account" icon="👤" defaultOpen>
       <div className="grid cols-2">
         <div className="card">
           <h2>Theme</h2>
@@ -267,29 +270,23 @@ export default function SettingsPage() {
           </p>
         </div>
       </div>
+      </Section>
 
       {/* Everything below is Priority Backlog Tracker's own settings — Order Tracker
           (once it exists) gets its own section here, same shape, not a rewrite of this
           one (design: platform integration, "one shared Settings hub with sections"). */}
-      <h2 className="settings-section">Priority Backlog Tracker</h2>
+      <Section title="Priority Backlog Tracker" icon="🌲" defaultOpen>
       <div className="grid cols-2">
         <div className="card">
           <h2>Animations</h2>
-          <label style={{ display: "flex", gap: 10, alignItems: "center", cursor: "pointer" }}>
-            <input
-              type="checkbox"
-              checked={animationsEnabled}
-              onChange={toggleAnimations}
-              disabled={busy}
-              style={{ width: "auto" }}
-            />
-            <span>Let the grove react to the backlog</span>
-          </label>
-          <p className="hint" style={{ marginTop: 8 }}>
-            When on, the tree wilts and gets chopped as overdue and long-untouched items
-            pile up in your current group, and recovers as you clear them. Off by default;
-            the red overdue marker on rows is always shown regardless.
-          </p>
+          <Switch
+            id="settings-animations"
+            checked={animationsEnabled}
+            onChange={toggleAnimations}
+            disabled={busy}
+            label="Let the grove react to the backlog"
+            help="When on, the tree wilts and gets chopped as overdue and long-untouched items pile up in your current group, and recovers as you clear them. Off by default; the red overdue marker on rows is always shown regardless."
+          />
         </div>
 
         {currentGroup && (
@@ -421,6 +418,7 @@ export default function SettingsPage() {
           </>
         )}
       </div>
+      </Section>
     </div>
   );
 }
