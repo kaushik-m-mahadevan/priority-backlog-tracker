@@ -116,6 +116,7 @@ public class DemoDataSeeder implements ApplicationRunner {
         // .categories left unset — Group's @Builder.Default seeds the standard starter list.
         String groupId = groups.save(com.backlogtracker.commons.group.domain.Group.builder()
                 .name("Founders")
+                .appletKey(com.backlogtracker.commons.group.domain.Group.APPLET_BACKLOG_TRACKER)
                 .createdByUserId(test123)
                 .memberIds(new ArrayList<>(java.util.List.of(
                         test123, alex.getId(), priya.getId(), sam.getId())))
