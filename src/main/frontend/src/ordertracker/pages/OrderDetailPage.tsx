@@ -1097,8 +1097,9 @@ export default function OrderDetailPage() {
       ) : (
         <Section title="Materials" icon="🧶">
           <h2 className="settings-section">Variants</h2>
+          <div className="divided-list">
           {order.bulkDetails?.variants.map((v) => (
-            <div className="card" key={v.variantId} style={{ marginBottom: 12 }}>
+            <div key={v.variantId}>
               <div className="toolbar">
                 <strong>{v.label}</strong>
                 <span className="muted">Qty {v.quantity}</span>
@@ -1133,7 +1134,7 @@ export default function OrderDetailPage() {
                     Components
                   </div>
                   {v.components.map((c) => (
-                    <div className="card" key={c.componentId} style={{ background: "var(--bg-elev-2)", marginBottom: 8 }}>
+                    <div key={c.componentId} style={{ marginBottom: 8, paddingBottom: 8, borderBottom: "1px solid var(--border-soft)" }}>
                       <div className="toolbar">
                         <strong>{c.label}</strong>
                         <span className="muted">× {c.quantity}</span>
@@ -1167,7 +1168,7 @@ export default function OrderDetailPage() {
                 Materials
               </div>
               <div className="grid cols-3">
-                <div className="card" style={{ background: "var(--bg-elev-2)" }}>
+                <div>
                   <h2>Mandatory items</h2>
                   {v.mandatoryItems.length === 0 ? (
                     <p className="empty">None.</p>
@@ -1183,7 +1184,7 @@ export default function OrderDetailPage() {
                     ))
                   )}
                 </div>
-                <div className="card" style={{ background: "var(--bg-elev-2)" }}>
+                <div>
                   <h2>Add-ons</h2>
                   {v.addOns.length === 0 ? (
                     <p className="empty">None.</p>
@@ -1201,7 +1202,7 @@ export default function OrderDetailPage() {
                 Processes
               </div>
               <div className="grid cols-2">
-                <div className="card" style={{ background: "var(--bg-elev-2)" }}>
+                <div>
                   <h2>Split across creators</h2>
                   {v.splitAllocation.length === 0 ? (
                     <p className="empty">Nobody assigned yet.</p>
@@ -1214,7 +1215,7 @@ export default function OrderDetailPage() {
                     ))
                   )}
                 </div>
-                <div className="card" style={{ background: "var(--bg-elev-2)" }}>
+                <div>
                   <h2>Progress by stage</h2>
                   {v.splitAllocation.length === 0 ? (
                     <p className="empty">Nobody assigned yet.</p>
@@ -1257,6 +1258,7 @@ export default function OrderDetailPage() {
               </div>
             </div>
           ))}
+          </div>
         </Section>
       )}
 

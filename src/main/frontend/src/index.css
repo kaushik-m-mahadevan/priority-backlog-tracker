@@ -427,6 +427,14 @@ label {
   padding: 18px;
 }
 
+/* One outer container, each child a plain row separated by a divider — no nested
+   card-in-card chrome (UI/UX audit item 6, e.g. bulk order variants). */
+.divided-list > * + * {
+  border-top: 1px solid var(--border-soft);
+  margin-top: 16px;
+  padding-top: 16px;
+}
+
 /* ---------- key/value rows and per-unit/total pairs (order detail cards) ----------
    Order detail borrows its card categorisation from order_mockup.html but stays in
    the platform's own dark theme (explicit decision) — these are the layout mechanics
