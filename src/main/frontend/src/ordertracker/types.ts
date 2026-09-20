@@ -15,6 +15,13 @@ export type ResearchItemType = "VIDEO" | "LINK" | "IMAGE" | "NOTE";
 export type ShipmentStopType = "INTERNAL_TRANSFER" | "FINAL_DELIVERY";
 export type DeliveryTier = "SAME_CITY" | "SAME_STATE" | "OTHER_STATE" | "INTERNATIONAL";
 
+export interface CustomerAddress {
+  addressId: string;
+  label: string;
+  address: string;
+  isDefault: boolean;
+}
+
 export interface Customer {
   id: string;
   name: string;
@@ -23,7 +30,9 @@ export interface Customer {
   instagramHandle: string | null;
   acquisitionChannel: AcquisitionChannel;
   firstContactDate: string | null;
-  shippingAddress: string | null;
+  /** ad-6: replaces the old single shippingAddress string — zero or more saved
+   *  addresses, at most one of them marked default. */
+  addresses: CustomerAddress[];
   notes: string | null;
 }
 

@@ -4,9 +4,15 @@ import { formatDate } from "../../lib/format";
 import { orderTrackerApi } from "../api";
 import { useBusiness } from "../BusinessContext";
 import { OrderDueDate } from "../OrderDueDate";
-import type { AcquisitionChannel, Customer, OrderView } from "../types";
+import type { AcquisitionChannel, Customer, CustomerAddress, OrderView } from "../types";
 
 const CHANNELS: AcquisitionChannel[] = ["INSTAGRAM", "WHATSAPP", "REFERRAL", "WORD_OF_MOUTH", "WALK_IN", "OTHER"];
+
+/** Draft shape for one address row — addressId is null for a not-yet-saved entry, same
+ *  convention as bulk order variants (ad-6). */
+type AddressDraft = { addressId: string | null; label: string; address: string; isDefault: boolean };
+
+const blankAddressDraft = (): AddressDraft => ({ addressId: null, label: "", address: "", isDefault: false });
 
 interface Draft {
   name: string;
@@ -15,7 +21,7 @@ interface Draft {
   instagramHandle: string;
   acquisitionChannel: AcquisitionChannel;
   firstContactDate: string;
-  shippingAddress: string;
+  addresses: AddressDraft[];
   notes: string;
 }
 
@@ -26,7 +32,7 @@ const toDraft = (c: Customer): Draft => ({
   instagramHandle: c.instagramHandle ?? "",
   acquisitionChannel: c.acquisitionChannel,
   firstContactDate: c.firstContactDate ? c.firstContactDate.slice(0, 10) : "",
-  shippingAddress: c.shippingAddress ?? "",
+  addresses: c.addresses.map((a) => ({ addressId: a.addressId, label: a.label, address: a.address, isDefault: a.isDefault })),
   notes: c.notes ?? "",
 });
 
@@ -93,7 +99,9 @@ export default function CustomerDetailPage() {
         instagramHandle: draft.instagramHandle.trim() || null,
         acquisitionChannel: draft.acquisitionChannel,
         firstContactDate: draft.firstContactDate ? new Date(draft.firstContactDate + "T00:00:00Z").toISOString() : null,
-        shippingAddress: draft.shippingAddress.trim() || null,
+        addresses: draft.addresses.filter((a) => a.address.trim()).map((a) => ({
+          addressId: a.addressId, label: a.label.trim() || "Address", address: a.address.trim(), isDefault: a.isDefault,
+        })),
         notes: draft.notes.trim() || null,
       });
       setCustomer(updated);
@@ -167,8 +175,63 @@ export default function CustomerDetailPage() {
               <input id="cd-first-contact" type="date" value={draft.firstContactDate} onChange={(e) => setDraft({ ...draft, firstContactDate: e.target.value })} />
             </div>
             <div className="form-row">
-              <label htmlFor="cd-address">Shipping address</label>
-              <textarea id="cd-address" value={draft.shippingAddress} onChange={(e) => setDraft({ ...draft, shippingAddress: e.target.value })} />
+              <label>Saved addresses</label>
+              {draft.addresses.length === 0 && <p className="hint" style={{ marginTop: 0 }}>No addresses saved yet.</p>}
+              {draft.addresses.map((a, i) => (
+                <div key={a.addressId ?? `new-${i}`} className="card" style={{ background: "var(--bg-elev-2)", marginBottom: 8 }}>
+                  <div className="form-grid">
+                    <div className="form-row">
+                      <label htmlFor={`cd-address-${i}-label`}>Label</label>
+                      <input
+                        id={`cd-address-${i}-label`}
+                        placeholder="e.g. Home, Work"
+                        value={a.label}
+                        onChange={(e) => setDraft({
+                          ...draft, addresses: draft.addresses.map((x, j) => (j === i ? { ...x, label: e.target.value } : x)),
+                        })}
+                      />
+                    </div>
+                    <div className="form-row">
+                      <label htmlFor={`cd-address-${i}-text`}>Address</label>
+                      <textarea
+                        id={`cd-address-${i}-text`}
+                        value={a.address}
+                        onChange={(e) => setDraft({
+                          ...draft, addresses: draft.addresses.map((x, j) => (j === i ? { ...x, address: e.target.value } : x)),
+                        })}
+                      />
+                    </div>
+                  </div>
+                  <div className="toolbar">
+                    {a.isDefault ? (
+                      <span className="badge">Default</span>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => setDraft({
+                          ...draft, addresses: draft.addresses.map((x, j) => ({ ...x, isDefault: j === i })),
+                        })}
+                      >
+                        Set as default
+                      </button>
+                    )}
+                    <span className="spacer" />
+                    <button
+                      type="button"
+                      aria-label={`Remove address ${a.label || i + 1}`}
+                      onClick={() => setDraft({ ...draft, addresses: draft.addresses.filter((_, j) => j !== i) })}
+                    >
+                      Remove
+                    </button>
+                  </div>
+                </div>
+              ))}
+              <button
+                type="button"
+                onClick={() => setDraft({ ...draft, addresses: [...draft.addresses, blankAddressDraft()] })}
+              >
+                + Add address
+              </button>
             </div>
             <div className="form-row">
               <label htmlFor="cd-notes">Notes</label>
@@ -195,7 +258,23 @@ export default function CustomerDetailPage() {
             <div className="row"><span className="k">Instagram</span><span className="v">{customer.instagramHandle || <span className="muted">Not recorded</span>}</span></div>
             <div className="row"><span className="k">Channel</span><span className="v"><span className="badge">{customer.acquisitionChannel.replace(/_/g, " ")}</span></span></div>
             <div className="row"><span className="k">First contact</span><span className="v">{formatDate(customer.firstContactDate)}</span></div>
-            <div className="row"><span className="k">Shipping address</span><span className="v">{customer.shippingAddress || <span className="muted">Not recorded</span>}</span></div>
+            <div className="row" style={{ alignItems: "flex-start" }}>
+              <span className="k">Addresses</span>
+              <span className="v">
+                {customer.addresses.length === 0 ? (
+                  <span className="muted">Not recorded</span>
+                ) : (
+                  <div className="divided-list">
+                    {customer.addresses.map((a) => (
+                      <div key={a.addressId}>
+                        <strong>{a.label}</strong>{a.isDefault && <span className="badge" style={{ marginLeft: 6 }}>Default</span>}
+                        <div className="muted" style={{ whiteSpace: "pre-wrap" }}>{a.address}</div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </span>
+            </div>
             <div className="row"><span className="k">Notes</span><span className="v">{customer.notes || <span className="muted">Nothing noted.</span>}</span></div>
           </div>
         )}

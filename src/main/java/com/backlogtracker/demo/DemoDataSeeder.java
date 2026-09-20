@@ -241,15 +241,20 @@ public class DemoDataSeeder implements ApplicationRunner {
         CustomerView meera = customerService.create(groupId, alex.getId(), new UpsertCustomerRequest(
                 "Meera Krishnan", "9876543210", "meera.k@example.com", "@meera.makes",
                 AcquisitionChannel.INSTAGRAM, Instant.now().minus(60, ChronoUnit.DAYS),
-                "12 Lake View Road, Bengaluru", null));
+                List.of(new UpsertCustomerRequest.AddressInput(null, "Home", "12 Lake View Road, Bengaluru", true)),
+                null));
         CustomerView rahul = customerService.create(groupId, alex.getId(), new UpsertCustomerRequest(
                 "Rahul Nair", "9123456780", null, null,
                 AcquisitionChannel.WORD_OF_MOUTH, Instant.now().minus(35, ChronoUnit.DAYS),
-                "45 MG Road, Chennai", "Prefers WhatsApp updates"));
+                List.of(new UpsertCustomerRequest.AddressInput(null, "Home", "45 MG Road, Chennai", true)),
+                "Prefers WhatsApp updates"));
         CustomerView pooja = customerService.create(groupId, priya.getId(), new UpsertCustomerRequest(
                 "Pooja Desai", "9988776655", "pooja.d@example.com", "@poojawears",
                 AcquisitionChannel.REFERRAL, Instant.now().minus(10, ChronoUnit.DAYS),
-                "7 Marine Drive, Mumbai", null));
+                List.of(
+                        new UpsertCustomerRequest.AddressInput(null, "Home", "7 Marine Drive, Mumbai", true),
+                        new UpsertCustomerRequest.AddressInput(null, "Gift wrap — parents' place", "22 Carter Road, Mumbai", false)),
+                null));
 
         colorwayService.create(catalogGroupId, alex.getId(), new CreateColorwayRequest(
                 "Sunset Coral", "Coral / Cream", 450.0, "Best-seller — pairs well with cream trims", List.of(),

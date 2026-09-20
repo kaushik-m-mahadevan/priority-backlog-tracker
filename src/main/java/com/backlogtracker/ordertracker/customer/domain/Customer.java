@@ -1,6 +1,8 @@
 package com.backlogtracker.ordertracker.customer.domain;
 
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
 
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.index.CompoundIndex;
@@ -65,8 +67,11 @@ public class Customer {
     private AcquisitionChannel acquisitionChannel;
     private Instant firstContactDate;
 
-    /** Default shipping address; an order may override this with its own (design §5). */
-    private EncryptedString shippingAddress;
+    /** Saved addresses (ad-6) — zero or more, at most one marked default; an order may
+     *  still override with its own (design §5). Replaces the old single shippingAddress
+     *  field. */
+    @Builder.Default
+    private List<CustomerAddress> addresses = new ArrayList<>();
 
     /** Optional. */
     private EncryptedString notes;

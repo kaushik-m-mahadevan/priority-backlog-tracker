@@ -1,8 +1,10 @@
 package com.backlogtracker.ordertracker.customer.service;
 
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -12,6 +14,7 @@ import com.backlogtracker.commons.crypto.BlindIndexService;
 import com.backlogtracker.commons.crypto.EncryptedString;
 import com.backlogtracker.commons.group.service.GroupService;
 import com.backlogtracker.ordertracker.customer.domain.Customer;
+import com.backlogtracker.ordertracker.customer.domain.CustomerAddress;
 import com.backlogtracker.ordertracker.customer.dto.CustomerView;
 import com.backlogtracker.ordertracker.customer.dto.UpsertCustomerRequest;
 import com.backlogtracker.ordertracker.customer.repository.CustomerRepository;
@@ -89,11 +92,48 @@ public class CustomerService {
         customer.setInstagramHandle(EncryptedString.of(request.instagramHandle()));
         customer.setAcquisitionChannel(request.acquisitionChannel());
         customer.setFirstContactDate(request.firstContactDate());
-        customer.setShippingAddress(EncryptedString.of(request.shippingAddress()));
+        customer.setAddresses(normalizeAddresses(request.addresses()));
         customer.setNotes(EncryptedString.of(request.notes()));
         customer.setEmailHash(blindIndex.hash(request.email()));
         customer.setInstagramHandleHash(blindIndex.hash(request.instagramHandle()));
         customer.setContactNumberHash(blindIndex.hash(request.contactNumber()));
+    }
+
+    /** ad-6: assigns a fresh id to any new entry, drops blank addresses, and enforces "at
+     *  most one default" — if the caller marked several, only the first of those wins; if
+     *  none did and at least one address survives, the first one becomes the default so
+     *  the invariant always holds whenever there's an address to default to. */
+    private static List<CustomerAddress> normalizeAddresses(List<UpsertCustomerRequest.AddressInput> inputs) {
+        if (inputs == null || inputs.isEmpty()) {
+            return new ArrayList<>();
+        }
+        List<CustomerAddress> result = new ArrayList<>();
+        boolean defaultAssigned = false;
+        for (UpsertCustomerRequest.AddressInput in : inputs) {
+            if (in.address() == null || in.address().isBlank()) {
+                continue;
+            }
+            boolean isDefault = in.isDefault() && !defaultAssigned;
+            if (isDefault) {
+                defaultAssigned = true;
+            }
+            result.add(CustomerAddress.builder()
+                    .addressId(in.addressId() != null ? in.addressId() : UUID.randomUUID().toString())
+                    .label(in.label() != null && !in.label().isBlank() ? in.label().trim() : "Address")
+                    .address(EncryptedString.of(in.address().trim()))
+                    .isDefault(isDefault)
+                    .build());
+        }
+        if (!defaultAssigned && !result.isEmpty()) {
+            CustomerAddress first = result.get(0);
+            result.set(0, CustomerAddress.builder()
+                    .addressId(first.getAddressId())
+                    .label(first.getLabel())
+                    .address(first.getAddress())
+                    .isDefault(true)
+                    .build());
+        }
+        return result;
     }
 
     /** Existence + group-scoping check only — used by other Order Tracker services that

@@ -6,6 +6,8 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import java.util.List;
+
 import org.bson.Document;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -76,12 +78,17 @@ class CustomerApiTest {
                         .content("""
                                 {"name":"Priya Sharma","contactNumber":"+91 98765 43210",
                                  "email":"priya@example.com","instagramHandle":"@priya.crochets",
-                                 "acquisitionChannel":"INSTAGRAM","shippingAddress":"12 MG Road, Bangalore",
+                                 "acquisitionChannel":"INSTAGRAM",
+                                 "addresses":[{"label":"Home","address":"12 MG Road, Bangalore","isDefault":true}],
                                  "notes":"Prefers pastel colours"}"""))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.name").value("Priya Sharma"))
                 .andExpect(jsonPath("$.contactNumber").value("+91 98765 43210"))
                 .andExpect(jsonPath("$.acquisitionChannel").value("INSTAGRAM"))
+                .andExpect(jsonPath("$.addresses.length()").value(1))
+                .andExpect(jsonPath("$.addresses[0].label").value("Home"))
+                .andExpect(jsonPath("$.addresses[0].address").value("12 MG Road, Bangalore"))
+                .andExpect(jsonPath("$.addresses[0].isDefault").value(true))
                 .andReturn().getResponse().getContentAsString();
         String customerId = mapper.readTree(body).get("id").asText();
 
@@ -94,7 +101,8 @@ class CustomerApiTest {
                         .content("""
                                 {"name":"Priya Sharma","contactNumber":"+91 98765 43210",
                                  "email":"priya@example.com","instagramHandle":"@priya.crochets",
-                                 "acquisitionChannel":"REFERRAL","shippingAddress":"12 MG Road, Bangalore",
+                                 "acquisitionChannel":"REFERRAL",
+                                 "addresses":[{"label":"Home","address":"12 MG Road, Bangalore","isDefault":true}],
                                  "notes":"Now prefers earth tones"}"""))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.acquisitionChannel").value("REFERRAL"))
@@ -107,6 +115,43 @@ class CustomerApiTest {
         assertThat(raw.getString("contactNumber")).isNotEqualTo("+91 98765 43210");
         assertThat(raw.getString("notes")).isNotEqualTo("Now prefers earth tones");
         assertThat(raw.getString("acquisitionChannel")).isEqualTo("REFERRAL");
+        @SuppressWarnings("unchecked")
+        List<Document> rawAddresses = (List<Document>) raw.get("addresses");
+        assertThat(rawAddresses).hasSize(1);
+        assertThat(rawAddresses.get(0).getString("address")).isNotEqualTo("12 MG Road, Bangalore");
+    }
+
+    /** ad-6: a customer can have several saved addresses; at most one stays default even
+     *  if the caller tries to mark more than one, and one gets promoted to default
+     *  automatically if none was marked. */
+    @Test
+    void multipleAddressesEnforceAtMostOneDefault() throws Exception {
+        String body = mvc.perform(auth(post("/api/ordertracker/groups/" + groupId + "/customers"), token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"name":"Anita Rao","acquisitionChannel":"WALK_IN",
+                                 "addresses":[
+                                   {"label":"Home","address":"1 First St","isDefault":true},
+                                   {"label":"Work","address":"2 Second St","isDefault":true}
+                                 ]}"""))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.addresses.length()").value(2))
+                .andExpect(jsonPath("$.addresses[0].isDefault").value(true))
+                .andExpect(jsonPath("$.addresses[1].isDefault").value(false))
+                .andReturn().getResponse().getContentAsString();
+        String customerId = mapper.readTree(body).get("id").asText();
+
+        mvc.perform(auth(put("/api/ordertracker/groups/" + groupId + "/customers/" + customerId), token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"name":"Anita Rao","acquisitionChannel":"WALK_IN",
+                                 "addresses":[
+                                   {"label":"Home","address":"1 First St","isDefault":false},
+                                   {"label":"Work","address":"2 Second St","isDefault":false}
+                                 ]}"""))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.addresses[0].isDefault").value(true))
+                .andExpect(jsonPath("$.addresses[1].isDefault").value(false));
     }
 
     /** Regression coverage for CustomerService.search — the entire blind-index

@@ -1,6 +1,13 @@
 import { api } from "../api/client";
 import type { BusinessConfig, ChangeLog, ComponentTemplate, CostConfigChangeRequest, Creator, Customer, OrderFinalizationView, OrderView, Pattern, PresetOption, TimeStage, WorkStageType } from "./types";
 
+/** create/update customer body — addressId is nullable here (a not-yet-saved address
+ *  row, same "null means assign one" convention as bulk order variants) even though a
+ *  read-back Customer.addresses[].addressId is always a real id (ad-6). */
+type CustomerUpsertBody = Partial<Omit<Customer, "addresses">> & {
+  addresses?: { addressId: string | null; label: string; address: string; isDefault: boolean }[];
+};
+
 const base = (groupId: string) => `/ordertracker/groups/${groupId}`;
 
 export const orderTrackerApi = {
@@ -53,8 +60,8 @@ export const orderTrackerApi = {
 
   customers: (groupId: string) => api.get<Customer[]>(`${base(groupId)}/customers`),
   customer: (groupId: string, customerId: string) => api.get<Customer>(`${base(groupId)}/customers/${customerId}`),
-  createCustomer: (groupId: string, body: Partial<Customer>) => api.post<Customer>(`${base(groupId)}/customers`, body),
-  updateCustomer: (groupId: string, customerId: string, body: Partial<Customer>) =>
+  createCustomer: (groupId: string, body: CustomerUpsertBody) => api.post<Customer>(`${base(groupId)}/customers`, body),
+  updateCustomer: (groupId: string, customerId: string, body: CustomerUpsertBody) =>
     api.put<Customer>(`${base(groupId)}/customers/${customerId}`, body),
   searchCustomers: (groupId: string, params: { email?: string; instagramHandle?: string; contactNumber?: string }) => {
     const query = new URLSearchParams();
