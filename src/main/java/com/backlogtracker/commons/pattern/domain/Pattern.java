@@ -36,4 +36,8 @@ public class Pattern {
     private List<String> attachmentUrls = new ArrayList<>();
     @Builder.Default
     private List<String> recipeSteps = new ArrayList<>();
+    /** External link to the pattern's source (e.g. a Ravelry/Etsy page) — independent of
+     *  any uploaded photos (see {@link com.backlogtracker.commons.image.domain.ImageAsset}):
+     *  a design can have a photo, a link, both, or neither (ui-12: not either/or). */
+    private String referenceLink;
 }

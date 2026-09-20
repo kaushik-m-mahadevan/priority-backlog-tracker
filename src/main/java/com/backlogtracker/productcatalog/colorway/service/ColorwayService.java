@@ -47,7 +47,7 @@ public class ColorwayService {
                 .groupId(groupId)
                 .name(name)
                 .colour(colour)
-                .pattern(toPattern(request.recipeSteps()))
+                .pattern(toPattern(request.recipeSteps(), request.referenceLink()))
                 .estimatedCost(request.estimatedCost())
                 .notes(trimOrNull(request.notes()))
                 .ideabox(true)
@@ -71,7 +71,7 @@ public class ColorwayService {
 
         colorway.setName(name);
         colorway.setColour(colour);
-        colorway.setPattern(toPattern(request.recipeSteps()));
+        colorway.setPattern(toPattern(request.recipeSteps(), request.referenceLink()));
         colorway.setEstimatedCost(request.estimatedCost());
         colorway.setNotes(trimOrNull(request.notes()));
         return ColorwayView.of(repository.save(colorway));
@@ -100,11 +100,12 @@ public class ColorwayService {
         return colorway;
     }
 
-    private static Pattern toPattern(List<String> recipeSteps) {
-        if (recipeSteps == null || recipeSteps.isEmpty()) {
+    private static Pattern toPattern(List<String> recipeSteps, String referenceLink) {
+        String link = trimOrNull(referenceLink);
+        if ((recipeSteps == null || recipeSteps.isEmpty()) && link == null) {
             return null;
         }
-        return Pattern.builder().recipeSteps(recipeSteps).build();
+        return Pattern.builder().recipeSteps(recipeSteps == null ? List.of() : recipeSteps).referenceLink(link).build();
     }
 
     private static String requireText(String value, String field) {

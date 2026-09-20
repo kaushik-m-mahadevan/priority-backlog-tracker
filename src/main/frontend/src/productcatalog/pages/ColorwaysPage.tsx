@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { productCatalogApi } from "../api";
 import { useProductCatalog } from "../ProductCatalogContext";
 import { formatMoney } from "../../lib/format";
+import ImageGallery from "../../components/ImageGallery";
 import type { ColorwayView } from "../types";
 
 type NewColorwayDraft = {
@@ -10,19 +11,24 @@ type NewColorwayDraft = {
   estimatedCost: string;
   notes: string;
   recipeSteps: string;
+  referenceLink: string;
 };
 
-const blankDraft = (): NewColorwayDraft => ({ name: "", colour: "", estimatedCost: "", notes: "", recipeSteps: "" });
+const blankDraft = (): NewColorwayDraft => ({
+  name: "", colour: "", estimatedCost: "", notes: "", recipeSteps: "", referenceLink: "",
+});
 
 const toRecipeSteps = (text: string): string[] | null => {
   const steps = text.split("\n").map((s) => s.trim()).filter(Boolean);
   return steps.length > 0 ? steps : null;
 };
 
-/** The 5 fields shared between the "new colorway" and "edit colorway" forms — previously
+/** The fields shared between the "new colorway" and "edit colorway" forms — previously
  *  declared twice. Renders just the fields, not the surrounding form/buttons, since the
  *  two call sites wrap them differently (a real <form> for create, plain buttons for
- *  inline edit). */
+ *  inline edit). A reference link and an uploaded photo are independent (ui-12: both,
+ *  not either/or) — the link is a plain text field here; the photo gallery only appears
+ *  once the colorway has an id, so it lives on the card itself, not in this shared form. */
 function ColorwayForm({
   idPrefix,
   draft,
@@ -61,6 +67,16 @@ function ColorwayForm({
       <div className="form-row">
         <label htmlFor={`${idPrefix}-notes`}>Notes (optional)</label>
         <input id={`${idPrefix}-notes`} value={draft.notes} onChange={(e) => set("notes", e.target.value)} />
+      </div>
+      <div className="form-row">
+        <label htmlFor={`${idPrefix}-link`}>Reference link (optional)</label>
+        <input
+          id={`${idPrefix}-link`}
+          type="url"
+          placeholder="e.g. a Ravelry or Etsy pattern page"
+          value={draft.referenceLink}
+          onChange={(e) => set("referenceLink", e.target.value)}
+        />
       </div>
       <div className="form-row">
         <label htmlFor={`${idPrefix}-recipe`}>Recipe steps (optional, one per line)</label>
@@ -120,6 +136,7 @@ export default function ColorwaysPage() {
         estimatedCost: draft.estimatedCost.trim() ? Number(draft.estimatedCost) : null,
         notes: draft.notes.trim() || null,
         recipeSteps: toRecipeSteps(draft.recipeSteps),
+        referenceLink: draft.referenceLink.trim() || null,
       });
       if (newTarget === "catalog") {
         await productCatalogApi.promoteColorway(currentGroupId, created.id);
@@ -146,6 +163,7 @@ export default function ColorwaysPage() {
       estimatedCost: c.estimatedCost != null ? String(c.estimatedCost) : "",
       notes: c.notes ?? "",
       recipeSteps: (c.pattern?.recipeSteps ?? []).join("\n"),
+      referenceLink: c.pattern?.referenceLink ?? "",
     });
   };
 
@@ -163,6 +181,7 @@ export default function ColorwaysPage() {
         estimatedCost: editDraft.estimatedCost.trim() ? Number(editDraft.estimatedCost) : null,
         notes: editDraft.notes.trim() || null,
         recipeSteps: toRecipeSteps(editDraft.recipeSteps),
+        referenceLink: editDraft.referenceLink.trim() || null,
       });
       setEditingId(null);
       load();
@@ -235,12 +254,26 @@ export default function ColorwaysPage() {
           </button>
         </div>
         {c.notes && <p className="muted" style={{ fontSize: 12 }}>{c.notes}</p>}
+        {c.pattern?.referenceLink && (
+          <p style={{ fontSize: 13, marginTop: 4 }}>
+            <a href={c.pattern.referenceLink} target="_blank" rel="noreferrer">
+              {c.pattern.referenceLink}
+            </a>
+          </p>
+        )}
         {c.pattern && c.pattern.recipeSteps.length > 0 && (
           <ol style={{ marginTop: 8, paddingLeft: 20 }}>
             {c.pattern.recipeSteps.map((step, i) => (
               <li key={i}>{step}</li>
             ))}
           </ol>
+        )}
+        {/* Photo is independent of the link above (ui-12: both, not either/or) — the
+            generic gallery already used by Order Tracker's finished-product photos. */}
+        {currentGroupId && (
+          <div style={{ marginTop: 10 }}>
+            <ImageGallery groupId={currentGroupId} ownerType="colorway" ownerId={c.id} />
+          </div>
         )}
       </div>
     );

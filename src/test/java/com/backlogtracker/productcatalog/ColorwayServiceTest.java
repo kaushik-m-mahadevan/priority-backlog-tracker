@@ -58,7 +58,7 @@ class ColorwayServiceTest {
 
     private ColorwayView createSunsetRed() {
         return colorwayService.create(catalogGroup.getId(), userAId,
-                new CreateColorwayRequest("Sunset", "Red", null, null, null));
+                new CreateColorwayRequest("Sunset", "Red", null, null, null, null));
     }
 
     @Test
@@ -73,10 +73,22 @@ class ColorwayServiceTest {
         assertThat(created.name()).isEqualTo("Sunset");
 
         ColorwayView updated = colorwayService.update(catalogGroup.getId(), userBId, created.id(),
-                new CreateColorwayRequest("Sunset", "Red", 12.5, "runs small", List.of("Chain 20", "Row 1: sc across")));
+                new CreateColorwayRequest("Sunset", "Red", 12.5, "runs small",
+                        List.of("Chain 20", "Row 1: sc across"), "https://ravelry.com/patterns/sunset"));
         assertThat(updated.estimatedCost()).isEqualTo(12.5);
         assertThat(updated.notes()).isEqualTo("runs small");
         assertThat(updated.pattern().recipeSteps()).containsExactly("Chain 20", "Row 1: sc across");
+        assertThat(updated.pattern().referenceLink()).isEqualTo("https://ravelry.com/patterns/sunset");
+    }
+
+    @Test
+    void aReferenceLinkAloneStillCreatesAPattern() {
+        ColorwayView created = colorwayService.create(catalogGroup.getId(), userAId,
+                new CreateColorwayRequest("Ocean", "Teal", null, null, null, " https://etsy.com/listing/1 "));
+
+        assertThat(created.pattern()).isNotNull();
+        assertThat(created.pattern().referenceLink()).isEqualTo("https://etsy.com/listing/1");
+        assertThat(created.pattern().recipeSteps()).isEmpty();
     }
 
     @Test
@@ -84,7 +96,7 @@ class ColorwayServiceTest {
         createSunsetRed();
 
         assertThatThrownBy(() -> colorwayService.create(catalogGroup.getId(), userBId,
-                new CreateColorwayRequest("sunset", "red", null, null, null)))
+                new CreateColorwayRequest("sunset", "red", null, null, null, null)))
                 .isInstanceOf(ResponseStatusException.class)
                 .hasMessageContaining("already exists");
     }

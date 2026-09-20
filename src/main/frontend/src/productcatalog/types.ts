@@ -6,6 +6,7 @@ export interface Pattern {
   customPatternNotes: string | null;
   attachmentUrls: string[];
   recipeSteps: string[];
+  referenceLink: string | null;
 }
 
 export interface ColorwayView {
@@ -25,4 +26,5 @@ export interface CreateColorwayRequest {
   estimatedCost: number | null;
   notes: string | null;
   recipeSteps: string[] | null;
+  referenceLink: string | null;
 }

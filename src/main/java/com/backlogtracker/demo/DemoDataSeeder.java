@@ -252,9 +252,10 @@ public class DemoDataSeeder implements ApplicationRunner {
                 "7 Marine Drive, Mumbai", null));
 
         colorwayService.create(catalogGroupId, alex.getId(), new CreateColorwayRequest(
-                "Sunset Coral", "Coral / Cream", 450.0, "Best-seller — pairs well with cream trims", List.of()));
+                "Sunset Coral", "Coral / Cream", 450.0, "Best-seller — pairs well with cream trims", List.of(),
+                "https://ravelry.com/patterns/sunset-coral"));
         colorwayService.create(catalogGroupId, priya.getId(), new CreateColorwayRequest(
-                "Sage Meadow", "Sage Green", 400.0, null, List.of()));
+                "Sage Meadow", "Sage Green", 400.0, null, List.of(), null));
 
         ComponentTemplate vaseTemplate = masterDataService.addComponentTemplate(groupId, alex.getId(), "Vase base",
                 Pattern.builder().recipeSteps(List.of("Magic ring, 6sc", "Increase rounds to widen the base",

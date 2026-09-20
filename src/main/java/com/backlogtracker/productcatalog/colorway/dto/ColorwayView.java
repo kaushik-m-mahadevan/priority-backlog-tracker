@@ -10,14 +10,14 @@ import com.backlogtracker.productcatalog.colorway.domain.Colorway;
 public record ColorwayView(String id, String name, String colour, PatternView pattern, Double estimatedCost,
                            String notes, boolean ideabox, Instant createdAt) {
 
-    /** v1 only surfaces {@code recipeSteps} through the create/edit form — the other
-     *  Pattern fields (patternType, templateName, attachmentUrls) round-trip here but
-     *  have no UI yet (design decision: defer to a later pass). */
+    /** The create/edit form surfaces {@code recipeSteps} and {@code referenceLink} (ui-12)
+     *  — the other Pattern fields (patternType, templateName, attachmentUrls) round-trip
+     *  here but have no UI yet (design decision: defer to a later pass). */
     public record PatternView(PatternType patternType, String templateName, String customPatternNotes,
-                              List<String> attachmentUrls, List<String> recipeSteps) {
+                              List<String> attachmentUrls, List<String> recipeSteps, String referenceLink) {
         static PatternView of(Pattern p) {
             return p == null ? null : new PatternView(p.getPatternType(), p.getTemplateName(),
-                    p.getCustomPatternNotes(), p.getAttachmentUrls(), p.getRecipeSteps());
+                    p.getCustomPatternNotes(), p.getAttachmentUrls(), p.getRecipeSteps(), p.getReferenceLink());
         }
     }
 
