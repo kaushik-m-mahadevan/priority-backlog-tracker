@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ApiError } from "../api/client";
 import { groupLinkApi } from "../api/groupLinks";
 import { otherApplets, type AppletMeta } from "../api/applets";
 import { useDismissableMenu } from "../lib/useDismissableMenu";
+import { usePopoverPosition } from "../lib/usePopoverPosition";
 import type { GroupView } from "../types";
 
 interface RowState {
@@ -26,6 +27,8 @@ const blankRow = (): RowState => ({ linkedGroupId: undefined, groups: undefined,
  *  link/unlink right here. */
 export default function Connections({ appletKey, groupId }: { appletKey: string; groupId: string | null }) {
   const { open, setOpen, ref } = useDismissableMenu<HTMLDivElement>();
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const { popoverRef, style: popoverStyle } = usePopoverPosition(triggerRef, open);
   const [rows, setRows] = useState<Record<string, RowState>>({});
   const nav = useNavigate();
   const others = otherApplets(appletKey);
@@ -82,6 +85,7 @@ export default function Connections({ appletKey, groupId }: { appletKey: string;
   return (
     <div className="navmenu" ref={ref}>
       <button
+        ref={triggerRef}
         type="button"
         className="iconbtn"
         title="Connections to other applets"
@@ -93,7 +97,7 @@ export default function Connections({ appletKey, groupId }: { appletKey: string;
         🔗
       </button>
       {open && (
-        <div className="navmenu-pop" role="menu" style={{ width: 300 }}>
+        <div className="navmenu-pop" role="menu" ref={popoverRef} style={{ ...popoverStyle, width: 300 }}>
           <div className="navmenu-head">Connections</div>
           <p className="muted" style={{ fontSize: 12, padding: "0 10px 8px" }}>
             Every applet works on its own — link this group to another one only if you want

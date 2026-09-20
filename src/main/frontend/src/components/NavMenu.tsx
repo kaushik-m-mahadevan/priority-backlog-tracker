@@ -1,6 +1,8 @@
+import { useRef } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 import { useDismissableMenu } from "../lib/useDismissableMenu";
+import { usePopoverPosition } from "../lib/usePopoverPosition";
 
 export interface NavMenuLink {
   to: string;
@@ -12,6 +14,8 @@ export interface NavMenuLink {
 export default function NavMenu({ extraLinks }: { extraLinks?: NavMenuLink[] }) {
   const { user, logout } = useAuth();
   const { open, setOpen, ref } = useDismissableMenu<HTMLDivElement>();
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const { popoverRef, style: popoverStyle } = usePopoverPosition(triggerRef, open);
 
   const name = user?.name ?? "";
   const initial = name.trim().slice(0, 1).toUpperCase() || "?";
@@ -19,6 +23,7 @@ export default function NavMenu({ extraLinks }: { extraLinks?: NavMenuLink[] }) 
   return (
     <div className="navmenu" ref={ref}>
       <button
+        ref={triggerRef}
         className="navmenu-btn"
         onClick={() => setOpen((o) => !o)}
         aria-haspopup="menu"
@@ -34,7 +39,7 @@ export default function NavMenu({ extraLinks }: { extraLinks?: NavMenuLink[] }) 
         </span>
       </button>
       {open && (
-        <div className="navmenu-pop" role="menu">
+        <div className="navmenu-pop" role="menu" ref={popoverRef} style={popoverStyle}>
           <div className="navmenu-head">
             {name}
             {user?.handle && <span className="muted"> · @{user.handle}</span>}

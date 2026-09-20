@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useLocation } from "react-router-dom";
 import { api } from "../api/client";
 import { useItemsChanged, notifyItemsChanged } from "../lib/events";
 import { useDismissableMenu } from "../lib/useDismissableMenu";
+import { usePopoverPosition } from "../lib/usePopoverPosition";
 import { useGroups } from "../groups/GroupContext";
 import { BellIcon } from "./icons";
 import { formatDateTime } from "../lib/format";
@@ -38,6 +39,8 @@ export default function Bell() {
   const [items, setItems] = useState<NotificationView[]>([]);
   const [pending, setPending] = useState(0);
   const { open, setOpen, ref } = useDismissableMenu<HTMLDivElement>();
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const { popoverRef, style: popoverStyle } = usePopoverPosition(triggerRef, open);
   const [busy, setBusy] = useState(false);
   const loc = useLocation();
 
@@ -91,6 +94,7 @@ export default function Bell() {
     <div className="bell" ref={ref}>
       {pending > 0 && <span className="bub">{pending}</span>}
       <button
+        ref={triggerRef}
         className="iconbtn"
         aria-label={`Notifications: ${pending} pending`}
         onClick={() => setOpen((o) => !o)}
@@ -98,7 +102,7 @@ export default function Bell() {
         <BellIcon />
       </button>
       {open && (
-        <div className="popover">
+        <div className="popover" ref={popoverRef} style={popoverStyle}>
           <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 8 }}>Notifications</div>
           {items.length === 0 && <p className="empty">Nothing here yet.</p>}
           {items.map((n) => (
