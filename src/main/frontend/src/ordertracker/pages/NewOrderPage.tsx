@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { orderTrackerApi } from "../api";
 import { useBusiness } from "../BusinessContext";
+import { Section } from "../../components/Section";
 import { useLinkedNeedleTypes } from "../useLinkedNeedleTypes";
 import { useLinkedYarnTypes } from "../useLinkedYarnTypes";
 import { SlideToggle } from "../../components/SlideToggle";
@@ -215,6 +216,7 @@ export default function NewOrderPage() {
         {error && <div className="error">{error}</div>}
         <p className="muted" style={{ fontSize: 12, marginBottom: 12 }}>* Required — everything else can be filled in later.</p>
 
+        <Section title="Summary" icon="📋" defaultOpen>
         <div style={{ marginBottom: 16 }}>
           <SlideToggle
             value={orderType}
@@ -300,8 +302,9 @@ export default function NewOrderPage() {
             </select>
           </div>
         </div>
+        </Section>
 
-        <h2 className="settings-section">Pattern</h2>
+        <Section title="Pattern" icon="🧵">
         <div className="form-row">
           <label htmlFor="no-pattern-type" className="sr-only">
             Pattern type
@@ -330,7 +333,9 @@ export default function NewOrderPage() {
           </div>
         )}
 
-        <h2 className="settings-section">Recipe</h2>
+        </Section>
+
+        <Section title="Recipe" icon="📃">
         <div className="form-row">
           <label htmlFor="no-recipe-steps" className="sr-only">
             Recipe steps, one per line
@@ -344,7 +349,9 @@ export default function NewOrderPage() {
             onChange={(e) => setResearchTimeHours(Number(e.target.value))} />
         </div>
 
-        <h2 className="settings-section">Assembly &amp; packaging</h2>
+        </Section>
+
+        <Section title="Assembly &amp; packaging" icon="📦">
         <div className="form-row">
           <label htmlFor="no-assembly-packaging" className="sr-only">
             How to assemble and pack this order
@@ -353,10 +360,12 @@ export default function NewOrderPage() {
             onChange={(e) => setAssemblyPackagingInstructions(e.target.value)}
             placeholder={"Which materials/tools go where, assembly steps, how it gets boxed up"} />
         </div>
+        </Section>
 
+        <Section title="Materials" icon="🧶">
         {orderType === "INDIVIDUAL" ? (
           <>
-            <h2 className="settings-section">Materials</h2>
+
             <label className="muted" style={{ fontSize: 12, display: "block", marginBottom: 6 }}>
               Mandatory items
             </label>
@@ -519,8 +528,9 @@ export default function NewOrderPage() {
             </button>
           </>
         )}
+        </Section>
 
-        <h2 className="settings-section">Notes</h2>
+        <Section title="Notes" icon="📝">
         <div className="form-row">
           <label htmlFor="no-notes" className="sr-only">
             Notes — customer interactions, changes, anything else
@@ -528,6 +538,7 @@ export default function NewOrderPage() {
           <textarea id="no-notes" value={notes} onChange={(e) => setNotes(e.target.value)}
             placeholder="Customer interactions, changes mid-order, or anything else that doesn't fit above" />
         </div>
+        </Section>
 
         <div style={{ marginTop: 20 }}>
           <button className="primary" type="submit">

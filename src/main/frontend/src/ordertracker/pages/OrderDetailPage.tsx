@@ -5,6 +5,7 @@ import { orderTrackerApi } from "../api";
 import { useAuth } from "../../auth/AuthContext";
 import { useBusiness } from "../BusinessContext";
 import AddToGroupModal from "../AddToGroupModal";
+import { Section } from "../../components/Section";
 import { OrderDueDate } from "../OrderDueDate";
 import ImageGallery from "../../components/ImageGallery";
 import { ProgressRing } from "../../components/ProgressRing";
@@ -58,28 +59,6 @@ function stageIcon(stageKey: string): string {
   return STAGE_ICONS[stageKey.toLowerCase()] ?? "🔧";
 }
 
-/** Collapsible top-level grouping for the order detail view — open by default on wide
- *  screens (so the page reads as one organized document), collapsed by default on
- *  narrow ones (so a phone isn't hit with everything at once). */
-function Section({
-  title, icon, children, defaultOpen,
-}: { title: string; icon: string; children: React.ReactNode; defaultOpen?: boolean }) {
-  const [open, setOpen] = useState(() => {
-    if (defaultOpen !== undefined) return defaultOpen;
-    return typeof window === "undefined" ? true : window.innerWidth >= 768;
-  });
-  return (
-    <section className="order-section">
-      <button type="button" className="order-section-toggle" onClick={() => setOpen((o) => !o)} aria-expanded={open}>
-        <span className="order-section-title">
-          <span aria-hidden="true">{icon}</span> {title}
-        </span>
-        <span className="order-section-chevron" aria-hidden="true">{open ? "▾" : "▸"}</span>
-      </button>
-      {open && <div className="order-section-body">{children}</div>}
-    </section>
-  );
-}
 
 function EditOrderForm({
   groupId,
