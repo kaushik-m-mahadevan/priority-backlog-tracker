@@ -110,10 +110,10 @@ public record OrderView(String id, String orderNumber, OrderType orderType, Stri
     }
 
     public record PaymentView(String paymentId, com.backlogtracker.ordertracker.order.domain.PaymentType type,
-                              double amount, Instant date, String mode, String note) {
+                              double amount, Instant date, String mode, String note, String receivedBy) {
         static PaymentView of(Order.PaymentEntry p) {
             return new PaymentView(p.getPaymentId(), p.getType(), p.amountValue(), p.getDate(), p.modeValue(),
-                    p.noteValue());
+                    p.noteValue(), p.getReceivedBy());
         }
     }
 

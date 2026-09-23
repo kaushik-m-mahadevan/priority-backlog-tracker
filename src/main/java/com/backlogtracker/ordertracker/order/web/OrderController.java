@@ -132,6 +132,12 @@ public class OrderController {
         return orderService.addPayment(groupId, actor.id(), orderId, request);
     }
 
+    @DeleteMapping("/{orderId}/payments/{paymentId}")
+    public OrderView removePayment(@PathVariable String groupId, @PathVariable String orderId,
+                                   @PathVariable String paymentId, @AuthenticationPrincipal AuthUser actor) {
+        return orderService.removePayment(groupId, actor.id(), orderId, paymentId);
+    }
+
     @PostMapping("/{orderId}/time-log")
     public OrderView addTimeLogEntry(@PathVariable String groupId, @PathVariable String orderId,
                                      @RequestBody AddTimeLogEntryRequest request, @AuthenticationPrincipal AuthUser actor) {

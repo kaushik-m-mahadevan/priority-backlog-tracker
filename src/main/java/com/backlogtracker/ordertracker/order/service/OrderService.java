@@ -11,6 +11,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
 import com.backlogtracker.commons.crypto.EncryptedString;
+import com.backlogtracker.commons.finance.PaymentSyncConsumer;
+import com.backlogtracker.commons.finance.PaymentSyncEvent;
+import com.backlogtracker.commons.finance.PaymentSyncEvent.PartyRef;
 import com.backlogtracker.commons.group.domain.Group;
 import com.backlogtracker.commons.group.service.GroupService;
 import com.backlogtracker.commons.inventory.InventoryUsageConsumer;
@@ -34,6 +37,7 @@ import com.backlogtracker.ordertracker.order.domain.OrderChangeLog;
 import com.backlogtracker.ordertracker.order.domain.OrderStatus;
 import com.backlogtracker.ordertracker.order.domain.OrderStatusColumns;
 import com.backlogtracker.ordertracker.order.domain.OrderType;
+import com.backlogtracker.ordertracker.order.domain.PaymentType;
 import com.backlogtracker.ordertracker.order.dto.AddPaymentRequest;
 import com.backlogtracker.ordertracker.order.dto.AddTimeLogEntryRequest;
 import com.backlogtracker.ordertracker.order.dto.AddUsageLogEntryRequest;
@@ -75,6 +79,7 @@ public class OrderService {
     private final Clock clock;
     private final GroupLinkService groupLinkService;
     private final List<InventoryUsageConsumer> inventoryConsumers;
+    private final List<PaymentSyncConsumer> paymentSyncConsumers;
 
     public List<OrderView> all(String groupId, String userId) {
         groupService.requireMember(groupId, userId);
@@ -548,13 +553,16 @@ public class OrderService {
     public OrderView addPayment(String groupId, String userId, String orderId, AddPaymentRequest request) {
         groupService.requireMember(groupId, userId);
         Order order = requireById(groupId, orderId);
+        String paymentId = java.util.UUID.randomUUID().toString();
+        String receivedBy = request.receivedBy() == null || request.receivedBy().isBlank() ? userId : request.receivedBy();
         order.getPayments().add(Order.PaymentEntry.builder()
-                .paymentId(java.util.UUID.randomUUID().toString())
+                .paymentId(paymentId)
                 .type(request.type())
                 .amount(EncryptedString.of(Double.toString(request.amount())))
                 .date(request.date() == null ? clock.instant() : request.date())
                 .mode(EncryptedString.of(request.mode()))
                 .note(EncryptedString.of(request.note()))
+                .receivedBy(receivedBy)
                 .build());
         double finalCost = finalCost(order);
         PaymentStatusHolder oldStatus = new PaymentStatusHolder(order.getPaymentStatus());
@@ -566,7 +574,85 @@ public class OrderService {
                             .changeTimestamp(clock.instant()).build()));
         }
         order.setUpdatedAt(clock.instant());
-        return view(repository.save(order), userId);
+        Order saved = repository.save(order);
+        syncPaymentToFinance(groupId, userId, order, request.type(), request.amount(), request.date(), receivedBy, paymentId);
+        return view(saved, userId);
+    }
+
+    /** ad-1's undo path — didn't exist before this feature, needed since a real ledger row
+     *  now auto-follows every payment and a mistaken entry needs a real way back out.
+     *  Removes the payment from the order and, if synced, the matching Finance Tracker
+     *  ledger row (best-effort — a removed payment always removes from the order even if
+     *  nothing was ever synced). */
+    public OrderView removePayment(String groupId, String userId, String orderId, String paymentId) {
+        groupService.requireMember(groupId, userId);
+        Order order = requireById(groupId, orderId);
+        boolean removed = order.getPayments().removeIf(p -> p.getPaymentId().equals(paymentId));
+        if (!removed) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Payment not found");
+        }
+        double finalCost = finalCost(order);
+        order.setPaymentStatus(calculator.derivePaymentStatus(order.getPayments(), finalCost));
+        order.setUpdatedAt(clock.instant());
+        Order saved = repository.save(order);
+        groupLinkService.linkedGroupId(groupId, userId, Group.APPLET_FINANCE_TRACKER)
+                .ifPresent(financeGroupId -> paymentSyncConsumer().ifPresent(consumer ->
+                        consumer.onPaymentRemoved(financeGroupId, userId, orderId + ":" + paymentId)));
+        return view(saved, userId);
+    }
+
+    /** Re-syncs every historical payment on every order in this group — safe to call any
+     *  time (idempotent on each payment's {@code sourceRef}), for a business linking to a
+     *  Finance group after payments already exist. */
+    public java.util.Map<String, Integer> backfillPaymentsToFinance(String groupId, String userId) {
+        groupService.requireMember(groupId, userId);
+        String financeGroupId = groupLinkService.linkedGroupId(groupId, userId, Group.APPLET_FINANCE_TRACKER)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "Link this business to a Finance Tracker group first"));
+        int synced = 0;
+        for (Order order : repository.findByGroupId(groupId)) {
+            for (Order.PaymentEntry payment : order.getPayments()) {
+                String receivedBy = payment.getReceivedBy() == null ? order.getCreatedByCreatorId() : payment.getReceivedBy();
+                syncPaymentToFinanceDirect(financeGroupId, userId, order, payment.getType(), payment.amountValue(),
+                        payment.getDate(), receivedBy, payment.getPaymentId());
+                synced++;
+            }
+        }
+        return java.util.Map.of("paymentsSynced", synced);
+    }
+
+    /** Best-effort: silently does nothing when this business isn't linked to a Finance
+     *  Tracker group, or no consumer bean is available — a payment is always recorded on
+     *  the order regardless of whether the ledger sync succeeds. */
+    private void syncPaymentToFinance(String groupId, String userId, Order order, PaymentType type, double amount,
+                                      java.time.Instant requestedDate, String receivedBy, String paymentId) {
+        groupLinkService.linkedGroupId(groupId, userId, Group.APPLET_FINANCE_TRACKER)
+                .ifPresent(financeGroupId -> syncPaymentToFinanceDirect(financeGroupId, userId, order, type, amount,
+                        requestedDate == null ? clock.instant() : requestedDate, receivedBy, paymentId));
+    }
+
+    private void syncPaymentToFinanceDirect(String financeGroupId, String userId, Order order, PaymentType type,
+                                            double amount, java.time.Instant date, String receivedBy, String paymentId) {
+        paymentSyncConsumer().ifPresent(consumer -> {
+            String customerName = customerService.get(order.getGroupId(), userId, order.getCustomerId()).name();
+            PartyRef receiver = "BUSINESS".equals(receivedBy) ? PartyRef.business() : PartyRef.member(receivedBy);
+            PartyRef customer = PartyRef.customer(customerName == null || customerName.isBlank() ? "Customer" : customerName);
+            boolean refund = type == PaymentType.REFUND;
+            PaymentSyncEvent event = new PaymentSyncEvent(
+                    order.getId() + ":" + paymentId,
+                    date,
+                    (refund ? "Refund — " : "Payment — ") + (order.getItemName() == null ? order.getOrderNumber() : order.getItemName()),
+                    amount,
+                    refund ? receiver : customer,
+                    refund ? customer : receiver);
+            consumer.onPaymentRecorded(financeGroupId, userId, event);
+        });
+    }
+
+    private java.util.Optional<PaymentSyncConsumer> paymentSyncConsumer() {
+        return paymentSyncConsumers.stream()
+                .filter(c -> Group.APPLET_FINANCE_TRACKER.equals(c.appletKey()))
+                .findFirst();
     }
 
     private record PaymentStatusHolder(com.backlogtracker.ordertracker.order.domain.PaymentStatus value) {

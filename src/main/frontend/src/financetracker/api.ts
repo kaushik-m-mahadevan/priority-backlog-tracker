@@ -1,12 +1,12 @@
 import { api } from "../api/client";
 import type {
-  BalanceView,
   CreateLedgerEntryRequest,
-  CreateSettlementRequest,
+  ExternalPartySuggestion,
+  FinanceBusinessConfig,
   LedgerEntryView,
+  MemberBalanceView,
   ProfitDistributionView,
   ProposeProfitDistributionRequest,
-  SettlementView,
 } from "./types";
 
 const base = (groupId: string) => `/financetracker/groups/${groupId}`;
@@ -15,12 +15,13 @@ export const financeTrackerApi = {
   ledgerEntries: (groupId: string) => api.get<LedgerEntryView[]>(`${base(groupId)}/ledger`),
   logLedgerEntry: (groupId: string, body: CreateLedgerEntryRequest) =>
     api.post<LedgerEntryView>(`${base(groupId)}/ledger`, body),
-  updateLedgerEntry: (groupId: string, entryId: string, body: CreateLedgerEntryRequest) =>
-    api.put<LedgerEntryView>(`${base(groupId)}/ledger/${entryId}`, body),
-  balances: (groupId: string) => api.get<BalanceView[]>(`${base(groupId)}/ledger/balances`),
-  settlements: (groupId: string) => api.get<SettlementView[]>(`${base(groupId)}/ledger/settlements`),
-  settleUp: (groupId: string, body: CreateSettlementRequest) =>
-    api.post<SettlementView>(`${base(groupId)}/ledger/settlements`, body),
+  deleteLedgerEntry: (groupId: string, entryId: string) => api.delete<void>(`${base(groupId)}/ledger/${entryId}`),
+  balances: (groupId: string) => api.get<MemberBalanceView[]>(`${base(groupId)}/ledger/balances`),
+  externalSuggestions: (groupId: string) => api.get<ExternalPartySuggestion[]>(`${base(groupId)}/ledger/external-suggestions`),
+
+  businessConfig: (groupId: string) => api.get<FinanceBusinessConfig>(`${base(groupId)}/business-config`),
+  setBusinessAccountConfigured: (groupId: string, businessAccountConfigured: boolean) =>
+    api.put<FinanceBusinessConfig>(`${base(groupId)}/business-config`, { businessAccountConfigured }),
 
   profitDistributions: (groupId: string) => api.get<ProfitDistributionView[]>(`${base(groupId)}/profit-distributions`),
   proposeProfitDistribution: (groupId: string, body: ProposeProfitDistributionRequest) =>

@@ -2,8 +2,6 @@ package com.backlogtracker.financetracker.ledger.domain;
 
 import java.math.BigDecimal;
 import java.time.Instant;
-import java.util.ArrayList;
-import java.util.List;
 
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.Id;
@@ -17,18 +15,12 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 /**
- * One money movement in a Finance Tracker group's shared ledger — an expense someone
- * paid, or income the business (or a specific person, e.g. an investor) received.
- * {@code BigDecimal} throughout (not {@code double}, unlike Order Tracker's cost math)
- * since a ledger accumulates many entries over time, where floating-point drift is a
- * real risk rather than a one-order rounding curiosity.
- *
- * <p>There is deliberately no separate "reimbursement" concept: a personal expense the
- * business owes back is just an EXPENSE whose only {@link SplitShare} is
- * {@code {BUSINESS, 1.0}} — the same shape a genuinely business-attributed cost (a
- * shipment paid on a personal card) already needs. {@code payerId} is always recorded,
- * even then, purely for an audit trail of who actually paid — it carries no ownership
- * implication by itself; the shares are what determine who owes what.
+ * ad-1: one real cash movement — always exactly one Debit party and one Credit party,
+ * never a multi-way split. Replaces the earlier shares/ratios model entirely: a shared
+ * expense is no longer one ledger construct, it's however many real transactions actually
+ * happened (each entered separately) — see BACKLOG.md's ad-1 design note. {@code
+ * BigDecimal} throughout (not {@code double}) since a ledger accumulates many entries over
+ * time, where floating-point drift is a real risk.
  */
 @Document("financeLedgerEntries")
 @Getter
@@ -44,21 +36,19 @@ public class LedgerEntry {
     @Indexed
     private String groupId;
 
-    private LedgerEntryType type;
+    private Instant date;
     private String description;
     private BigDecimal amount;
 
-    /** Who actually paid (EXPENSE) or received (INCOME) the money — always recorded,
-     *  regardless of how the shares below attribute it. */
-    private String payerId;
+    private Party debit;
+    private Party credit;
 
-    /** Who bears each portion of {@link #amount}, summing to exactly 1 (validated by the
-     *  service, not here — a domain object shouldn't throw on construction from
-     *  already-persisted, already-valid data). Omitting a party from this list is how a
-     *  personal expense's payer keeps their own absorbed portion out of what others owe
-     *  them; it is not the same as a zero-ratio entry, which would be meaningless. */
-    @Builder.Default
-    private List<SplitShare> shares = new ArrayList<>();
+    /** Null for a manually-entered row. Set to {@code "<orderId>:<paymentId>"} for a row
+     *  auto-created from an Order Tracker payment — the idempotency key a backfill or a
+     *  retried sync can safely check against before inserting again, and what a payment
+     *  removal looks up to delete the matching row. */
+    @Indexed
+    private String sourceRef;
 
     private String createdByUserId;
 
@@ -70,10 +60,12 @@ public class LedgerEntry {
     @Builder
     @NoArgsConstructor
     @AllArgsConstructor
-    public static class SplitShare {
-        private SplitPartyType partyType;
-        /** Set iff {@code partyType == PERSON}; null for {@code BUSINESS}. */
-        private String personId;
-        private BigDecimal ratio;
+    public static class Party {
+        private PartyType type;
+        /** Set iff {@code type == MEMBER}. */
+        private String userId;
+        /** Set iff {@code type == CUSTOMER} or {@code EXTERNAL} — the real customer's name
+         *  (pulled from the order, never a generic label) or a free-text external name. */
+        private String displayName;
     }
 }

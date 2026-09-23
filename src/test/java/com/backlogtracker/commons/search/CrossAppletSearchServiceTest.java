@@ -20,9 +20,8 @@ import com.backlogtracker.commons.user.domain.Role;
 import com.backlogtracker.commons.user.domain.User;
 import com.backlogtracker.commons.user.repository.UserRepository;
 import com.backlogtracker.financetracker.ledger.dto.CreateLedgerEntryRequest;
-import com.backlogtracker.financetracker.ledger.dto.CreateLedgerEntryRequest.ShareInput;
-import com.backlogtracker.financetracker.ledger.domain.LedgerEntryType;
-import com.backlogtracker.financetracker.ledger.domain.SplitPartyType;
+import com.backlogtracker.financetracker.ledger.dto.CreateLedgerEntryRequest.PartyInput;
+import com.backlogtracker.financetracker.ledger.domain.PartyType;
 import com.backlogtracker.financetracker.ledger.repository.LedgerEntryRepository;
 import com.backlogtracker.financetracker.ledger.service.LedgerEntryService;
 import com.backlogtracker.ordertracker.customer.domain.AcquisitionChannel;
@@ -78,7 +77,7 @@ class CrossAppletSearchServiceTest {
         creators.findByGroupId(business.getId()).forEach(c -> creators.deleteById(c.getId()));
         groups.findByMemberIdsContaining(userId).forEach(g -> {
             if (g.getAppletKey().equals(Group.APPLET_FINANCE_TRACKER)) {
-                ledgerEntries.findByGroupIdOrderByCreatedAtDesc(g.getId()).forEach(e -> ledgerEntries.deleteById(e.getId()));
+                ledgerEntries.findByGroupIdOrderByDateDesc(g.getId()).forEach(e -> ledgerEntries.deleteById(e.getId()));
             }
             groups.delete(g);
         });
@@ -164,20 +163,20 @@ class CrossAppletSearchServiceTest {
         groupLinkService.link(business.getId(), userId, finance.getId());
 
         ledgerEntryService.create(finance.getId(), userId, new CreateLedgerEntryRequest(
-                LedgerEntryType.EXPENSE, "Yarn reimbursement for order #1", new BigDecimal("450.00"), userId,
-                List.of(new ShareInput(SplitPartyType.BUSINESS, null, BigDecimal.ONE))));
+                null, "Yarn reimbursement for order #1", new BigDecimal("450.00"),
+                new PartyInput(PartyType.BUSINESS, null, null), new PartyInput(PartyType.MEMBER, userId, null)));
 
         List<SearchResult> results = searchService.search(business.getId(), userId, "reimbursement");
 
         assertThat(results).anySatisfy(r -> {
-            assertThat(r.category()).isEqualTo("Expense");
+            assertThat(r.category()).isEqualTo("Ledger entry");
             assertThat(r.title()).isEqualTo("Yarn reimbursement for order #1");
-            assertThat(r.path()).isEqualTo("/financetracker/expenses");
+            assertThat(r.path()).isEqualTo("/financetracker/ledger");
         });
 
         // cleanup for this test's extra finance group (not created via a Creator/Customer
         // needing the shared AfterEach's business-scoped cleanup)
-        ledgerEntries.findByGroupIdOrderByCreatedAtDesc(finance.getId()).forEach(e -> ledgerEntries.deleteById(e.getId()));
+        ledgerEntries.findByGroupIdOrderByDateDesc(finance.getId()).forEach(e -> ledgerEntries.deleteById(e.getId()));
         groups.deleteById(finance.getId());
     }
 

@@ -1,6 +1,8 @@
 import { FormEvent, useEffect, useState } from "react";
 import { api, ApiError } from "../../api/client";
 import { Creature } from "../../components/Creature";
+import { Switch } from "../../components/Switch";
+import { financeTrackerApi } from "../api";
 import { useFinanceGroup } from "../FinanceGroupContext";
 import type { GroupView } from "../../types";
 
@@ -24,6 +26,8 @@ export default function ManageFinanceGroupPage() {
   const [businesses, setBusinesses] = useState<GroupView[]>([]);
   const [selectedBusinessId, setSelectedBusinessId] = useState("");
   const [linkLoading, setLinkLoading] = useState(true);
+  const [businessAccountConfigured, setBusinessAccountConfigured] = useState(false);
+  const [backfillResult, setBackfillResult] = useState<string | null>(null);
 
   useEffect(() => {
     if (!currentGroupId) return;
@@ -31,13 +35,36 @@ export default function ManageFinanceGroupPage() {
     Promise.all([
       api.get<{ linkedGroupId: string | null }>(`/groups/${currentGroupId}/links/${ORDER_TRACKER_APPLET_KEY}`),
       api.get<GroupView[]>(`/groups?appletKey=${ORDER_TRACKER_APPLET_KEY}`),
+      financeTrackerApi.businessConfig(currentGroupId),
     ])
-      .then(([link, groups]) => {
+      .then(([link, groups, cfg]) => {
         setLinkedBusinessId(link.linkedGroupId);
         setBusinesses(groups);
+        setBusinessAccountConfigured(cfg.businessAccountConfigured);
       })
       .finally(() => setLinkLoading(false));
   }, [currentGroupId]);
+
+  const toggleBusinessAccount = async (value: boolean) => {
+    if (!currentGroupId) return;
+    const cfg = await financeTrackerApi.setBusinessAccountConfigured(currentGroupId, value);
+    setBusinessAccountConfigured(cfg.businessAccountConfigured);
+  };
+
+  const backfillPayments = async () => {
+    if (!linkedBusinessId) return;
+    setBusy(true);
+    setErr(null);
+    setBackfillResult(null);
+    try {
+      const result = await api.post<{ paymentsSynced: number }>(`/ordertracker/groups/${linkedBusinessId}/finance-sync/backfill`);
+      setBackfillResult(`Synced ${result.paymentsSynced} historical payment(s).`);
+    } catch (e) {
+      setErr(e instanceof ApiError ? e.message : "Could not sync historical payments");
+    } finally {
+      setBusy(false);
+    }
+  };
 
   const linkBusiness = async () => {
     if (!selectedBusinessId) return;
@@ -187,12 +214,20 @@ export default function ManageFinanceGroupPage() {
         {linkLoading ? (
           <p className="muted">Loading…</p>
         ) : linkedBusinessId ? (
-          <div className="team-add">
-            <span className="chip">{linkedBusiness?.name ?? "Linked business"}</span>
-            <button className="ghost" disabled={busy} onClick={unlinkBusiness}>
-              Unlink
-            </button>
-          </div>
+          <>
+            <div className="team-add">
+              <span className="chip">{linkedBusiness?.name ?? "Linked business"}</span>
+              <button className="ghost" disabled={busy} onClick={unlinkBusiness}>
+                Unlink
+              </button>
+            </div>
+            <div style={{ marginTop: 10 }}>
+              <button type="button" disabled={busy} onClick={backfillPayments}>
+                Sync historical payments
+              </button>
+              {backfillResult && <p className="hint" style={{ marginTop: 6 }}>{backfillResult}</p>}
+            </div>
+          </>
         ) : businesses.length === 0 ? (
           <p className="empty">
             No Order Tracker businesses yet — create one from the Order Tracker applet first, then come
@@ -222,6 +257,17 @@ export default function ManageFinanceGroupPage() {
             </button>
           </div>
         )}
+      </div>
+
+      <div className="card" style={{ marginTop: 16 }}>
+        <h2>Ledger settings</h2>
+        <Switch
+          id="business-account-configured"
+          checked={businessAccountConfigured}
+          onChange={toggleBusinessAccount}
+          label="Business account configured"
+          description="Lets a ledger entry credit or debit the business account itself, not just members."
+        />
       </div>
     </div>
   );

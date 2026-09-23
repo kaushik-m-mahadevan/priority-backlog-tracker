@@ -63,6 +63,7 @@ export default function OrderDetailPage() {
   const [paymentType, setPaymentType] = useState<PaymentType>("ADVANCE");
   const [paymentMode, setPaymentMode] = useState("UPI");
   const [paymentModeOther, setPaymentModeOther] = useState("");
+  const [paymentReceivedBy, setPaymentReceivedBy] = useState("");
   const [actionError, setActionError] = useState<string | null>(null);
   const [addingToGroup, setAddingToGroup] = useState(false);
   const [cancelling, setCancelling] = useState(false);
@@ -886,7 +887,21 @@ export default function OrderDetailPage() {
             order.payments.map((p) => (
               <div className="row" key={p.paymentId}>
                 <span className="k">{p.type}</span>
-                <span className="v">{formatMoney(p.amount)} ({p.mode})</span>
+                <span className="v">
+                  {formatMoney(p.amount)} ({p.mode})
+                  <button
+                    type="button"
+                    className="linkbtn"
+                    style={{ marginLeft: 8, fontSize: 12 }}
+                    onClick={() => {
+                      if (window.confirm(`Remove this ${formatMoney(p.amount)} ${p.type.toLowerCase()} payment?`)) {
+                        runAction(() => orderTrackerApi.removePayment(groupId, order.id, p.paymentId));
+                      }
+                    }}
+                  >
+                    remove
+                  </button>
+                </span>
               </div>
             ))
           )}
@@ -910,16 +925,27 @@ export default function OrderDetailPage() {
               <input aria-label="Payment mode (other)" placeholder="Describe how" value={paymentModeOther}
                 onChange={(e) => setPaymentModeOther(e.target.value)} />
             )}
+            <select aria-label="Received by" value={paymentReceivedBy} onChange={(e) => setPaymentReceivedBy(e.target.value)}>
+              <option value="">Received by: me</option>
+              {creators.map((c) => (
+                <option key={c.id} value={c.userId}>{creatorName(c.id)}</option>
+              ))}
+              <option value="BUSINESS">Business Account</option>
+            </select>
             <button
               className="primary"
               disabled={paymentMode === "OTHER" && !paymentModeOther.trim()}
               onClick={async () => {
                 if (!paymentAmount) return;
                 const mode = paymentMode === "OTHER" ? paymentModeOther.trim() : paymentMode;
-                const ok = await runAction(() => orderTrackerApi.addPayment(groupId, order.id, { type: paymentType, amount: paymentAmount, mode }));
+                const ok = await runAction(() => orderTrackerApi.addPayment(groupId, order.id, {
+                  type: paymentType, amount: paymentAmount, mode,
+                  receivedBy: paymentReceivedBy || undefined,
+                }));
                 if (ok) {
                   setPaymentAmount(0);
                   setPaymentModeOther("");
+                  setPaymentReceivedBy("");
                 }
               }}
             >

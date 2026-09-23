@@ -200,6 +200,7 @@ export interface PaymentView {
   date: string;
   mode: string | null;
   note: string | null;
+  receivedBy: string | null;
 }
 
 export type TimeStage = "RESEARCH" | "CRAFTING" | "ASSEMBLY";

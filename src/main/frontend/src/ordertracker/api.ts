@@ -116,6 +116,8 @@ export const orderTrackerApi = {
     }),
   addPayment: (groupId: string, orderId: string, body: unknown) =>
     api.post<OrderView>(`${base(groupId)}/orders/${orderId}/payments`, body),
+  removePayment: (groupId: string, orderId: string, paymentId: string) =>
+    api.delete<OrderView>(`${base(groupId)}/orders/${orderId}/payments/${paymentId}`),
   addTimeLogEntry: (
     groupId: string,
     orderId: string,

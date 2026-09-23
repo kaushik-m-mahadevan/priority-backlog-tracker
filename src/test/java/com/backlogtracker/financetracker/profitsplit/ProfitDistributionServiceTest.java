@@ -24,7 +24,7 @@ import com.backlogtracker.commons.user.domain.AccountStatus;
 import com.backlogtracker.commons.user.domain.Role;
 import com.backlogtracker.commons.user.domain.User;
 import com.backlogtracker.commons.user.repository.UserRepository;
-import com.backlogtracker.financetracker.ledger.domain.LedgerEntryType;
+import com.backlogtracker.financetracker.ledger.domain.PartyType;
 import com.backlogtracker.financetracker.ledger.repository.LedgerEntryRepository;
 import com.backlogtracker.financetracker.ledger.service.LedgerEntryService;
 import com.backlogtracker.financetracker.profitsplit.dto.ProfitDistributionView;
@@ -65,7 +65,7 @@ class ProfitDistributionServiceTest {
 
     @AfterEach
     void cleanUp() {
-        entries.findByGroupIdOrderByCreatedAtDesc(financeGroup.getId()).forEach(e -> entries.deleteById(e.getId()));
+        entries.findByGroupIdOrderByDateDesc(financeGroup.getId()).forEach(e -> entries.deleteById(e.getId()));
         approvalRequests.findByGroupId(financeGroup.getId()).forEach(r -> approvalRequests.deleteById(r.getId()));
         groups.deleteById(financeGroup.getId());
         users.deleteById(coordinatorId);
@@ -93,8 +93,8 @@ class ProfitDistributionServiceTest {
                         org.assertj.core.groups.Tuple.tuple(creatorAId, new BigDecimal("200.00")),
                         org.assertj.core.groups.Tuple.tuple(creatorBId, new BigDecimal("100.00")));
 
-        var incomeEntries = entries.findByGroupIdOrderByCreatedAtDesc(financeGroup.getId()).stream()
-                .filter(e -> e.getType() == LedgerEntryType.INCOME).toList();
+        var incomeEntries = entries.findByGroupIdOrderByDateDesc(financeGroup.getId()).stream()
+                .filter(e -> e.getCredit().getType() == PartyType.MEMBER).toList();
         assertThat(incomeEntries).hasSize(2);
         assertThat(incomeEntries).extracting(e -> e.getAmount())
                 .containsExactlyInAnyOrder(new BigDecimal("200.00"), new BigDecimal("100.00"));
@@ -174,7 +174,7 @@ class ProfitDistributionServiceTest {
         ProfitDistributionView rejected = profitDistributionService.reject(financeGroup.getId(), creatorAId, proposed.requestId());
 
         assertThat(rejected.status()).isEqualTo(ApprovalStatus.REJECTED);
-        assertThat(entries.findByGroupIdOrderByCreatedAtDesc(financeGroup.getId())).isEmpty();
+        assertThat(entries.findByGroupIdOrderByDateDesc(financeGroup.getId())).isEmpty();
     }
 
     @Test

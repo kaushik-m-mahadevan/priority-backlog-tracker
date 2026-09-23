@@ -24,10 +24,9 @@ import com.backlogtracker.commons.group.service.GroupService;
 import com.backlogtracker.commons.notification.domain.NotificationType;
 import com.backlogtracker.commons.notification.service.NotificationOrchestrator;
 import com.backlogtracker.commons.notification.service.NotificationService;
-import com.backlogtracker.financetracker.ledger.domain.LedgerEntryType;
-import com.backlogtracker.financetracker.ledger.domain.SplitPartyType;
+import com.backlogtracker.financetracker.ledger.domain.PartyType;
 import com.backlogtracker.financetracker.ledger.dto.CreateLedgerEntryRequest;
-import com.backlogtracker.financetracker.ledger.dto.CreateLedgerEntryRequest.ShareInput;
+import com.backlogtracker.financetracker.ledger.dto.CreateLedgerEntryRequest.PartyInput;
 import com.backlogtracker.financetracker.ledger.service.LedgerEntryService;
 import com.backlogtracker.financetracker.profitsplit.dto.ProfitDistributionView;
 import com.backlogtracker.financetracker.profitsplit.dto.ProfitDistributionView.RecipientAmountView;
@@ -142,11 +141,11 @@ public class ProfitDistributionService {
                 continue;
             }
             ledgerEntryService.create(groupId, proposedByUserId, new CreateLedgerEntryRequest(
-                    LedgerEntryType.INCOME,
+                    null,
                     "Profit distribution: " + label,
                     amount,
-                    proposedByUserId,
-                    List.of(new ShareInput(SplitPartyType.PERSON, personId, BigDecimal.ONE))));
+                    new PartyInput(PartyType.BUSINESS, null, null),
+                    new PartyInput(PartyType.MEMBER, personId, null)));
         }
     }
 

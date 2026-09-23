@@ -36,13 +36,10 @@ public class FinanceTrackerSearchProvider implements Searchable {
         groupService.requireMember(groupId, userId);
         String needle = query.trim().toLowerCase(Locale.ROOT);
         List<SearchResult> results = new ArrayList<>();
-        for (LedgerEntry e : entries.findByGroupIdOrderByCreatedAtDesc(groupId)) {
+        for (LedgerEntry e : entries.findByGroupIdOrderByDateDesc(groupId)) {
             if (e.getDescription() != null && e.getDescription().toLowerCase(Locale.ROOT).contains(needle)) {
-                String path = e.getType() == com.backlogtracker.financetracker.ledger.domain.LedgerEntryType.EXPENSE
-                        ? "/financetracker/expenses" : "/financetracker/income";
-                results.add(new SearchResult(
-                        e.getType() == com.backlogtracker.financetracker.ledger.domain.LedgerEntryType.EXPENSE ? "Expense" : "Income",
-                        e.getId(), e.getDescription(), e.getAmount() != null ? e.getAmount().toPlainString() : null, path));
+                results.add(new SearchResult("Ledger entry", e.getId(), e.getDescription(),
+                        e.getAmount() != null ? e.getAmount().toPlainString() : null, "/financetracker/ledger"));
                 if (results.size() >= MAX_RESULTS) {
                     break;
                 }

@@ -349,6 +349,12 @@ public class Order {
         private Instant date;
         private EncryptedString mode;
         private EncryptedString note;
+        /** ad-1: who received this payment (or, for a REFUND, who paid it out) — a real
+         *  platform userId, or the literal sentinel {@code "BUSINESS"} meaning the
+         *  business account itself. Defaults to whoever recorded the payment when unset
+         *  (payments recorded before ad-1 existed). Drives the auto-synced Finance
+         *  Tracker ledger row's Credit (or, for a refund, Debit) party. */
+        private String receivedBy;
 
         public double amountValue() {
             return amount == null || amount.value() == null ? 0.0 : Double.parseDouble(amount.value());

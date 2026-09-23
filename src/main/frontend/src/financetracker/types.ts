@@ -1,56 +1,51 @@
-export type LedgerEntryType = "EXPENSE" | "INCOME";
-export type SplitPartyType = "PERSON" | "BUSINESS";
+export type PartyType = "MEMBER" | "BUSINESS" | "CUSTOMER" | "EXTERNAL";
 
-export interface ShareView {
-  partyType: SplitPartyType;
-  personId: string | null;
-  ratio: number;
+export interface PartyView {
+  type: PartyType;
+  userId: string | null;
+  displayName: string | null;
+}
+
+export interface PartyInput {
+  type: PartyType;
+  userId: string | null;
+  displayName: string | null;
 }
 
 export interface LedgerEntryView {
   id: string;
-  type: LedgerEntryType;
+  date: string;
   description: string;
   amount: number;
-  payerId: string;
-  shares: ShareView[];
+  debit: PartyView;
+  credit: PartyView;
+  /** Set only for a row auto-created from an Order Tracker payment. */
+  sourceRef: string | null;
   createdByUserId: string;
   createdAt: string;
 }
 
-export interface ShareInput {
-  partyType: SplitPartyType;
-  personId: string | null;
-  ratio: number;
-}
-
 export interface CreateLedgerEntryRequest {
-  type: LedgerEntryType;
+  date: string | null;
   description: string;
   amount: number;
-  payerId: string;
-  shares: ShareInput[];
+  debit: PartyInput;
+  credit: PartyInput;
 }
 
-export interface BalanceView {
-  personId: string;
-  netFromOthers: number;
-  owedByBusiness: number;
+export interface MemberBalanceView {
+  userId: string;
+  net: number;
 }
 
-export interface CreateSettlementRequest {
-  fromPartyType: SplitPartyType;
-  fromPersonId: string | null;
-  amount: number;
+export interface ExternalPartySuggestion {
+  displayName: string;
+  useCount: number;
 }
 
-export interface SettlementView {
-  id: string;
-  fromPartyType: SplitPartyType;
-  fromPersonId: string | null;
-  toPersonId: string;
-  amount: number;
-  createdAt: string;
+export interface FinanceBusinessConfig {
+  groupId: string;
+  businessAccountConfigured: boolean;
 }
 
 export type ApprovalStatus = "PENDING" | "APPROVED" | "REJECTED" | "INVALIDATED";

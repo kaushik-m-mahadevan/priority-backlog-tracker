@@ -29,10 +29,9 @@ import com.backlogtracker.commons.user.domain.AccountStatus;
 import com.backlogtracker.commons.user.domain.Role;
 import com.backlogtracker.commons.user.domain.User;
 import com.backlogtracker.commons.user.repository.UserRepository;
-import com.backlogtracker.financetracker.ledger.domain.LedgerEntryType;
-import com.backlogtracker.financetracker.ledger.domain.SplitPartyType;
+import com.backlogtracker.financetracker.ledger.domain.PartyType;
 import com.backlogtracker.financetracker.ledger.dto.CreateLedgerEntryRequest;
-import com.backlogtracker.financetracker.ledger.dto.CreateLedgerEntryRequest.ShareInput;
+import com.backlogtracker.financetracker.ledger.dto.CreateLedgerEntryRequest.PartyInput;
 import com.backlogtracker.financetracker.ledger.service.LedgerEntryService;
 import com.backlogtracker.ordertracker.customer.domain.AcquisitionChannel;
 import com.backlogtracker.ordertracker.customer.dto.CustomerView;
@@ -323,14 +322,14 @@ public class DemoDataSeeder implements ApplicationRunner {
         orderService.updateStatus(groupId, alex.getId(), bulkOrder.id(), new UpdateOrderStatusRequest(OrderStatus.CONFIRMED, null));
 
         ledgerEntryService.create(financeGroupId, alex.getId(), new CreateLedgerEntryRequest(
-                LedgerEntryType.EXPENSE, "Yarn restock — coral cotton + grey acrylic", new BigDecimal("2400"),
-                alex.getId(), List.of(new ShareInput(SplitPartyType.BUSINESS, null, BigDecimal.ONE))));
+                null, "Yarn restock — coral cotton + grey acrylic", new BigDecimal("2400"),
+                new PartyInput(PartyType.BUSINESS, null, null), new PartyInput(PartyType.MEMBER, alex.getId(), null)));
         ledgerEntryService.create(financeGroupId, priya.getId(), new CreateLedgerEntryRequest(
-                LedgerEntryType.EXPENSE, "Packaging boxes (50 pack)", new BigDecimal("850"),
-                priya.getId(), List.of(new ShareInput(SplitPartyType.BUSINESS, null, BigDecimal.ONE))));
+                null, "Packaging boxes (50 pack)", new BigDecimal("850"),
+                new PartyInput(PartyType.BUSINESS, null, null), new PartyInput(PartyType.MEMBER, priya.getId(), null)));
         ledgerEntryService.create(financeGroupId, alex.getId(), new CreateLedgerEntryRequest(
-                LedgerEntryType.INCOME, "Advance for wedding favour order", new BigDecimal("3000"),
-                alex.getId(), List.of(new ShareInput(SplitPartyType.BUSINESS, null, BigDecimal.ONE))));
+                null, "Advance for wedding favour order", new BigDecimal("3000"),
+                new PartyInput(PartyType.CUSTOMER, null, "Pooja Desai"), new PartyInput(PartyType.BUSINESS, null, null)));
 
         log.info("Demo data: seeded Order Tracker (3 creators, 3 customers, 4 orders — one with components, "
                 + "3 component templates), Product Catalog (2 colorways), and Finance Tracker (3 ledger entries)");

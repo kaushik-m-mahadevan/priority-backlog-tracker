@@ -4,10 +4,10 @@ import java.util.List;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
@@ -15,11 +15,10 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.backlogtracker.commons.security.AuthUser;
 import com.backlogtracker.commons.security.RequiresUser;
-import com.backlogtracker.financetracker.ledger.dto.BalanceView;
 import com.backlogtracker.financetracker.ledger.dto.CreateLedgerEntryRequest;
-import com.backlogtracker.financetracker.ledger.dto.CreateSettlementRequest;
+import com.backlogtracker.financetracker.ledger.dto.ExternalPartySuggestion;
 import com.backlogtracker.financetracker.ledger.dto.LedgerEntryView;
-import com.backlogtracker.financetracker.ledger.dto.SettlementView;
+import com.backlogtracker.financetracker.ledger.dto.MemberBalanceView;
 import com.backlogtracker.financetracker.ledger.service.LedgerEntryService;
 
 import jakarta.validation.Valid;
@@ -39,8 +38,13 @@ public class LedgerEntryController {
     }
 
     @GetMapping("/balances")
-    public List<BalanceView> balances(@PathVariable String groupId, @AuthenticationPrincipal AuthUser actor) {
+    public List<MemberBalanceView> balances(@PathVariable String groupId, @AuthenticationPrincipal AuthUser actor) {
         return ledgerEntryService.balances(groupId, actor.id());
+    }
+
+    @GetMapping("/external-suggestions")
+    public List<ExternalPartySuggestion> externalSuggestions(@PathVariable String groupId, @AuthenticationPrincipal AuthUser actor) {
+        return ledgerEntryService.externalSuggestions(groupId, actor.id());
     }
 
     @PostMapping
@@ -50,23 +54,9 @@ public class LedgerEntryController {
         return ledgerEntryService.create(groupId, actor.id(), request);
     }
 
-    @PutMapping("/{entryId}")
-    public LedgerEntryView update(@PathVariable String groupId, @PathVariable String entryId,
-                                  @Valid @RequestBody CreateLedgerEntryRequest request, @AuthenticationPrincipal AuthUser actor) {
-        return ledgerEntryService.update(groupId, actor.id(), entryId, request);
-    }
-
-    @GetMapping("/settlements")
-    public List<SettlementView> settlements(@PathVariable String groupId, @AuthenticationPrincipal AuthUser actor) {
-        return ledgerEntryService.listSettlements(groupId, actor.id());
-    }
-
-    /** Only the caller (the person actually owed the money) may create this — see
-     *  {@link com.backlogtracker.financetracker.ledger.domain.Settlement}. */
-    @PostMapping("/settlements")
-    @ResponseStatus(HttpStatus.CREATED)
-    public SettlementView settleUp(@PathVariable String groupId, @Valid @RequestBody CreateSettlementRequest request,
-                                   @AuthenticationPrincipal AuthUser actor) {
-        return ledgerEntryService.settleUp(groupId, actor.id(), request);
+    @DeleteMapping("/{entryId}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void delete(@PathVariable String groupId, @PathVariable String entryId, @AuthenticationPrincipal AuthUser actor) {
+        ledgerEntryService.delete(groupId, actor.id(), entryId);
     }
 }

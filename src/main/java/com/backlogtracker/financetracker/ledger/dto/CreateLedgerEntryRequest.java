@@ -1,24 +1,22 @@
 package com.backlogtracker.financetracker.ledger.dto;
 
 import java.math.BigDecimal;
-import java.util.List;
+import java.time.Instant;
 
-import com.backlogtracker.financetracker.ledger.domain.LedgerEntryType;
-import com.backlogtracker.financetracker.ledger.domain.SplitPartyType;
+import com.backlogtracker.financetracker.ledger.domain.PartyType;
 
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
 
 public record CreateLedgerEntryRequest(
-        @NotNull LedgerEntryType type,
+        Instant date,
         @NotBlank String description,
         @NotNull @Positive BigDecimal amount,
-        @NotBlank String payerId,
-        @NotEmpty List<@Valid ShareInput> shares) {
+        @NotNull @Valid PartyInput debit,
+        @NotNull @Valid PartyInput credit) {
 
-    public record ShareInput(@NotNull SplitPartyType partyType, String personId, @NotNull BigDecimal ratio) {
+    public record PartyInput(@NotNull PartyType type, String userId, String displayName) {
     }
 }
