@@ -47,4 +47,11 @@ public class Creator {
     private String creatorCode;
 
     private double hoursAvailablePerDay;
+
+    /** ad-2: whether this person's own yarn usage-log entries immediately decrement their
+     *  real Material Inventory on-hand quantity (true) or accumulate as pending until they
+     *  run the manual "sync to inventory" sweep (false, the default — the safer starting
+     *  point, since auto-sync means every logged skein instantly changes a real count with
+     *  no review step). Per-person, not business-wide, per spec. */
+    private boolean autoSyncInventory;
 }

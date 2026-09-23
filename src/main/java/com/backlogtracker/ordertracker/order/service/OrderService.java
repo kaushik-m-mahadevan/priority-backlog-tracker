@@ -11,7 +11,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
 import com.backlogtracker.commons.crypto.EncryptedString;
+import com.backlogtracker.commons.group.domain.Group;
 import com.backlogtracker.commons.group.service.GroupService;
+import com.backlogtracker.commons.inventory.InventoryUsageConsumer;
+import com.backlogtracker.commons.link.service.GroupLinkService;
 import com.backlogtracker.commons.pattern.domain.Pattern;
 import com.backlogtracker.ordertracker.customer.service.CustomerService;
 import com.backlogtracker.ordertracker.master.domain.BusinessConfig;
@@ -33,6 +36,7 @@ import com.backlogtracker.ordertracker.order.domain.OrderStatusColumns;
 import com.backlogtracker.ordertracker.order.domain.OrderType;
 import com.backlogtracker.ordertracker.order.dto.AddPaymentRequest;
 import com.backlogtracker.ordertracker.order.dto.AddTimeLogEntryRequest;
+import com.backlogtracker.ordertracker.order.dto.AddUsageLogEntryRequest;
 import com.backlogtracker.ordertracker.order.dto.CancelOrderRequest;
 import com.backlogtracker.ordertracker.order.dto.CreateOrderRequest;
 import com.backlogtracker.ordertracker.order.dto.MarkShipmentStopRequest;
@@ -69,6 +73,8 @@ public class OrderService {
     private final OrderCalculator calculator;
     private final OrderBusinessRules rules;
     private final Clock clock;
+    private final GroupLinkService groupLinkService;
+    private final List<InventoryUsageConsumer> inventoryConsumers;
 
     public List<OrderView> all(String groupId, String userId) {
         groupService.requireMember(groupId, userId);
@@ -663,6 +669,134 @@ public class OrderService {
         }
         order.setUpdatedAt(clock.instant());
         return view(repository.save(order), userId);
+    }
+
+    // ---- ad-2: usage log + inventory sync ----
+
+    private static final double USAGE_QUARTER_STEP_EPSILON = 1e-9;
+
+    /** Logged as "me" (the caller's own Creator profile), same convention as
+     *  {@link #addTimeLogEntry}. When that profile has auto-sync on, the entry is applied
+     *  to real inventory immediately (best-effort — if there's no linked Material Inventory
+     *  group, or its consumer bean isn't available, the entry is still recorded but stays
+     *  unsynced, to be picked up by a later manual sync); otherwise it's left pending for
+     *  {@link #applyPendingSync}. */
+    public OrderView addUsageLogEntry(String groupId, String userId, String orderId, AddUsageLogEntryRequest request) {
+        groupService.requireMember(groupId, userId);
+        Order order = requireById(groupId, orderId);
+        Creator creator = creatorService.require(groupId, userId);
+        if (request.yarnTypeId() == null || request.yarnTypeId().isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "yarnTypeId is required");
+        }
+        double quantity = requireQuarterStepUsage(request.quantity());
+
+        Order.UsageLogEntry entry = Order.UsageLogEntry.builder()
+                .entryId(java.util.UUID.randomUUID().toString())
+                .yarnTypeId(request.yarnTypeId())
+                .quantity(quantity)
+                .date(request.date() == null ? clock.instant() : request.date())
+                .loggedByCreatorId(creator.getId())
+                .note(request.note() == null || request.note().isBlank() ? null : request.note().trim())
+                .synced(false)
+                .build();
+
+        if (creator.isAutoSyncInventory()) {
+            groupLinkService.linkedGroupId(groupId, userId, Group.APPLET_MATERIAL_INVENTORY)
+                    .ifPresent(inventoryGroupId -> inventoryConsumer().ifPresent(consumer -> {
+                        consumer.adjustQuantity(inventoryGroupId, userId, request.yarnTypeId(), -quantity);
+                        entry.setSynced(true);
+                    }));
+        }
+
+        order.getUsageLogEntries().add(entry);
+        order.setUpdatedAt(clock.instant());
+        return view(repository.save(order), userId);
+    }
+
+    /** Removing an already-synced entry restores the quantity to real inventory (a plain
+     *  deposit, which never fails — see {@code InventoryService.adjustQuantity}) so the undo
+     *  is complete, not just a change to the order's own record. */
+    public OrderView removeUsageLogEntry(String groupId, String userId, String orderId, String entryId) {
+        groupService.requireMember(groupId, userId);
+        Order order = requireById(groupId, orderId);
+        Order.UsageLogEntry removed = order.getUsageLogEntries().stream()
+                .filter(e -> e.getEntryId().equals(entryId)).findFirst()
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Usage log entry not found"));
+        if (removed.isSynced()) {
+            groupLinkService.linkedGroupId(groupId, userId, Group.APPLET_MATERIAL_INVENTORY)
+                    .ifPresent(inventoryGroupId -> inventoryConsumer().ifPresent(consumer ->
+                            consumer.adjustQuantity(inventoryGroupId, userId, removed.getYarnTypeId(), removed.getQuantity())));
+        }
+        order.getUsageLogEntries().remove(removed);
+        order.setUpdatedAt(clock.instant());
+        return view(repository.save(order), userId);
+    }
+
+    /** What {@link #applyPendingSync} is about to deduct, grouped by yarn type — shown to
+     *  the caller before they confirm (spec: "shows a summary of what it's about to deduct
+     *  before applying it"). Never mutates anything. */
+    public java.util.Map<String, Double> previewPendingSync(String groupId, String userId) {
+        groupService.requireMember(groupId, userId);
+        Creator creator = creatorService.require(groupId, userId);
+        java.util.Map<String, Double> pending = new java.util.HashMap<>();
+        for (Order order : repository.findByGroupId(groupId)) {
+            for (Order.UsageLogEntry entry : order.getUsageLogEntries()) {
+                if (!entry.isSynced() && creator.getId().equals(entry.getLoggedByCreatorId())) {
+                    pending.merge(entry.getYarnTypeId(), entry.getQuantity(), Double::sum);
+                }
+            }
+        }
+        return pending;
+    }
+
+    /** Sweeps every pending (unsynced) usage-log entry the caller has logged across *all*
+     *  their orders in this group, applies the total per yarn type to real inventory in one
+     *  call each, then marks every swept entry synced — never re-applied twice. */
+    public java.util.Map<String, Double> applyPendingSync(String groupId, String userId) {
+        groupService.requireMember(groupId, userId);
+        Creator creator = creatorService.require(groupId, userId);
+        java.util.Map<String, Double> totals = previewPendingSync(groupId, userId);
+        if (totals.isEmpty()) {
+            return totals;
+        }
+        String inventoryGroupId = groupLinkService.linkedGroupId(groupId, userId, Group.APPLET_MATERIAL_INVENTORY)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "Link this business to a Material Inventory group first"));
+        InventoryUsageConsumer consumer = inventoryConsumer()
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Material Inventory isn't available"));
+        totals.forEach((yarnTypeId, quantity) -> consumer.adjustQuantity(inventoryGroupId, userId, yarnTypeId, -quantity));
+
+        List<Order> touched = repository.findByGroupId(groupId).stream()
+                .filter(o -> o.getUsageLogEntries().stream()
+                        .anyMatch(e -> !e.isSynced() && creator.getId().equals(e.getLoggedByCreatorId())))
+                .toList();
+        for (Order order : touched) {
+            order.getUsageLogEntries().forEach(e -> {
+                if (!e.isSynced() && creator.getId().equals(e.getLoggedByCreatorId())) {
+                    e.setSynced(true);
+                }
+            });
+            order.setUpdatedAt(clock.instant());
+        }
+        repository.saveAll(touched);
+        return totals;
+    }
+
+    private java.util.Optional<InventoryUsageConsumer> inventoryConsumer() {
+        return inventoryConsumers.stream()
+                .filter(c -> Group.APPLET_MATERIAL_INVENTORY.equals(c.appletKey()))
+                .findFirst();
+    }
+
+    private static double requireQuarterStepUsage(double quantity) {
+        if (quantity <= 0) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "quantity must be greater than zero");
+        }
+        double quarters = quantity * 4;
+        if (Math.abs(quarters - Math.round(quarters)) > USAGE_QUARTER_STEP_EPSILON) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "quantity must be in quarter-skein steps (e.g. 0.25, 1.5)");
+        }
+        return Math.round(quarters) / 4.0;
     }
 
     private static double requireQuarterStepHours(double hours) {

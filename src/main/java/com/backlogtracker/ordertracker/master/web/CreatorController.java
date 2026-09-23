@@ -4,6 +4,7 @@ import java.util.List;
 
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -45,5 +46,15 @@ public class CreatorController {
     }
 
     public record UpsertProfileRequest(String baseLocation, double hoursAvailablePerDay) {
+    }
+
+    /** ad-2: per-person auto/manual inventory-sync toggle. */
+    @PatchMapping("/me/sync-setting")
+    public Creator setSyncSetting(@PathVariable String groupId, @RequestBody SyncSettingRequest request,
+                                  @AuthenticationPrincipal AuthUser actor) {
+        return creatorService.setAutoSyncInventory(groupId, actor.id(), request.autoSyncInventory());
+    }
+
+    public record SyncSettingRequest(boolean autoSyncInventory) {
     }
 }

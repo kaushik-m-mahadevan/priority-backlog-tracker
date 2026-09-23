@@ -27,7 +27,7 @@ function config(overrides: Partial<BusinessConfig> = {}): BusinessConfig {
 function creator(overrides: Partial<Creator> = {}): Creator {
   return {
     id: "c1", groupId: "g1", userId: "u1", name: "Creator A", baseLocation: "Bangalore",
-    locationCode: "BLR", creatorCode: "CR-001", hoursAvailablePerDay: 4,
+    locationCode: "BLR", creatorCode: "CR-001", hoursAvailablePerDay: 4, autoSyncInventory: false,
     ...overrides,
   };
 }

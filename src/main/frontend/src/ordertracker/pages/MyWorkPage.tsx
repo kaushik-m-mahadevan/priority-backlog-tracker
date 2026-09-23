@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { orderTrackerApi } from "../api";
 import { useBusiness } from "../BusinessContext";
+import { useLinkedYarnTypes } from "../useLinkedYarnTypes";
 import { OrderDueDate } from "../OrderDueDate";
 import type { Customer, OrderView } from "../types";
 
@@ -16,6 +17,32 @@ export default function MyWorkPage() {
   const [completionFilter, setCompletionFilter] = useState<CompletionFilter>("pending");
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
+  const linkedYarnTypes = useLinkedYarnTypes(groupId);
+  const [syncPreview, setSyncPreview] = useState<Record<string, number> | null>(null);
+  const [syncing, setSyncing] = useState(false);
+  const [syncDone, setSyncDone] = useState<Record<string, number> | null>(null);
+
+  const yarnLabel = (id: string) => {
+    const y = linkedYarnTypes.find((yt) => yt.id === id);
+    return y ? `${y.brand} — ${y.thickness}, ${y.colour}` : id;
+  };
+
+  const loadSyncPreview = () => {
+    setSyncDone(null);
+    orderTrackerApi.previewInventorySync(groupId).then(setSyncPreview);
+  };
+
+  const applySync = async () => {
+    setSyncing(true);
+    try {
+      const applied = await orderTrackerApi.applyInventorySync(groupId);
+      setSyncDone(applied);
+      setSyncPreview(null);
+      load();
+    } finally {
+      setSyncing(false);
+    }
+  };
 
   const load = () => {
     setLoading(true);
@@ -43,6 +70,38 @@ export default function MyWorkPage() {
 
   return (
     <div>
+      {linkedYarnTypes.length > 0 && (
+        <div className="card" style={{ marginBottom: 16 }}>
+          <div className="toolbar">
+            <h2 style={{ margin: 0 }}>Sync yarn usage to inventory</h2>
+            <span className="spacer" />
+            <button type="button" onClick={loadSyncPreview}>Preview</button>
+          </div>
+          <p className="hint" style={{ marginTop: 4 }}>
+            Applies every usage entry you've logged that isn't already synced, across all your orders in this business.
+          </p>
+          {syncPreview && (
+            Object.keys(syncPreview).length === 0 ? (
+              <p className="empty">Nothing pending.</p>
+            ) : (
+              <div>
+                <ul style={{ margin: "8px 0" }}>
+                  {Object.entries(syncPreview).map(([yarnTypeId, qty]) => (
+                    <li key={yarnTypeId}>{yarnLabel(yarnTypeId)}: {qty} skeins</li>
+                  ))}
+                </ul>
+                <button className="primary" type="button" disabled={syncing} onClick={applySync}>
+                  {syncing ? "Applying…" : "Apply sync"}
+                </button>
+              </div>
+            )
+          )}
+          {syncDone && Object.keys(syncDone).length > 0 && (
+            <p className="hint" style={{ color: "var(--growth)" }}>Synced: {Object.entries(syncDone).map(([id, q]) => `${yarnLabel(id)} (${q})`).join(", ")}</p>
+          )}
+        </div>
+      )}
+
       <div className="toolbar">
         <h1 className="page-title" style={{ marginBottom: 0 }}>
           My Work

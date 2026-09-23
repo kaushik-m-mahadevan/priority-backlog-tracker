@@ -45,6 +45,7 @@ export interface Creator {
   locationCode: string;
   creatorCode: string;
   hoursAvailablePerDay: number;
+  autoSyncInventory: boolean;
 }
 
 export interface WorkStageType {
@@ -212,6 +213,16 @@ export interface TimeLogEntryView {
   note: string | null;
 }
 
+export interface UsageLogEntryView {
+  entryId: string;
+  yarnTypeId: string;
+  quantity: number;
+  date: string;
+  loggedByCreatorId: string;
+  note: string | null;
+  synced: boolean;
+}
+
 export interface ShipmentStopView {
   stopOrder: number;
   type: ShipmentStopType;
@@ -323,6 +334,7 @@ export interface OrderView {
   balanceAmount: number;
   shipmentPlan: ShipmentStopView[];
   timeLogEntries: TimeLogEntryView[];
+  usageLogEntries: UsageLogEntryView[];
   bulkDetails: BulkDetails | null;
   /** ad-3: only non-null once status === "CANCELLED". */
   cancellation: OrderCancellation | null;

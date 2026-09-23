@@ -20,6 +20,7 @@ import com.backlogtracker.commons.security.RequiresUser;
 import com.backlogtracker.ordertracker.order.domain.OrderChangeLog;
 import com.backlogtracker.ordertracker.order.dto.AddPaymentRequest;
 import com.backlogtracker.ordertracker.order.dto.AddTimeLogEntryRequest;
+import com.backlogtracker.ordertracker.order.dto.AddUsageLogEntryRequest;
 import com.backlogtracker.ordertracker.order.dto.CancelOrderRequest;
 import com.backlogtracker.ordertracker.order.dto.CreateOrderRequest;
 import com.backlogtracker.ordertracker.order.dto.MarkShipmentStopRequest;
@@ -141,6 +142,18 @@ public class OrderController {
     public OrderView removeTimeLogEntry(@PathVariable String groupId, @PathVariable String orderId,
                                         @PathVariable String entryId, @AuthenticationPrincipal AuthUser actor) {
         return orderService.removeTimeLogEntry(groupId, actor.id(), orderId, entryId);
+    }
+
+    @PostMapping("/{orderId}/usage-log")
+    public OrderView addUsageLogEntry(@PathVariable String groupId, @PathVariable String orderId,
+                                      @RequestBody AddUsageLogEntryRequest request, @AuthenticationPrincipal AuthUser actor) {
+        return orderService.addUsageLogEntry(groupId, actor.id(), orderId, request);
+    }
+
+    @DeleteMapping("/{orderId}/usage-log/{entryId}")
+    public OrderView removeUsageLogEntry(@PathVariable String groupId, @PathVariable String orderId,
+                                         @PathVariable String entryId, @AuthenticationPrincipal AuthUser actor) {
+        return orderService.removeUsageLogEntry(groupId, actor.id(), orderId, entryId);
     }
 
     @PutMapping("/{orderId}/shipment-plan")

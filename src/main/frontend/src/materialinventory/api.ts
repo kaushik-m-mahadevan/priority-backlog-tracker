@@ -10,6 +10,7 @@ import type {
   SetInventoryQuantityRequest,
   SetNeedleQuantityRequest,
   TransferRequestView,
+  TransferSuggestionView,
   YarnTypeView,
 } from "./types";
 
@@ -28,6 +29,8 @@ export const materialInventoryApi = {
   myInventory: (groupId: string) => api.get<InventoryEntryView[]>(`${base(groupId)}/inventory/mine`),
   setMyQuantity: (groupId: string, yarnTypeId: string, body: SetInventoryQuantityRequest) =>
     api.put<void>(`${base(groupId)}/inventory/mine/${yarnTypeId}`, body),
+  transferSuggestions: (groupId: string, yarnTypeId: string) =>
+    api.get<TransferSuggestionView[]>(`${base(groupId)}/inventory/transfer-suggestions/${yarnTypeId}`),
 
   transfers: (groupId: string) => api.get<TransferRequestView[]>(`${base(groupId)}/transfers`),
   createTransferRequest: (groupId: string, body: CreateTransferRequestRequest) =>

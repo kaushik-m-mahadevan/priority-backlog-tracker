@@ -41,7 +41,7 @@ function order(overrides: Partial<OrderView> = {}): OrderView {
     mandatoryItems: [], addOns: [], components: [], packaging: null,
     craftingTimeHours: 0, assemblyTimeHours: 0, costEstimate: null, stageAssignments: [],
     completionPercentage: 0, payments: [], paymentStatus: "UNPAID", netPaid: 0, balanceAmount: 0,
-    shipmentPlan: [], timeLogEntries: [], bulkDetails: null, cancellation: null,
+    shipmentPlan: [], timeLogEntries: [], usageLogEntries: [], bulkDetails: null, cancellation: null,
     createdAt: "2026-01-01T00:00:00Z", updatedAt: "2026-01-01T00:00:00Z",
     ...overrides,
   };
@@ -50,7 +50,7 @@ function order(overrides: Partial<OrderView> = {}): OrderView {
 function creator(overrides: Partial<Creator> = {}): Creator {
   return {
     id: "c1", groupId: "g1", userId: "u1", name: "Creator A", baseLocation: "Bangalore",
-    locationCode: "BLR", creatorCode: "CR-001", hoursAvailablePerDay: 4,
+    locationCode: "BLR", creatorCode: "CR-001", hoursAvailablePerDay: 4, autoSyncInventory: false,
     ...overrides,
   };
 }

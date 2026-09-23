@@ -24,7 +24,7 @@ public record OrderView(String id, String orderNumber, OrderType orderType, Stri
                         List<StageAssignmentView> stageAssignments, double completionPercentage,
                         List<PaymentView> payments, PaymentStatus paymentStatus, double netPaid,
                         double balanceAmount, List<ShipmentStopView> shipmentPlan,
-                        List<TimeLogEntryView> timeLogEntries,
+                        List<TimeLogEntryView> timeLogEntries, List<UsageLogEntryView> usageLogEntries,
                         BulkDetailsView bulkDetails, CancellationView cancellation, Instant createdAt, Instant updatedAt) {
 
     /** ad-3: only non-null once {@code status == CANCELLED} — see {@link Order.Cancellation}. */
@@ -125,6 +125,14 @@ public record OrderView(String id, String orderNumber, OrderType orderType, Stri
         }
     }
 
+    public record UsageLogEntryView(String entryId, String yarnTypeId, double quantity, Instant date,
+                                    String loggedByCreatorId, String note, boolean synced) {
+        static UsageLogEntryView of(Order.UsageLogEntry e) {
+            return new UsageLogEntryView(e.getEntryId(), e.getYarnTypeId(), e.getQuantity(), e.getDate(),
+                    e.getLoggedByCreatorId(), e.getNote(), e.isSynced());
+        }
+    }
+
     public record ShipmentStopView(int stopOrder, Order.ShipmentStopType type, String originLocationCode,
                                    String destinationLocationCode, String laneId, double estimatedCost,
                                    double estimatedTimeHours, String carrier, String trackingNumber,
@@ -222,6 +230,7 @@ public record OrderView(String id, String orderNumber, OrderType orderType, Stri
                 o.getShipmentPlan() == null ? List.of()
                         : o.getShipmentPlan().getStops().stream().map(ShipmentStopView::of).toList(),
                 o.getTimeLogEntries().stream().map(TimeLogEntryView::of).toList(),
+                o.getUsageLogEntries().stream().map(UsageLogEntryView::of).toList(),
                 BulkDetailsView.of(o.getBulkDetails()), CancellationView.of(o.getCancellation()),
                 o.getCreatedAt(), o.getUpdatedAt());
     }

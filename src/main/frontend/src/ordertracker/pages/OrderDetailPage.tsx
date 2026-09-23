@@ -68,6 +68,9 @@ export default function OrderDetailPage() {
   const [cancelling, setCancelling] = useState(false);
   const [historyCreatorFilter, setHistoryCreatorFilter] = useState("all");
   const [historyStageFilter, setHistoryStageFilter] = useState("all");
+  const [usageYarnId, setUsageYarnId] = useState("");
+  const [usageQty, setUsageQty] = useState("");
+  const [usageNote, setUsageNote] = useState("");
 
   const load = () => {
     Promise.all([
@@ -144,6 +147,17 @@ export default function OrderDetailPage() {
   };
   const removeTime = async (entryId: string) => {
     const updated = await orderTrackerApi.removeTimeLogEntry(groupId, order.id, entryId);
+    setOrder(updated);
+  };
+
+  const logUsage = async (yarnTypeId: string, quantity: number, note: string) => {
+    const updated = await orderTrackerApi.addUsageLogEntry(groupId, order.id, {
+      yarnTypeId, quantity, date: null, note: note.trim() || null,
+    });
+    setOrder(updated);
+  };
+  const removeUsage = async (entryId: string) => {
+    const updated = await orderTrackerApi.removeUsageLogEntry(groupId, order.id, entryId);
     setOrder(updated);
   };
 
@@ -983,6 +997,92 @@ export default function OrderDetailPage() {
           </>
         )}
       </Section>
+
+      {linkedYarnTypes.length > 0 && (
+        <Section title="Usage Log" icon="🧶" defaultOpen={false}>
+          <p className="hint">
+            Log actual yarn used, any time, independent of order status — reserves eat first,
+            then your own stash. {order.status !== "CANCELLED" ? "" : "This order is cancelled; logged entries stay as a historical record."}
+          </p>
+          {order.status !== "CANCELLED" && (
+            <form
+              className="toolbar"
+              onSubmit={(e) => {
+                e.preventDefault();
+                const qty = Number(usageQty);
+                if (!usageYarnId || !qty || qty <= 0) return;
+                logUsage(usageYarnId, qty, usageNote).then(() => {
+                  setUsageQty("");
+                  setUsageNote("");
+                });
+              }}
+            >
+              <select aria-label="Yarn used" value={usageYarnId} onChange={(e) => setUsageYarnId(e.target.value)} required>
+                <option value="">Yarn…</option>
+                {linkedYarnTypes.map((y) => (
+                  <option key={y.id} value={y.id}>{y.brand} — {y.thickness}, {y.colour}</option>
+                ))}
+              </select>
+              <input
+                aria-label="Quantity (skeins)"
+                type="number" min={0.25} step={0.25} placeholder="Skeins"
+                style={{ width: 90 }}
+                value={usageQty}
+                onChange={(e) => setUsageQty(e.target.value)}
+              />
+              <input
+                aria-label="Note"
+                placeholder="Note (optional)"
+                value={usageNote}
+                onChange={(e) => setUsageNote(e.target.value)}
+              />
+              <button className="primary" type="submit">Log usage</button>
+            </form>
+          )}
+          {order.usageLogEntries.length === 0 ? (
+            <p className="empty">No usage logged yet.</p>
+          ) : (
+            <div className="table-wrap">
+              <table className="ot-table">
+                <thead>
+                  <tr>
+                    <th>Date</th>
+                    <th>Yarn</th>
+                    <th>Skeins</th>
+                    <th>Logged by</th>
+                    <th>Synced</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {order.usageLogEntries.map((e) => (
+                    <tr key={e.entryId}>
+                      <td className="cell-subtitle">{new Date(e.date).toLocaleDateString()}</td>
+                      <td className="muted">{yarnTypeLabel(e.yarnTypeId)}</td>
+                      <td className="cell-order mono">{e.quantity}</td>
+                      <td>{creatorName(e.loggedByCreatorId)}</td>
+                      <td>{e.synced ? "✓" : "pending"}</td>
+                      <td>
+                        <button
+                          type="button"
+                          className="linkbtn"
+                          onClick={() => {
+                            if (window.confirm(`Remove this ${e.quantity}-skein usage entry?`)) {
+                              removeUsage(e.entryId);
+                            }
+                          }}
+                        >
+                          remove
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </Section>
+      )}
 
       <Section title="Notes" icon="📝">
         <div className="card">

@@ -43,6 +43,8 @@ export const orderTrackerApi = {
   upsertMyCreatorProfile: (groupId: string, body: { baseLocation: string; hoursAvailablePerDay: number }) =>
     api.put<Creator>(`${base(groupId)}/creators/me`, body),
   creators: (groupId: string) => api.get<Creator[]>(`${base(groupId)}/creators`),
+  setSyncSetting: (groupId: string, autoSyncInventory: boolean) =>
+    api.patch<Creator>(`${base(groupId)}/creators/me/sync-setting`, { autoSyncInventory }),
 
   packagingPresets: (groupId: string) => api.get<PresetOption[]>(`${base(groupId)}/packaging-presets`),
   addPackagingPreset: (groupId: string, body: { label: string; estimatedCost: number; estimatedTimeHours: number }) =>
@@ -121,6 +123,12 @@ export const orderTrackerApi = {
   ) => api.post<OrderView>(`${base(groupId)}/orders/${orderId}/time-log`, body),
   removeTimeLogEntry: (groupId: string, orderId: string, entryId: string) =>
     api.delete<OrderView>(`${base(groupId)}/orders/${orderId}/time-log/${entryId}`),
+  addUsageLogEntry: (groupId: string, orderId: string, body: { yarnTypeId: string; quantity: number; date?: string | null; note?: string | null }) =>
+    api.post<OrderView>(`${base(groupId)}/orders/${orderId}/usage-log`, body),
+  removeUsageLogEntry: (groupId: string, orderId: string, entryId: string) =>
+    api.delete<OrderView>(`${base(groupId)}/orders/${orderId}/usage-log/${entryId}`),
+  previewInventorySync: (groupId: string) => api.get<Record<string, number>>(`${base(groupId)}/inventory-sync/preview`),
+  applyInventorySync: (groupId: string) => api.post<Record<string, number>>(`${base(groupId)}/inventory-sync/apply`),
   setShipmentPlan: (groupId: string, orderId: string, stops: unknown[]) =>
     api.put<OrderView>(`${base(groupId)}/orders/${orderId}/shipment-plan`, { stops }),
   markShipmentStop: (groupId: string, orderId: string, stopIndex: number, body: { shippedDate?: string; deliveredConfirmed?: boolean }) =>

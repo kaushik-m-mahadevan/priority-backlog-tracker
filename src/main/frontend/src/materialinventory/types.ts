@@ -66,9 +66,22 @@ export interface InventoryEntryView {
   /** Approximates staleness from how long this entry has gone untouched (currently 30
    *  days) — not a real activity signal, just a hint the count might be out of date. */
   stale: boolean;
+  /** ad-2: from the linked Order Tracker business's open orders (0 if nothing's linked or
+   *  nothing's reserved). */
+  reserved: number;
+  available: number;
+  /** ad-2: this owner's own stash of this yarn type is at/below the low-stock threshold. */
+  personalLow: boolean;
+  /** ad-2: the business-wide total (across every member) is at/below the threshold. */
+  businessLow: boolean;
 }
 
 export interface SetInventoryQuantityRequest {
+  quantity: number;
+}
+
+export interface TransferSuggestionView {
+  userId: string;
   quantity: number;
 }
 

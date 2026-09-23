@@ -16,6 +16,7 @@ vi.mock("../materialinventory/api", () => ({
 function entry(overrides: Partial<InventoryEntryView> = {}): InventoryEntryView {
   return {
     id: "e1", userId: "u1", yarnTypeId: "y1", quantity: 3, updatedAt: "2026-01-01T00:00:00Z", stale: false,
+    reserved: 0, available: 3, personalLow: false, businessLow: false,
     ...overrides,
   };
 }

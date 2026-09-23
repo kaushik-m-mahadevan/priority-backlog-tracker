@@ -16,6 +16,7 @@ import com.backlogtracker.commons.security.AuthUser;
 import com.backlogtracker.commons.security.RequiresUser;
 import com.backlogtracker.materialinventory.inventory.dto.InventoryEntryView;
 import com.backlogtracker.materialinventory.inventory.dto.SetInventoryQuantityRequest;
+import com.backlogtracker.materialinventory.inventory.dto.TransferSuggestionView;
 import com.backlogtracker.materialinventory.inventory.service.InventoryService;
 
 import lombok.RequiredArgsConstructor;
@@ -46,5 +47,11 @@ public class InventoryController {
     public void setMyQuantity(@PathVariable String groupId, @PathVariable String yarnTypeId,
                               @RequestBody SetInventoryQuantityRequest request, @AuthenticationPrincipal AuthUser actor) {
         inventoryService.setMyQuantity(groupId, actor.id(), yarnTypeId, request.quantity());
+    }
+
+    @GetMapping("/transfer-suggestions/{yarnTypeId}")
+    public List<TransferSuggestionView> transferSuggestions(@PathVariable String groupId, @PathVariable String yarnTypeId,
+                                                             @AuthenticationPrincipal AuthUser actor) {
+        return inventoryService.transferSuggestions(groupId, actor.id(), yarnTypeId);
     }
 }

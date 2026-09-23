@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { orderTrackerApi } from "../api";
 import { useAuth } from "../../auth/AuthContext";
+import { Switch } from "../../components/Switch";
 import { useBusiness } from "../BusinessContext";
 import type { BusinessConfig, ComponentTemplate, CostConfigChangeRequest, Creator, PresetOption } from "../types";
 
@@ -70,6 +71,11 @@ export default function BusinessSettingsPage() {
     if (!baseLocation.trim()) return;
     await orderTrackerApi.upsertMyCreatorProfile(groupId, { baseLocation: baseLocation.trim(), hoursAvailablePerDay: hoursPerDay });
     await load();
+  };
+
+  const toggleAutoSync = async (value: boolean) => {
+    const updated = await orderTrackerApi.setSyncSetting(groupId, value);
+    setProfile(updated);
   };
 
   const addPreset = async (e: React.FormEvent) => {
@@ -179,6 +185,17 @@ export default function BusinessSettingsPage() {
             <button className="primary" type="submit">
               Save
             </button>
+            {profile && (
+              <div style={{ marginTop: 14 }}>
+                <Switch
+                  id="bs-auto-sync-inventory"
+                  checked={profile.autoSyncInventory}
+                  onChange={toggleAutoSync}
+                  label="Auto-sync yarn usage to inventory"
+                  description="On: every usage entry you log immediately updates your real on-hand count. Off: entries pile up until you sync."
+                />
+              </div>
+            )}
             {profile && (
               <p className="mono" style={{ marginTop: 10 }}>
                 Creator code {profile.creatorCode} · Location code {profile.locationCode}

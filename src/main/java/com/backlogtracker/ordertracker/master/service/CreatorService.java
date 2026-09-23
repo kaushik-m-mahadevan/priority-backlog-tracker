@@ -74,6 +74,14 @@ public class CreatorService {
                         "Set up your Order Tracker profile for this group first (base location + hours/day)"));
     }
 
+    /** ad-2: self-service toggle, same "only the caller may change their own" shape as
+     *  {@link #upsertMyProfile}. */
+    public Creator setAutoSyncInventory(String groupId, String userId, boolean autoSyncInventory) {
+        Creator creator = require(groupId, userId);
+        creator.setAutoSyncInventory(autoSyncInventory);
+        return repository.save(creator);
+    }
+
     public Creator requireById(String groupId, String creatorId) {
         Creator c = repository.findById(creatorId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Creator not found"));

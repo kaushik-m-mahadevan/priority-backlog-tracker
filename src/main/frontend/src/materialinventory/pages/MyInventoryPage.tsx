@@ -4,7 +4,7 @@ import Connections from "../../components/Connections";
 import { materialInventoryApi } from "../api";
 import { useMaterialInventory } from "../MaterialInventoryContext";
 import { formatMoney } from "../../lib/format";
-import type { InventoryEntryView, NeedleInventoryEntryView, NeedleKind, NeedleTypeView, YarnTypeView } from "../types";
+import type { InventoryEntryView, NeedleInventoryEntryView, NeedleKind, NeedleTypeView, TransferSuggestionView, YarnTypeView } from "../types";
 
 type NewYarnDraft = {
   brand: string;
@@ -98,6 +98,13 @@ export default function MyInventoryPage() {
     entries.find((e) => e.yarnTypeId === yarnTypeId && e.userId === userId);
   const quantityFor = (yarnTypeId: string, userId: string) => entryFor(yarnTypeId, userId)?.quantity ?? 0;
   const isStale = (yarnTypeId: string, userId: string) => entryFor(yarnTypeId, userId)?.stale ?? false;
+
+  const [transferSuggestions, setTransferSuggestions] = useState<Record<string, TransferSuggestionView[]>>({});
+  const loadTransferSuggestions = (yarnTypeId: string) => {
+    if (!currentGroupId) return;
+    materialInventoryApi.transferSuggestions(currentGroupId, yarnTypeId)
+      .then((s) => setTransferSuggestions((prev) => ({ ...prev, [yarnTypeId]: s })));
+  };
 
   const needleQuantityFor = (needleTypeId: string, userId: string) =>
     needleEntries.find((e) => e.needleTypeId === needleTypeId && e.userId === userId)?.quantity ?? 0;
@@ -412,10 +419,16 @@ export default function MyInventoryPage() {
                         {expanded ? "▾" : "▸"}
                       </button>
                       {y.brand} — {y.thickness}, {y.colour}
+                      {entryFor(y.id, user?.id ?? "")?.businessLow && (
+                        <span className="badge" style={{ marginLeft: 6, color: "var(--urgent)", borderColor: "var(--urgent)" }}>
+                          reorder
+                        </span>
+                      )}
                     </td>
                     {members.map((m) => {
                       const isMe = m.id === user?.id;
                       const editing = editingQuantity[y.id] !== undefined;
+                      const entry = entryFor(y.id, m.id);
                       return (
                         <td key={m.id} className="cell-order mono">
                           {isMe && editing ? (
@@ -453,6 +466,32 @@ export default function MyInventoryPage() {
                             >
                               stale
                             </span>
+                          )}
+                          {entry && entry.reserved > 0 && (
+                            <div className="muted" style={{ fontSize: 11 }}>
+                              {entry.reserved} reserved · {entry.available} free
+                            </div>
+                          )}
+                          {isMe && entry?.personalLow && (
+                            <div>
+                              <button
+                                type="button"
+                                className="linkbtn"
+                                style={{ fontSize: 11, color: "var(--urgent)" }}
+                                onClick={() => loadTransferSuggestions(y.id)}
+                              >
+                                low — ask a teammate
+                              </button>
+                              {transferSuggestions[y.id] && (
+                                transferSuggestions[y.id]!.length === 0 ? (
+                                  <div className="muted" style={{ fontSize: 11 }}>No one else has any.</div>
+                                ) : (
+                                  <div className="muted" style={{ fontSize: 11 }}>
+                                    {transferSuggestions[y.id]!.map((s) => `${memberName(s.userId)}: ${s.quantity}`).join(", ")}
+                                  </div>
+                                )
+                              )}
+                            </div>
                           )}
                         </td>
                       );

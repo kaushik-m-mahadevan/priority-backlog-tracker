@@ -3,7 +3,9 @@ package com.backlogtracker.materialinventory.inventory.service;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import org.springframework.data.mongodb.core.FindAndModifyOptions;
 import org.springframework.data.mongodb.core.MongoOperations;
@@ -14,7 +16,10 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
+import com.backlogtracker.commons.group.domain.Group;
 import com.backlogtracker.commons.group.service.GroupService;
+import com.backlogtracker.commons.inventory.ReservationProvider;
+import com.backlogtracker.commons.link.service.GroupLinkService;
 import com.backlogtracker.materialinventory.QuarterStep;
 import com.backlogtracker.materialinventory.inventory.domain.InventoryEntry;
 import com.backlogtracker.materialinventory.inventory.dto.InventoryEntryView;
@@ -41,28 +46,60 @@ public class InventoryService {
      *  touched in a while. Revisit if a real cross-applet activity signal gets built later. */
     private static final Duration STALE_AFTER = Duration.ofDays(30);
 
+    /** ad-2: "≤1 ball" is the one threshold spec'd for both low-stock tiers — per-yarn
+     *  custom thresholds are explicitly a later idea, not this round. */
+    private static final double LOW_STOCK_THRESHOLD = 1.0;
+
     private final InventoryEntryRepository repository;
     private final MongoOperations mongo;
     private final YarnTypeService yarnTypeService;
     private final GroupService groupService;
+    private final GroupLinkService groupLinkService;
+    private final List<ReservationProvider> reservationProviders;
     private final Clock clock;
 
     /** Business-wide — any member can see everyone's inventory (design decision: full
      *  transparency, same precedent as Finance Tracker's balances), not just their own. */
     public List<InventoryEntryView> listAll(String groupId, String userId) {
         groupService.requireMember(groupId, userId);
-        return repository.findByGroupId(groupId).stream().map(this::toView).toList();
+        List<InventoryEntry> entries = repository.findByGroupId(groupId);
+        return toViews(groupId, userId, entries);
     }
 
     public List<InventoryEntryView> mine(String groupId, String userId) {
         groupService.requireMember(groupId, userId);
-        return repository.findByGroupIdAndUserId(groupId, userId).stream().map(this::toView).toList();
+        List<InventoryEntry> entries = repository.findByGroupIdAndUserId(groupId, userId);
+        return toViews(groupId, userId, entries);
     }
 
-    private InventoryEntryView toView(InventoryEntry e) {
-        boolean stale = e.getUpdatedAt() != null
-                && Duration.between(e.getUpdatedAt(), Instant.now(clock)).compareTo(STALE_AFTER) > 0;
-        return InventoryEntryView.of(e, stale);
+    private List<InventoryEntryView> toViews(String groupId, String callerUserId, List<InventoryEntry> entries) {
+        // business-wide total per yarn type, for the "does anyone have any left" flag —
+        // always the full group's entries regardless of whether the caller asked for "mine".
+        Map<String, Double> businessTotals = new HashMap<>();
+        for (InventoryEntry e : repository.findByGroupId(groupId)) {
+            businessTotals.merge(e.getYarnTypeId(), e.getQuantity(), Double::sum);
+        }
+
+        ReservationProvider orderTrackerReservations = reservationProviders.stream()
+                .filter(p -> Group.APPLET_ORDER_TRACKER.equals(p.appletKey())).findFirst().orElse(null);
+        String orderTrackerGroupId = orderTrackerReservations == null ? null
+                : groupLinkService.linkedGroupId(groupId, callerUserId, Group.APPLET_ORDER_TRACKER).orElse(null);
+        // one reservedQuantities() call per distinct owner, not per row
+        Map<String, Map<String, Double>> reservedByOwner = new HashMap<>();
+
+        return entries.stream().map(e -> {
+            double reserved = 0;
+            if (orderTrackerGroupId != null) {
+                Map<String, Double> ownerReservations = reservedByOwner.computeIfAbsent(e.getUserId(),
+                        owner -> orderTrackerReservations.reservedQuantities(orderTrackerGroupId, owner));
+                reserved = ownerReservations.getOrDefault(e.getYarnTypeId(), 0.0);
+            }
+            boolean stale = e.getUpdatedAt() != null
+                    && Duration.between(e.getUpdatedAt(), Instant.now(clock)).compareTo(STALE_AFTER) > 0;
+            boolean personalLow = e.getQuantity() <= LOW_STOCK_THRESHOLD + QuarterStep.EPSILON;
+            boolean businessLow = businessTotals.getOrDefault(e.getYarnTypeId(), 0.0) <= LOW_STOCK_THRESHOLD + QuarterStep.EPSILON;
+            return InventoryEntryView.of(e, stale, reserved, personalLow, businessLow);
+        }).toList();
     }
 
     /** Setting quantity to exactly 0 removes the row entirely rather than keeping a
@@ -121,6 +158,20 @@ public class InventoryService {
         Update update = new Update().inc("quantity", amount).set("updatedAt", Instant.now(clock));
         mongo.findAndModify(query, update,
                 FindAndModifyOptions.options().upsert(true).returnNew(true), InventoryEntry.class);
+    }
+
+    /** Every other member with any of this yarn type on hand, most-stocked first — see
+     *  {@link com.backlogtracker.materialinventory.inventory.dto.TransferSuggestionView}
+     *  for what "most-stocked first" stands in for (real location ranking, deferred). */
+    public List<com.backlogtracker.materialinventory.inventory.dto.TransferSuggestionView> transferSuggestions(
+            String groupId, String userId, String yarnTypeId) {
+        groupService.requireMember(groupId, userId);
+        yarnTypeService.requireById(groupId, yarnTypeId);
+        return repository.findByGroupIdAndYarnTypeId(groupId, yarnTypeId).stream()
+                .filter(e -> !e.getUserId().equals(userId) && e.getQuantity() > QuarterStep.EPSILON)
+                .sorted((a, b) -> Double.compare(b.getQuantity(), a.getQuantity()))
+                .map(e -> new com.backlogtracker.materialinventory.inventory.dto.TransferSuggestionView(e.getUserId(), e.getQuantity()))
+                .toList();
     }
 
     private double requireQuarterStep(double quantity) {

@@ -132,6 +132,15 @@ public class Order {
     @Builder.Default
     private List<TimeLogEntry> timeLogEntries = new ArrayList<>();
 
+    /** ad-2: actual yarn usage logged against this order, independent of order status and
+     *  of which component/variant the yarn was actually used on — {@code yarnTypeId} alone
+     *  is enough to decrement real inventory and to compute how much of the order's planned
+     *  reservation is still outstanding. One flat order-level list regardless of order type
+     *  (unlike {@link #timeLogEntries}, which nests per component/variant) since usage
+     *  doesn't need that breakdown — only "who logged it" and "how much of which yarn". */
+    @Builder.Default
+    private List<UsageLogEntry> usageLogEntries = new ArrayList<>();
+
     // ---- 5.10 cost & time estimation snapshot (individual only) ----
     private CostEstimate costEstimate;
 
@@ -378,6 +387,27 @@ public class Order {
         private Instant date;
         private String loggedByCreatorId;
         private String note;
+    }
+
+    /** ad-2: one actual-usage entry against a linked Material Inventory yarn type —
+     *  same shape/spirit as {@link TimeLogEntry} ("log it any number of times, ideally
+     *  once per ball/skein finished"). {@code synced} tracks whether this entry has already
+     *  been applied to the logger's real on-hand quantity (immediately, if their Creator
+     *  profile has auto-sync on; otherwise once they run the manual "sync to inventory"
+     *  sweep) — never re-applied twice. */
+    @Getter
+    @Setter
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class UsageLogEntry {
+        private String entryId;
+        private String yarnTypeId;
+        private double quantity;
+        private Instant date;
+        private String loggedByCreatorId;
+        private String note;
+        private boolean synced;
     }
 
     public enum ShipmentStopType { INTERNAL_TRANSFER, FINAL_DELIVERY }
