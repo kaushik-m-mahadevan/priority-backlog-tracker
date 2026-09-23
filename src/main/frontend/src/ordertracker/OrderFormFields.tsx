@@ -456,6 +456,178 @@ export function ComponentsFields({
   );
 }
 
+/** One variant's full editable card — label/quantity, materials/add-ons/components (all
+ *  per-unit), processes, and the creator-split editor with its live assigned/mismatch
+ *  hint. Shared (qd-2) between NewOrderPage's bulk branch and EditBulkDetailsForm, which
+ *  render an identical card, differing only in id prefix and (in the edit form) an
+ *  elevated background. */
+export function VariantCardFields({
+  idPrefix,
+  index,
+  variant,
+  onChange,
+  creators,
+  yarnTypes,
+  needleTypes,
+  templates,
+  elevated,
+}: {
+  idPrefix: string;
+  index: number;
+  variant: VariantDraft;
+  onChange: (next: VariantDraft) => void;
+  creators: { id: string; name: string }[];
+  yarnTypes?: LinkableYarnType[];
+  needleTypes?: LinkableNeedleType[];
+  templates: ComponentTemplate[];
+  elevated?: boolean;
+}) {
+  const assigned = variant.splitAllocation.filter((s) => s.creatorId).reduce((sum, s) => sum + s.quantityAssigned, 0);
+  const mismatch = variant.splitAllocation.length > 0 && assigned !== variant.quantity;
+  const labelId = `${idPrefix}-variant-${index}-label`;
+  const qtyId = `${idPrefix}-variant-${index}-quantity`;
+  const craftId = `${idPrefix}-variant-${index}-crafting-time`;
+  const assemblyId = `${idPrefix}-variant-${index}-assembly-time`;
+
+  return (
+    <div className="card" style={{ marginBottom: 16, ...(elevated ? { background: "var(--bg-elev-2)" } : {}) }}>
+      <div className="form-grid">
+        <div className="form-row">
+          <label htmlFor={labelId}>Label</label>
+          <input id={labelId} value={variant.label} onChange={(e) => onChange({ ...variant, label: e.target.value })} />
+        </div>
+        <div className="form-row">
+          <label htmlFor={qtyId}>Quantity</label>
+          <input
+            id={qtyId}
+            type="number"
+            min={1}
+            value={variant.quantity}
+            onChange={(e) => onChange({ ...variant, quantity: Number(e.target.value) })}
+          />
+        </div>
+      </div>
+
+      <div className="muted" style={{ fontSize: 12, fontWeight: 600 }}>
+        Materials
+      </div>
+      <div className="muted" style={{ fontSize: 12, marginTop: 6 }}>
+        Mandatory items (per unit)
+      </div>
+      <MandatoryItemsFields
+        items={variant.mandatoryItems}
+        onChange={(items) => onChange({ ...variant, mandatoryItems: items })}
+        yarnTypes={yarnTypes}
+        needleTypes={needleTypes}
+      />
+
+      <div className="muted" style={{ fontSize: 12, marginTop: 12 }}>
+        Add-ons (per unit)
+      </div>
+      <AddOnsFields addOns={variant.addOns} onChange={(a) => onChange({ ...variant, addOns: a })} />
+
+      <div className="muted" style={{ fontSize: 12, fontWeight: 600, marginTop: 16 }}>
+        Components (optional)
+      </div>
+      <ComponentsFields
+        components={variant.components}
+        onChange={(c) => onChange({ ...variant, components: c })}
+        templates={templates}
+      />
+
+      <div className="muted" style={{ fontSize: 12, fontWeight: 600, marginTop: 16 }}>
+        Processes
+      </div>
+      <div className="form-grid" style={{ marginTop: 6, maxWidth: 460 }}>
+        <div className="form-row">
+          <label htmlFor={craftId}>Crochet time/unit (hours)</label>
+          <input
+            id={craftId}
+            type="number"
+            min={0}
+            step={0.1}
+            value={variant.craftingTimeHours}
+            onChange={(e) => onChange({ ...variant, craftingTimeHours: Number(e.target.value) })}
+          />
+        </div>
+        <div className="form-row">
+          <label htmlFor={assemblyId}>Assembly time/unit (hours)</label>
+          <input
+            id={assemblyId}
+            type="number"
+            min={0}
+            step={0.1}
+            value={variant.assemblyTimeHours}
+            onChange={(e) => onChange({ ...variant, assemblyTimeHours: Number(e.target.value) })}
+          />
+        </div>
+      </div>
+
+      <div className="muted" style={{ fontSize: 12, marginTop: 12 }}>
+        Split across creators — must add up to the quantity above ({variant.quantity})
+      </div>
+      {variant.splitAllocation.map((s, k) => (
+        <div className="toolbar" key={k}>
+          <select
+            aria-label={`Creator for split entry ${k + 1}`}
+            value={s.creatorId}
+            onChange={(e) =>
+              onChange({
+                ...variant,
+                splitAllocation: variant.splitAllocation.map((sp, l) => (l === k ? { ...sp, creatorId: e.target.value } : sp)),
+              })
+            }
+          >
+            <option value="">Select creator</option>
+            {creators.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))}
+          </select>
+          <input
+            aria-label={`Quantity for split entry ${k + 1}`}
+            type="number"
+            min={1}
+            placeholder="Qty"
+            value={s.quantityAssigned}
+            onChange={(e) =>
+              onChange({
+                ...variant,
+                splitAllocation: variant.splitAllocation.map((sp, l) =>
+                  l === k ? { ...sp, quantityAssigned: Number(e.target.value) } : sp
+                ),
+              })
+            }
+          />
+          <button
+            type="button"
+            aria-label={`Remove split entry ${k + 1}`}
+            onClick={() =>
+              onChange({ ...variant, splitAllocation: variant.splitAllocation.filter((_, l) => l !== k) })
+            }
+          >
+            Remove
+          </button>
+        </div>
+      ))}
+      <button
+        type="button"
+        onClick={() =>
+          onChange({ ...variant, splitAllocation: [...variant.splitAllocation, { creatorId: "", quantityAssigned: 1 }] })
+        }
+      >
+        + Add creator split
+      </button>
+      <div className="form-row">
+        <p className={mismatch ? "hint bad" : "hint"} style={{ marginTop: 6 }}>
+          Assigned so far: {assigned} / {variant.quantity}
+        </p>
+      </div>
+    </div>
+  );
+}
+
 /** Validates that every variant's creator split adds up to its own quantity. Returns an
  *  error message for the first mismatch found, or null if everything lines up. */
 export function validateSplits(variants: VariantDraft[]): string | null {

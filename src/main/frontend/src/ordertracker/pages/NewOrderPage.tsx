@@ -10,6 +10,7 @@ import {
   AddOnsFields,
   ComponentsFields,
   MandatoryItemsFields,
+  VariantCardFields,
   blankComponent,
   blankMandatoryItems,
   blankVariant,
@@ -418,110 +419,19 @@ export default function NewOrderPage() {
         ) : (
           <>
             <h2 className="settings-section">Variants</h2>
-            {variants.map((v, i) => {
-              const assigned = v.splitAllocation.filter((s) => s.creatorId).reduce((sum, s) => sum + s.quantityAssigned, 0);
-              const mismatch = v.splitAllocation.length > 0 && assigned !== v.quantity;
-              return (
-                <div className="card" key={i} style={{ marginBottom: 16 }}>
-                  <div className="form-grid">
-                    <div className="form-row">
-                      <label htmlFor={`no-variant-${i}-label`}>Label</label>
-                      <input id={`no-variant-${i}-label`} value={v.label} onChange={(e) =>
-                        setVariants((prev) => prev.map((x, j) => (j === i ? { ...x, label: e.target.value } : x)))} />
-                    </div>
-                    <div className="form-row">
-                      <label htmlFor={`no-variant-${i}-quantity`}>Quantity</label>
-                      <input id={`no-variant-${i}-quantity`} type="number" min={1} value={v.quantity} onChange={(e) =>
-                        setVariants((prev) => prev.map((x, j) => (j === i ? { ...x, quantity: Number(e.target.value) } : x)))} />
-                    </div>
-                  </div>
-
-                  <div className="muted" style={{ fontSize: 12, fontWeight: 600 }}>
-                    Materials
-                  </div>
-                  <div className="muted" style={{ fontSize: 12, marginTop: 6 }}>
-                    Mandatory items (per unit)
-                  </div>
-                  <MandatoryItemsFields
-                    items={v.mandatoryItems}
-                    onChange={(items) => setVariants((prev) => prev.map((x, j) => (j === i ? { ...x, mandatoryItems: items } : x)))}
-                    yarnTypes={linkedYarnTypes}
-                    needleTypes={linkedNeedleTypes}
-                  />
-
-                  <div className="muted" style={{ fontSize: 12, marginTop: 12 }}>
-                    Add-ons (per unit)
-                  </div>
-                  <AddOnsFields
-                    addOns={v.addOns}
-                    onChange={(a) => setVariants((prev) => prev.map((x, j) => (j === i ? { ...x, addOns: a } : x)))}
-                  />
-
-                  <div className="muted" style={{ fontSize: 12, fontWeight: 600, marginTop: 16 }}>
-                    Components (optional)
-                  </div>
-                  <ComponentsFields
-                    components={v.components}
-                    onChange={(c) => setVariants((prev) => prev.map((x, j) => (j === i ? { ...x, components: c } : x)))}
-                    templates={templates}
-                  />
-
-                  <div className="muted" style={{ fontSize: 12, fontWeight: 600, marginTop: 16 }}>
-                    Processes
-                  </div>
-                  <div className="form-grid" style={{ marginTop: 6, maxWidth: 460 }}>
-                    <div className="form-row">
-                      <label htmlFor={`no-variant-${i}-crafting-time`}>Crochet time/unit (hours)</label>
-                      <input id={`no-variant-${i}-crafting-time`} type="number" min={0} step={0.1} value={v.craftingTimeHours} onChange={(e) =>
-                        setVariants((prev) => prev.map((x, j) => (j === i ? { ...x, craftingTimeHours: Number(e.target.value) } : x)))} />
-                    </div>
-                    <div className="form-row">
-                      <label htmlFor={`no-variant-${i}-assembly-time`}>Assembly time/unit (hours)</label>
-                      <input id={`no-variant-${i}-assembly-time`} type="number" min={0} step={0.1} value={v.assemblyTimeHours} onChange={(e) =>
-                        setVariants((prev) => prev.map((x, j) => (j === i ? { ...x, assemblyTimeHours: Number(e.target.value) } : x)))} />
-                    </div>
-                  </div>
-
-                  <div className="muted" style={{ fontSize: 12, marginTop: 12 }}>
-                    Split across creators — must add up to the quantity above ({v.quantity})
-                  </div>
-                  {v.splitAllocation.map((s, k) => (
-                    <div className="toolbar" key={k}>
-                      <select aria-label={`Creator for split entry ${k + 1}`} value={s.creatorId} onChange={(e) =>
-                        setVariants((prev) => prev.map((x, j) => j === i ? {
-                          ...x, splitAllocation: x.splitAllocation.map((sp, l) => l === k ? { ...sp, creatorId: e.target.value } : sp)
-                        } : x))}>
-                        <option value="">Select creator</option>
-                        {creators.map((c) => (
-                          <option key={c.id} value={c.id}>
-                            {c.name}
-                          </option>
-                        ))}
-                      </select>
-                      <input aria-label={`Quantity for split entry ${k + 1}`} type="number" min={1} placeholder="Qty" value={s.quantityAssigned} onChange={(e) =>
-                        setVariants((prev) => prev.map((x, j) => j === i ? {
-                          ...x, splitAllocation: x.splitAllocation.map((sp, l) => l === k ? { ...sp, quantityAssigned: Number(e.target.value) } : sp)
-                        } : x))} />
-                      <button type="button" aria-label={`Remove split entry ${k + 1}`} onClick={() =>
-                        setVariants((prev) => prev.map((x, j) => j === i
-                          ? { ...x, splitAllocation: x.splitAllocation.filter((_, l) => l !== k) } : x))}>
-                        Remove
-                      </button>
-                    </div>
-                  ))}
-                  <button type="button" onClick={() =>
-                    setVariants((prev) => prev.map((x, j) => j === i
-                      ? { ...x, splitAllocation: [...x.splitAllocation, { creatorId: "", quantityAssigned: 1 }] } : x))}>
-                    + Add creator split
-                  </button>
-                  <div className="form-row">
-                    <p className={mismatch ? "hint bad" : "hint"} style={{ marginTop: 6 }}>
-                      Assigned so far: {assigned} / {v.quantity}
-                    </p>
-                  </div>
-                </div>
-              );
-            })}
+            {variants.map((v, i) => (
+              <VariantCardFields
+                key={i}
+                idPrefix="no"
+                index={i}
+                variant={v}
+                onChange={(next) => setVariants((prev) => prev.map((x, j) => (j === i ? next : x)))}
+                creators={creators}
+                yarnTypes={linkedYarnTypes}
+                needleTypes={linkedNeedleTypes}
+                templates={templates}
+              />
+            ))}
             <button type="button" onClick={() =>
               setVariants((prev) => [...prev, duplicateVariant(prev[prev.length - 1] ?? blankVariant())])}>
               + Add variant (copies the last one)
