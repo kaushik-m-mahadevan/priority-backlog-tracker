@@ -905,7 +905,16 @@ export default function OrderDetailPage() {
               </div>
             ))
           )}
-          <div className="row"><span className="k">Balance</span><span className="v">{formatMoney(order.balanceAmount)}</span></div>
+          <div className="row">
+            <span className="k">Balance</span>
+            {order.balanceAmount < 0 ? (
+              <span className="v" style={{ color: "var(--urgent)", fontWeight: 600 }}>
+                Over budget by {formatMoney(Math.abs(order.balanceAmount))}
+              </span>
+            ) : (
+              <span className="v">{formatMoney(order.balanceAmount)}</span>
+            )}
+          </div>
           <div className="toolbar" style={{ marginTop: 10 }}>
             <select aria-label="Payment type" value={paymentType} onChange={(e) => setPaymentType(e.target.value as PaymentType)}>
               <option value="ADVANCE">Advance</option>
