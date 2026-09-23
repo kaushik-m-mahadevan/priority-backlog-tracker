@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import Bell from "./Bell";
 import Connections from "./Connections";
 import NavMenu, { type NavMenuLink } from "./NavMenu";
+import SearchBox from "./SearchBox";
 import { HomeIcon } from "./icons";
 
 /** Shared top bar for every applet (and the launcher itself): home button, the current
@@ -72,6 +73,9 @@ export default function AppHeader({
       {navLinks}
       <span className="spacer" />
       {rightSlot}
+      {/* ad-5: scoped to the current group + whatever it's linked to — only meaningful
+          once a group is actually selected. */}
+      {groupId && <SearchBox groupId={groupId} />}
       {appletKey && <Connections appletKey={appletKey} groupId={groupId ?? null} />}
       <Bell />
       <NavMenu extraLinks={extraMenuLinks} />

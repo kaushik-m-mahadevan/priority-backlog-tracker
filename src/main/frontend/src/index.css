@@ -2026,6 +2026,55 @@ a.applet-card:hover {
   margin: -8px 0 12px;
 }
 
+/* ---------- SearchBox: ad-5 header cross-applet search ---------- */
+.searchbox {
+  position: relative;
+}
+.searchbox input {
+  width: 160px;
+  padding: 7px 10px;
+  font-size: 13px;
+}
+.searchbox-pop {
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.searchbox-result {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  width: 100%;
+  text-align: left;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: none;
+  border: none;
+  min-height: 0;
+}
+.searchbox-result:hover {
+  background: var(--bg-elev-2);
+}
+.searchbox-category {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-dim);
+  flex-shrink: 0;
+}
+.searchbox-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.searchbox-subtitle {
+  font-size: 12px;
+  flex-shrink: 0;
+}
+
 /* ---------- Switch: every boolean setting is a switch, never a checkbox ---------- */
 .switch-field {
   margin-bottom: 4px;
