@@ -3,10 +3,12 @@ import { Link } from "react-router-dom";
 import { AsyncSection } from "../../components/AsyncSection";
 import Connections from "../../components/Connections";
 import { SlideToggle } from "../../components/SlideToggle";
+import { useSwipe } from "../../lib/useSwipe";
 import { orderTrackerApi } from "../api";
 import { useBusiness } from "../BusinessContext";
+import CancelOrderModal from "../CancelOrderModal";
 import { OrderDueDate } from "../OrderDueDate";
-import { COLUMNS, COLUMN_LABELS, columnOf, legalMoves } from "../orderStatusColumns";
+import { COLUMNS, COLUMN_LABELS, columnOf, legalMoves, nextColumnFirstStatus } from "../orderStatusColumns";
 import type { Customer, OrderView } from "../types";
 
 /** ad-3's board view. Only the 3 active columns (Pending, In Progress, Completed) render
@@ -27,6 +29,7 @@ export default function OrdersPage() {
   const [view, setView] = useState<"BOARD" | "LIST">("BOARD");
   const [actionError, setActionError] = useState<string | null>(null);
   const [moving, setMoving] = useState<string | null>(null);
+  const [cancelling, setCancelling] = useState<OrderView | null>(null);
 
   const load = () => {
     setLoading(true);
@@ -109,53 +112,16 @@ export default function OrdersPage() {
                     <span className="board-column-count">{cardsInColumn.length}</span>
                   </div>
                   <div className="board-column-body">
-                    {cardsInColumn.map((o) => {
-                      const moves = legalMoves(o.status);
-                      return (
-                        <div key={o.id} className="board-card">
-                          <Link to={`/ordertracker/orders/${o.id}`} className="board-card-title">
-                            {o.itemName || <span className="muted">Untitled order</span>}
-                          </Link>
-                          <div className="board-card-meta">
-                            <span className="mono">{o.orderNumber}</span>
-                            <span>{customerName(o.customerId)}</span>
-                          </div>
-                          <div className="board-card-badges">
-                            <span className="badge">{o.orderType}</span>
-                            <span className="badge">{o.status.replace(/_/g, " ")}</span>
-                            <span className="badge">{o.paymentStatus.replace(/_/g, " ")}</span>
-                          </div>
-                          <div className="board-card-due">
-                            <OrderDueDate
-                              iso={(o.orderType === "INDIVIDUAL" ? o.costEstimate?.computedDueDate : o.bulkDetails?.computedDueDate) ?? null}
-                              status={o.status}
-                            />
-                          </div>
-                          {moves.length > 0 && (
-                            <select
-                              className="board-card-move"
-                              disabled={moving === o.id}
-                              value={o.status}
-                              onChange={(e) => {
-                                const target = e.target.value;
-                                if (target === o.status) return;
-                                const m = moves.find((mv) => mv.status === target);
-                                move(o, target, m?.needsJustification ?? false);
-                                e.target.value = o.status;
-                              }}
-                            >
-                              <option value={o.status}>Move to…</option>
-                              {moves.map((m) => (
-                                <option key={m.status} value={m.status}>
-                                  {m.status.replace(/_/g, " ")}
-                                  {m.needsJustification ? " (back)" : ""}
-                                </option>
-                              ))}
-                            </select>
-                          )}
-                        </div>
-                      );
-                    })}
+                    {cardsInColumn.map((o) => (
+                      <BoardCard
+                        key={o.id}
+                        order={o}
+                        customerName={customerName(o.customerId)}
+                        moving={moving === o.id}
+                        onMove={move}
+                        onSwipeCancel={() => setCancelling(o)}
+                      />
+                    ))}
                   </div>
                 </div>
               );
@@ -208,6 +174,94 @@ export default function OrdersPage() {
             </table>
           </div>
         </AsyncSection>
+      )}
+
+      {cancelling && (
+        <CancelOrderModal
+          groupId={groupId}
+          order={cancelling}
+          onCancelled={(updated) => {
+            setOrdersList((prev) => prev.map((o) => (o.id === updated.id ? updated : o)));
+          }}
+          onClose={() => setCancelling(null)}
+        />
+      )}
+    </div>
+  );
+}
+
+/** ui-9: a board card with swipe support — swipe left opens the guided cancel flow, swipe
+ *  right promotes to the first status of the next adjacent column (a no-op, ignored, if
+ *  there is no next column to promote into). Touch-only gesture; the existing "Move to…"
+ *  dropdown remains the non-touch, always-available way to change status. Split out from
+ *  the board's map loop because useSwipe is a hook and needs one call per card. */
+function BoardCard({
+  order: o,
+  customerName,
+  moving,
+  onMove,
+  onSwipeCancel,
+}: {
+  order: OrderView;
+  customerName: string;
+  moving: boolean;
+  onMove: (order: OrderView, target: string, needsJustification: boolean) => void;
+  onSwipeCancel: () => void;
+}) {
+  const moves = legalMoves(o.status);
+  const promoteTarget = nextColumnFirstStatus(o.status);
+  const { offset, onTouchStart, onTouchMove, onTouchEnd } = useSwipe(
+    () => onSwipeCancel(),
+    promoteTarget ? () => onMove(o, promoteTarget, false) : undefined
+  );
+
+  return (
+    <div
+      className="board-card"
+      style={offset !== 0 ? { transform: `translateX(${offset}px)`, transition: "none" } : undefined}
+      onTouchStart={onTouchStart}
+      onTouchMove={onTouchMove}
+      onTouchEnd={onTouchEnd}
+    >
+      <Link to={`/ordertracker/orders/${o.id}`} className="board-card-title">
+        {o.itemName || <span className="muted">Untitled order</span>}
+      </Link>
+      <div className="board-card-meta">
+        <span className="mono">{o.orderNumber}</span>
+        <span>{customerName}</span>
+      </div>
+      <div className="board-card-badges">
+        <span className="badge">{o.orderType}</span>
+        <span className="badge">{o.status.replace(/_/g, " ")}</span>
+        <span className="badge">{o.paymentStatus.replace(/_/g, " ")}</span>
+      </div>
+      <div className="board-card-due">
+        <OrderDueDate
+          iso={(o.orderType === "INDIVIDUAL" ? o.costEstimate?.computedDueDate : o.bulkDetails?.computedDueDate) ?? null}
+          status={o.status}
+        />
+      </div>
+      {moves.length > 0 && (
+        <select
+          className="board-card-move"
+          disabled={moving}
+          value={o.status}
+          onChange={(e) => {
+            const target = e.target.value;
+            if (target === o.status) return;
+            const m = moves.find((mv) => mv.status === target);
+            onMove(o, target, m?.needsJustification ?? false);
+            e.target.value = o.status;
+          }}
+        >
+          <option value={o.status}>Move to…</option>
+          {moves.map((m) => (
+            <option key={m.status} value={m.status}>
+              {m.status.replace(/_/g, " ")}
+              {m.needsJustification ? " (back)" : ""}
+            </option>
+          ))}
+        </select>
       )}
     </div>
   );

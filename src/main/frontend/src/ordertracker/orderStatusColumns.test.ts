@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { columnOf, legalMoves } from "./orderStatusColumns";
+import { columnOf, legalMoves, nextColumnFirstStatus } from "./orderStatusColumns";
 
 describe("orderStatusColumns", () => {
   it("maps every status to its column, and CANCELLED to none", () => {
@@ -43,5 +43,17 @@ describe("orderStatusColumns", () => {
     const moves = legalMoves("DELIVERED");
     expect(moves).toContainEqual({ status: "READY_TO_SHIP", needsJustification: true });
     expect(moves).toContainEqual({ status: "SHIPPED", needsJustification: true });
+  });
+
+  it("nextColumnFirstStatus gives the first status of the immediately next column", () => {
+    expect(nextColumnFirstStatus("INQUIRY")).toBe("IN_PROGRESS");
+    expect(nextColumnFirstStatus("CONFIRMED")).toBe("IN_PROGRESS");
+    expect(nextColumnFirstStatus("IN_PROGRESS")).toBe("READY_TO_SHIP");
+    expect(nextColumnFirstStatus("READY_TO_SHIP")).toBe("DELIVERED");
+  });
+
+  it("nextColumnFirstStatus is null once there's no further column to promote into, or for CANCELLED", () => {
+    expect(nextColumnFirstStatus("DELIVERED")).toBeNull();
+    expect(nextColumnFirstStatus("CANCELLED")).toBeNull();
   });
 });

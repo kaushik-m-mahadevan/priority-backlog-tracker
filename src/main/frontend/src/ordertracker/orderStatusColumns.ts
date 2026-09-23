@@ -56,5 +56,17 @@ export function legalMoves(status: OrderStatus): LegalMove[] {
   return moves;
 }
 
+/** ui-9: the single "promote" target for a swipe-right gesture — the first status of the
+ *  immediately next column, or null if this order is already in the last active column
+ *  (or CANCELLED, which has no columns at all). Always free (never needsJustification),
+ *  matching legalMoves' own next-column rule. */
+export function nextColumnFirstStatus(status: OrderStatus): OrderStatus | null {
+  const column = columnOf(status);
+  if (column === null) return null;
+  const idx = COLUMNS.indexOf(column);
+  if (idx + 1 >= COLUMNS.length) return null;
+  return COLUMN_STATUSES[COLUMNS[idx + 1]][0];
+}
+
 export const CANNED_TRANSITION_REASONS = ["Item damaged", "Rework needed", "Customer changed request"];
 export const CANNED_CANCEL_REASONS = ["Item damaged", "Customer changed their mind", "Unable to source materials", "Duplicate order"];
