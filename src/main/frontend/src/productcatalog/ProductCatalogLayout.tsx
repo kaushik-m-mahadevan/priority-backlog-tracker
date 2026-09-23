@@ -18,6 +18,7 @@ export default function ProductCatalogLayout() {
               <NavLink to="/productcatalog" end>
                 Colorways
               </NavLink>
+              <NavLink to="/productcatalog/manage">Manage</NavLink>
             </div>
           )
         }
@@ -40,6 +41,7 @@ export default function ProductCatalogLayout() {
           <NavLink to="/productcatalog" end>
             Colorways
           </NavLink>
+          <NavLink to="/productcatalog/manage">Manage</NavLink>
         </nav>
       )}
     </div>
