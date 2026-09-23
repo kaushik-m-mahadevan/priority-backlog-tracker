@@ -1,12 +1,20 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useLocation } from "react-router-dom";
 import { api } from "../api/client";
+import { APPLETS } from "../api/applets";
 import { useItemsChanged, notifyItemsChanged } from "../lib/events";
 import { useDismissableMenu } from "../lib/useDismissableMenu";
 import { usePopoverPosition } from "../lib/usePopoverPosition";
 import { useGroups } from "../groups/GroupContext";
 import { BellIcon } from "./icons";
 import { formatDateTime } from "../lib/format";
+
+/** mb-2: two groups from different applets can share a name (e.g. a Backlog Tracker
+ *  group and a business both called "Founders") and otherwise look identical in the
+ *  inbox — a small applet icon disambiguates which one a notification is actually about. */
+function appletIcon(appletKey: string | null): string | null {
+  return APPLETS.find((a) => a.key === appletKey)?.icon ?? null;
+}
 
 /** Every purely-informational, message-only notification type — rendered identically,
  *  regardless of which applet's workflow raised it (see the render logic below). */
@@ -33,6 +41,7 @@ interface NotificationView {
   createdAt: string | null;
   groupId: string;
   groupName: string;
+  groupAppletKey: string | null;
   invitedByName: string;
   archiveRequestId: string | null;
   itemId: string | null;
@@ -117,7 +126,9 @@ export default function Bell() {
               {n.type === "GROUP_INVITE" && (
                 <>
                   <div>
-                    <b>{n.invitedByName}</b> invited you to <b>{n.groupName}</b>
+                    <b>{n.invitedByName}</b> invited you to{" "}
+                    {appletIcon(n.groupAppletKey) && <span title="applet">{appletIcon(n.groupAppletKey)} </span>}
+                    <b>{n.groupName}</b>
                   </div>
                   <div className="sub">{formatDateTime(n.createdAt)}</div>
                   {n.status === "PENDING" ? (
