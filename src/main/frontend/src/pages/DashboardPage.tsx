@@ -2,6 +2,7 @@ import { Fragment, useCallback, useEffect, useRef, useState } from "react";
 import { api, ApiError } from "../api/client";
 import { runCelebration, collapseRow } from "../lib/celebrate";
 import { useItemsChanged, notifyItemsChanged } from "../lib/events";
+import Connections from "../components/Connections";
 import ItemFormModal from "../components/ItemFormModal";
 import LeftDock from "../components/LeftDock";
 import Grove from "../components/Grove";
@@ -133,6 +134,7 @@ export default function DashboardPage() {
             <button className="primary add-peck" onClick={() => setAdding(true)}>
               + New
             </button>
+            <Connections appletKey="backlogtracker" groupId={currentGroupId} />
             <div className="head-grove">
               <Grove compact refreshKey={groveKey} />
             </div>

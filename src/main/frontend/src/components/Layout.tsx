@@ -3,7 +3,6 @@ import { useDock } from "../dock/DockContext";
 import { useGroups } from "../groups/GroupContext";
 import { useKeepAlive } from "../lib/useKeepAlive";
 import AppHeader from "./AppHeader";
-import GroupSwitcher from "./GroupSwitcher";
 import Grove from "./Grove";
 import { PriorityGlyph, QuickGlyph, AttentionGlyph, TeamGlyph, ItemsGlyph } from "./icons";
 
@@ -36,9 +35,10 @@ export default function Layout() {
             <NavLink to="/backlog/items">Items</NavLink>
           </div>
         }
-        rightSlot={<GroupSwitcher />}
-        extraMenuLinks={[{ to: "/backlog/archive", label: "Completed" }]}
-        appletKey="backlogtracker"
+        extraMenuLinks={[
+          { to: "/backlog/groups", label: "Switch group" },
+          { to: "/backlog/archive", label: "Completed" },
+        ]}
         groupId={currentGroupId}
       />
 

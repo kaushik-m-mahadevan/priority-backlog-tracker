@@ -15,10 +15,13 @@ test("create a catalog group, add a colorway idea, promote it to the catalog", a
   await page.getByRole("link", { name: /Product Catalog/ }).click();
 
   // --- create a catalog group (own standalone workspace, no wizard) ----------
-  await page.getByRole("button", { name: "+ New catalog group" }).click();
+  // ui-1: navigate to the chooser screen explicitly, since the admin account
+  // accumulates groups across repeated e2e runs and would otherwise land on its
+  // last-selected one instead of the chooser.
+  await page.goto("/productcatalog/groups");
   await page.getByPlaceholder("Catalog group name").fill(groupName);
   await page.getByRole("button", { name: "Create", exact: true }).click();
-  await expect(page.getByRole("combobox").filter({ hasText: groupName })).toBeVisible();
+  await expect(page.locator(".page-sub", { hasText: groupName })).toBeVisible();
 
   // --- add a colorway idea -----------------------------------------------------
   await page.getByRole("button", { name: "+ New colorway" }).first().click();

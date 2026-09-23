@@ -1,65 +1,14 @@
-import { useRef, useState } from "react";
-import { NavLink, Outlet } from "react-router-dom";
+import { useRef } from "react";
+import { NavLink, Outlet, useLocation } from "react-router-dom";
 import AppHeader from "../components/AppHeader";
 import { CustomersGlyph, MoreGlyph, NewOrderGlyph, OrdersGlyph } from "../components/icons";
+import BusinessesPage from "./pages/BusinessesPage";
 import ProfileGatePage from "./ProfileGatePage";
 import SetupWizardPage from "./pages/SetupWizardPage";
 import { useBusiness } from "./BusinessContext";
 import { useSetupGate } from "./useSetupGate";
 import { useDismissableMenu } from "../lib/useDismissableMenu";
 import { usePopoverPosition } from "../lib/usePopoverPosition";
-
-function BusinessSwitcher() {
-  const { businesses, currentGroupId, setCurrentBusiness, createBusiness } = useBusiness();
-  const [creating, setCreating] = useState(false);
-  const [name, setName] = useState("");
-
-  if (creating) {
-    return (
-      <form
-        className="toolbar"
-        onSubmit={async (e) => {
-          e.preventDefault();
-          if (!name.trim()) return;
-          await createBusiness(name.trim());
-          setName("");
-          setCreating(false);
-        }}
-      >
-        <input
-          autoFocus
-          aria-label="Business name"
-          placeholder="Business name"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-        />
-        <button className="primary" type="submit">
-          Create
-        </button>
-        <button type="button" onClick={() => setCreating(false)}>
-          Cancel
-        </button>
-      </form>
-    );
-  }
-
-  return (
-    <div className="toolbar">
-      {businesses.length > 0 && (
-        <select aria-label="Current business" value={currentGroupId ?? ""} onChange={(e) => setCurrentBusiness(e.target.value)}>
-          {businesses.map((b) => (
-            <option key={b.id} value={b.id}>
-              {b.name}
-            </option>
-          ))}
-        </select>
-      )}
-      <button type="button" onClick={() => setCreating(true)}>
-        + New business
-      </button>
-    </div>
-  );
-}
 
 /** Overflow tab for the mobile bottom bar (ui-3: 4 icons max — Orders / New Order /
  *  Customers / More — so My Work / Team / Business live behind one "more" popover
@@ -100,8 +49,14 @@ function MoreTab() {
 }
 
 export default function OrderTrackerLayout() {
-  const { loading, currentGroupId, businesses } = useBusiness();
+  const { loading, currentGroupId } = useBusiness();
   const { status: gateStatus, refresh: refreshGate } = useSetupGate(currentGroupId);
+  // The chooser must stay reachable even while the current business is mid-wizard or
+  // mid-profile-gate — otherwise creating a new business (which selects it immediately)
+  // traps the user in its wizard with no way back to "Switch business" in the account
+  // menu, since that menu is otherwise the only escape hatch now that the switcher no
+  // longer lives in the header (ui-1).
+  const onBusinessesPage = useLocation().pathname === "/ordertracker/businesses";
 
   // Fully blocking (design decision): while a business is mid-wizard or the caller has no
   // profile yet in an already-set-up business, nav links and the bottom tabbar disappear
@@ -125,23 +80,15 @@ export default function OrderTrackerLayout() {
             </div>
           )
         }
-        rightSlot={<BusinessSwitcher />}
-        appletKey="ordertracker"
+        extraMenuLinks={[{ to: "/ordertracker/businesses", label: "Switch business" }]}
         groupId={currentGroupId}
       />
 
       <div className="container">
-        {loading || (currentGroupId && gateStatus === "loading") ? (
+        {loading || (currentGroupId && gateStatus === "loading" && !onBusinessesPage) ? (
           <p className="muted">Loading…</p>
-        ) : !currentGroupId ? (
-          <div className="card">
-            <h2>Set up your first business</h2>
-            <p className="muted">
-              Every business you create here is its own separate Order Tracker workspace — customers, orders,
-              and settings never cross between them. Use "+ New business" above to get started.
-            </p>
-            {businesses.length === 0 && <p className="empty">No businesses yet.</p>}
-          </div>
+        ) : !currentGroupId || onBusinessesPage ? (
+          <BusinessesPage />
         ) : gateStatus === "wizard" ? (
           <SetupWizardPage onDone={refreshGate} />
         ) : gateStatus === "profile-gate" ? (

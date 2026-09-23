@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { AsyncSection } from "../../components/AsyncSection";
+import Connections from "../../components/Connections";
 import { SlideToggle } from "../../components/SlideToggle";
 import { orderTrackerApi } from "../api";
 import { useBusiness } from "../BusinessContext";
@@ -91,6 +92,7 @@ export default function OrdersPage() {
         <Link to="/ordertracker/orders/new" className="primary">
           + New order
         </Link>
+        <Connections appletKey="ordertracker" groupId={groupId} />
       </div>
 
       {actionError && <div className="error">{actionError}</div>}

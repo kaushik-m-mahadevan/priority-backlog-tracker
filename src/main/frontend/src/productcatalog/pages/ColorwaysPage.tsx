@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { productCatalogApi } from "../api";
 import { useProductCatalog } from "../ProductCatalogContext";
 import { formatMoney } from "../../lib/format";
+import Connections from "../../components/Connections";
 import ImageGallery from "../../components/ImageGallery";
 import type { ColorwayView } from "../types";
 
@@ -296,7 +297,11 @@ export default function ColorwaysPage() {
   return (
     <div>
       <h1 className="page-title">Colorways</h1>
-      <p className="page-sub">{currentCatalogGroup?.name}</p>
+      <div className="toolbar" style={{ marginBottom: 8 }}>
+        <p className="page-sub" style={{ margin: 0 }}>{currentCatalogGroup?.name}</p>
+        <span className="spacer" />
+        <Connections appletKey="productcatalog" groupId={currentGroupId} />
+      </div>
       {error && <div className="error">{error}</div>}
 
       <div className="card">

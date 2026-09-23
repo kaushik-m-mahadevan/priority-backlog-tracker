@@ -15,10 +15,13 @@ test("create a finance group, log an expense, see it reflected in balances", asy
   await page.getByRole("link", { name: /Finance Tracker/ }).click();
 
   // --- create a finance group (own standalone workspace, no wizard) ----------
-  await page.getByRole("button", { name: "+ New finance group" }).click();
+  // ui-1: navigate to the chooser screen explicitly, since the admin account
+  // accumulates groups across repeated e2e runs and would otherwise land on its
+  // last-selected one instead of the chooser.
+  await page.goto("/financetracker/groups");
   await page.getByPlaceholder("Finance group name").fill(groupName);
   await page.getByRole("button", { name: "Create", exact: true }).click();
-  await expect(page.getByRole("combobox").filter({ hasText: groupName })).toBeVisible();
+  await expect(page.locator(".page-sub", { hasText: groupName })).toBeVisible();
 
   // --- log a business-attributed expense --------------------------------------
   await page.getByRole("link", { name: "Expenses" }).click();

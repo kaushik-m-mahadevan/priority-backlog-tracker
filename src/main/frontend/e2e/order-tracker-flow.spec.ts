@@ -22,7 +22,11 @@ test("create a business, set up a creator, add a customer, place an order, recor
   await page.getByRole("link", { name: /Order Tracker/ }).click();
 
   // --- create a business (Order Tracker's own group) ------------------------
-  await page.getByRole("button", { name: "+ New business" }).click();
+  // ui-1: the switcher relocated to its own chooser screen (BusinessesPage) — navigate
+  // there explicitly rather than relying on landing there automatically, since the
+  // admin account accumulates businesses across repeated e2e runs and would otherwise
+  // just land on its last-selected one instead.
+  await page.goto("/ordertracker/businesses");
   await page.getByPlaceholder("Business name").fill(businessName);
   await page.getByRole("button", { name: "Create", exact: true }).click();
 
@@ -40,7 +44,7 @@ test("create a business, set up a creator, add a customer, place an order, recor
 
   await expect(page.getByText("Step 4 of 4")).toBeVisible(); // step 4: Finance & Inventory
   await page.getByRole("button", { name: "Finish setup" }).click();
-  await expect(page.getByRole("combobox").filter({ hasText: businessName })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Orders", exact: true })).toBeVisible();
 
   // --- add a customer ---------------------------------------------------------
   await page.getByRole("link", { name: "Customers" }).click();

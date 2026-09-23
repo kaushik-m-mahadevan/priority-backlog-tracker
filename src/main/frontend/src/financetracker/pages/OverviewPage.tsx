@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "../../auth/AuthContext";
+import Connections from "../../components/Connections";
 import { financeTrackerApi } from "../api";
 import { useFinanceGroup } from "../FinanceGroupContext";
 import { formatMoney } from "../../lib/format";
@@ -63,7 +64,11 @@ export default function OverviewPage() {
   return (
     <div>
       <h1 className="page-title">Overview</h1>
-      <p className="page-sub">{currentFinanceGroup?.name}</p>
+      <div className="toolbar" style={{ marginBottom: 8 }}>
+        <p className="page-sub" style={{ margin: 0 }}>{currentFinanceGroup?.name}</p>
+        <span className="spacer" />
+        <Connections appletKey="financetracker" groupId={currentGroupId} />
+      </div>
 
       <div className="card">
         <h2>Balances</h2>

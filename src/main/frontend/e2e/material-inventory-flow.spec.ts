@@ -15,10 +15,13 @@ test("create an inventory group, add a yarn type, set your own quantity", async 
   await page.getByRole("link", { name: /Material Inventory/ }).click();
 
   // --- create an inventory group (own standalone workspace, no wizard) -------
-  await page.getByRole("button", { name: "+ New inventory group" }).click();
+  // ui-1: navigate to the chooser screen explicitly, since the admin account
+  // accumulates groups across repeated e2e runs and would otherwise land on its
+  // last-selected one instead of the chooser.
+  await page.goto("/materialinventory/groups");
   await page.getByPlaceholder("Inventory group name").fill(groupName);
   await page.getByRole("button", { name: "Create", exact: true }).click();
-  await expect(page.getByRole("combobox").filter({ hasText: groupName })).toBeVisible();
+  await expect(page.locator(".page-sub", { hasText: groupName })).toBeVisible();
 
   // --- add a yarn type ---------------------------------------------------------
   await page.getByRole("button", { name: "+ Add yarn type" }).click();

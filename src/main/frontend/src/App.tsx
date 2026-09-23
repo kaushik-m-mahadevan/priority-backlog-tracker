@@ -26,6 +26,7 @@ import MyWorkPage from "./ordertracker/pages/MyWorkPage";
 import NewOrderPage from "./ordertracker/pages/NewOrderPage";
 import OrderDetailPage from "./ordertracker/pages/OrderDetailPage";
 import BusinessSettingsPage from "./ordertracker/pages/BusinessSettingsPage";
+import BusinessesPage from "./ordertracker/pages/BusinessesPage";
 import ManageBusinessPage from "./ordertracker/pages/ManageBusinessPage";
 import FinanceTrackerRoot from "./financetracker/FinanceTrackerRoot";
 import OverviewPage from "./financetracker/pages/OverviewPage";
@@ -33,11 +34,14 @@ import ExpensesPage from "./financetracker/pages/ExpensesPage";
 import IncomePage from "./financetracker/pages/IncomePage";
 import ProfitSplitPage from "./financetracker/pages/ProfitSplitPage";
 import ManageFinanceGroupPage from "./financetracker/pages/ManageFinanceGroupPage";
+import FinanceGroupsPage from "./financetracker/pages/FinanceGroupsPage";
 import ProductCatalogRoot from "./productcatalog/ProductCatalogRoot";
 import ColorwaysPage from "./productcatalog/pages/ColorwaysPage";
+import CatalogGroupsPage from "./productcatalog/pages/CatalogGroupsPage";
 import MaterialInventoryRoot from "./materialinventory/MaterialInventoryRoot";
 import MyInventoryPage from "./materialinventory/pages/MyInventoryPage";
 import RequestsPage from "./materialinventory/pages/RequestsPage";
+import InventoryGroupsPage from "./materialinventory/pages/InventoryGroupsPage";
 
 export default function App() {
   const { user, loading } = useAuth();
@@ -102,6 +106,7 @@ export default function App() {
                   <Route path="customers/:id" element={<CustomerDetailPage />} />
                   <Route path="manage-business" element={<ManageBusinessPage />} />
                   <Route path="business-settings" element={<BusinessSettingsPage />} />
+                  <Route path="businesses" element={<BusinessesPage />} />
                 </Route>
                 <Route path="/financetracker" element={<FinanceTrackerRoot />}>
                   <Route index element={<OverviewPage />} />
@@ -109,13 +114,16 @@ export default function App() {
                   <Route path="income" element={<IncomePage />} />
                   <Route path="profit-split" element={<ProfitSplitPage />} />
                   <Route path="manage" element={<ManageFinanceGroupPage />} />
+                  <Route path="groups" element={<FinanceGroupsPage />} />
                 </Route>
                 <Route path="/materialinventory" element={<MaterialInventoryRoot />}>
                   <Route index element={<MyInventoryPage />} />
                   <Route path="requests" element={<RequestsPage />} />
+                  <Route path="groups" element={<InventoryGroupsPage />} />
                 </Route>
                 <Route path="/productcatalog" element={<ProductCatalogRoot />}>
                   <Route index element={<ColorwaysPage />} />
+                  <Route path="groups" element={<CatalogGroupsPage />} />
                 </Route>
                 <Route path="*" element={<Navigate to="/" replace />} />
               </Routes>

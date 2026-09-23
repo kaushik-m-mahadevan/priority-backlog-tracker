@@ -1,5 +1,6 @@
 import { Fragment, useEffect, useState } from "react";
 import { useAuth } from "../../auth/AuthContext";
+import Connections from "../../components/Connections";
 import { materialInventoryApi } from "../api";
 import { useMaterialInventory } from "../MaterialInventoryContext";
 import { formatMoney } from "../../lib/format";
@@ -261,7 +262,11 @@ export default function MyInventoryPage() {
   return (
     <div>
       <h1 className="page-title">Team inventory</h1>
-      <p className="page-sub">{currentInventoryGroup?.name}</p>
+      <div className="toolbar" style={{ marginBottom: 8 }}>
+        <p className="page-sub" style={{ margin: 0 }}>{currentInventoryGroup?.name}</p>
+        <span className="spacer" />
+        <Connections appletKey="materialinventory" groupId={currentGroupId} />
+      </div>
       {error && <div className="error">{error}</div>}
 
       <div className="card">

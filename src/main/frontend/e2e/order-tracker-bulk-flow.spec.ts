@@ -18,7 +18,10 @@ test("create a business, place a bulk order with a variant using an inline new c
   await page.getByRole("link", { name: /Order Tracker/ }).click();
 
   // --- create a business and walk the forced setup wizard ---------------------
-  await page.getByRole("button", { name: "+ New business" }).click();
+  // ui-1: navigate to the chooser screen explicitly, since the admin account
+  // accumulates businesses across repeated e2e runs and would otherwise land on its
+  // last-selected one instead of the chooser.
+  await page.goto("/ordertracker/businesses");
   await page.getByPlaceholder("Business name").fill(businessName);
   await page.getByRole("button", { name: "Create", exact: true }).click();
 
@@ -34,7 +37,7 @@ test("create a business, place a bulk order with a variant using an inline new c
 
   await expect(page.getByText("Step 4 of 4")).toBeVisible();
   await page.getByRole("button", { name: "Finish setup" }).click();
-  await expect(page.getByRole("combobox").filter({ hasText: businessName })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Orders", exact: true })).toBeVisible();
 
   // --- start a new order, switch to Bulk + an inline new customer -------------
   await page.getByRole("link", { name: "Orders", exact: true }).click();

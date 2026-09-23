@@ -310,6 +310,13 @@ label {
   .navmenu-name {
     display: none;
   }
+  .nav .brand {
+    margin-right: 6px;
+  }
+  .nav {
+    padding: 12px 10px;
+    gap: 4px;
+  }
 }
 
 .container {
@@ -2103,6 +2110,29 @@ a.applet-card:hover {
   width: 160px;
   padding: 7px 10px;
   font-size: 13px;
+}
+/* ui-1 follow-up: ad-5's search box (160px fixed) shipped after the original header
+   overflow was measured and reintroduced it at mobile widths. Even shrunk, a
+   permanently-inline box doesn't leave enough room next to the applet name + bell +
+   avatar at 375px, so below the header's existing 760px breakpoint it collapses to a
+   36px tap target and expands to an absolutely-positioned overlay on focus — same
+   input, same behavior, just out of the header's flex flow while closed. Placed after
+   the base rule (not up with the header's other @media(760px) block) so equal-
+   specificity cascade order doesn't let the unconditional rule win. */
+@media (max-width: 760px) {
+  .searchbox input {
+    width: 36px;
+    padding: 7px 8px;
+    cursor: pointer;
+  }
+  .searchbox input:focus {
+    position: absolute;
+    right: 0;
+    top: 0;
+    width: 200px;
+    z-index: 30;
+    cursor: text;
+  }
 }
 .searchbox-pop {
   padding: 6px;
