@@ -280,7 +280,7 @@ public class DemoDataSeeder implements ApplicationRunner {
                 List.of(new MandatoryItemInput(MaterialKind.YARN, "Coral cotton yarn", 4, 120, null, null, null)),
                 List.of(), List.of(), null, List.of(), 6.0, 2.0,
                 null, null, 0));
-        orderService.updateStatus(groupId, alex.getId(), order1.id(), new UpdateOrderStatusRequest(OrderStatus.IN_PROGRESS));
+        orderService.updateStatus(groupId, alex.getId(), order1.id(), new UpdateOrderStatusRequest(OrderStatus.IN_PROGRESS, null));
 
         orderService.create(groupId, priya.getId(), new CreateOrderRequest(
                 rahul.id(), "INDIVIDUAL", priyaCreator.getId(),
@@ -307,7 +307,7 @@ public class DemoDataSeeder implements ApplicationRunner {
                                 List.of(), sunflowerTemplate.getBaseCraftingTimeHours())),
                 null, List.of(), 0.0, 1.5,
                 null, null, 0));
-        orderService.updateStatus(groupId, alex.getId(), vaseOrder.id(), new UpdateOrderStatusRequest(OrderStatus.IN_PROGRESS));
+        orderService.updateStatus(groupId, alex.getId(), vaseOrder.id(), new UpdateOrderStatusRequest(OrderStatus.IN_PROGRESS, null));
 
         OrderView bulkOrder = orderService.create(groupId, alex.getId(), new CreateOrderRequest(
                 pooja.id(), "BULK", alexCreator.getId(),
@@ -320,7 +320,7 @@ public class DemoDataSeeder implements ApplicationRunner {
                         new VariantInput("v2", "Sunset Coral coaster", 3, List.of(), List.of(), List.of(), null, List.of(),
                                 2.0, 1.0, List.of(new SplitLineInput(priyaCreator.getId(), 3)))),
                 alexCreator.getId(), 0));
-        orderService.updateStatus(groupId, alex.getId(), bulkOrder.id(), new UpdateOrderStatusRequest(OrderStatus.CONFIRMED));
+        orderService.updateStatus(groupId, alex.getId(), bulkOrder.id(), new UpdateOrderStatusRequest(OrderStatus.CONFIRMED, null));
 
         ledgerEntryService.create(financeGroupId, alex.getId(), new CreateLedgerEntryRequest(
                 LedgerEntryType.EXPENSE, "Yarn restock — coral cotton + grey acrylic", new BigDecimal("2400"),

@@ -20,6 +20,7 @@ import com.backlogtracker.commons.security.RequiresUser;
 import com.backlogtracker.ordertracker.order.domain.OrderChangeLog;
 import com.backlogtracker.ordertracker.order.dto.AddPaymentRequest;
 import com.backlogtracker.ordertracker.order.dto.AddTimeLogEntryRequest;
+import com.backlogtracker.ordertracker.order.dto.CancelOrderRequest;
 import com.backlogtracker.ordertracker.order.dto.CreateOrderRequest;
 import com.backlogtracker.ordertracker.order.dto.MarkShipmentStopRequest;
 import com.backlogtracker.ordertracker.order.dto.OrderFinalizationView;
@@ -94,6 +95,12 @@ public class OrderController {
     public OrderView updateStatus(@PathVariable String groupId, @PathVariable String orderId,
                                   @RequestBody UpdateOrderStatusRequest request, @AuthenticationPrincipal AuthUser actor) {
         return orderService.updateStatus(groupId, actor.id(), orderId, request);
+    }
+
+    @PostMapping("/{orderId}/cancel")
+    public OrderView cancel(@PathVariable String groupId, @PathVariable String orderId,
+                            @RequestBody CancelOrderRequest request, @AuthenticationPrincipal AuthUser actor) {
+        return orderService.cancelOrder(groupId, actor.id(), orderId, request);
     }
 
     @PatchMapping("/{orderId}/stage-assignments/{stageKey}")

@@ -87,8 +87,10 @@ export const orderTrackerApi = {
     api.put<OrderView>(`${base(groupId)}/orders/${orderId}`, body),
   updateBulkDetails: (groupId: string, orderId: string, body: unknown) =>
     api.put<OrderView>(`${base(groupId)}/orders/${orderId}/bulk-details`, body),
-  updateStatus: (groupId: string, orderId: string, status: string) =>
-    api.patch<OrderView>(`${base(groupId)}/orders/${orderId}/status`, { status }),
+  updateStatus: (groupId: string, orderId: string, status: string, justification?: string) =>
+    api.patch<OrderView>(`${base(groupId)}/orders/${orderId}/status`, { status, justification }),
+  cancelOrder: (groupId: string, orderId: string, reason: string, note?: string) =>
+    api.post<OrderView>(`${base(groupId)}/orders/${orderId}/cancel`, { reason, note }),
   updateStageAssignment: (groupId: string, orderId: string, stageKey: string, assignedCreatorId: string | null, unitsCompleted: number) =>
     api.patch<OrderView>(`${base(groupId)}/orders/${orderId}/stage-assignments/${stageKey}`, {
       assignedCreatorId,

@@ -19,9 +19,9 @@ import { EditBulkDetailsForm } from "./orderdetail/EditBulkDetailsForm";
 import { FinalizationCard } from "./orderdetail/FinalizationCard";
 import { ShippingCard } from "./orderdetail/ShippingCard";
 import { DELIVERY_TIER_LABELS } from "./orderdetail/deliveryTiers";
-import type { BusinessConfig, Creator, Customer, OrderStatus, OrderView, PaymentType, PresetOption, TimeStage } from "../types";
-
-const STATUSES: OrderStatus[] = ["INQUIRY", "CONFIRMED", "IN_PROGRESS", "READY_TO_SHIP", "SHIPPED", "DELIVERED", "CANCELLED"];
+import CancelOrderModal from "../CancelOrderModal";
+import { legalMoves } from "../orderStatusColumns";
+import type { BusinessConfig, Creator, Customer, OrderView, PaymentType, PresetOption, TimeStage } from "../types";
 
 /** The two stage keys with real per-creator split tracking — named constants instead of
  *  the string literal duplicated between STAGE_ICONS and the hoursBased check below, so a
@@ -65,6 +65,7 @@ export default function OrderDetailPage() {
   const [paymentModeOther, setPaymentModeOther] = useState("");
   const [actionError, setActionError] = useState<string | null>(null);
   const [addingToGroup, setAddingToGroup] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
   const [historyCreatorFilter, setHistoryCreatorFilter] = useState("all");
   const [historyStageFilter, setHistoryStageFilter] = useState("all");
 
@@ -213,27 +214,63 @@ export default function OrderDetailPage() {
             {order.orderNumber}
           </span>
           <span className="badge">{order.orderType}</span>
-          <select
-            aria-label="Order status"
-            value={order.status}
-            onChange={async (e) => runAction(() => orderTrackerApi.updateStatus(groupId, order.id, e.target.value))}
-          >
-            {STATUSES.map((s) => (
-              <option key={s} value={s}>
-                {s.replace(/_/g, " ")}
-              </option>
-            ))}
-          </select>
+          {order.status === "CANCELLED" ? (
+            <span className="badge" style={{ color: "var(--urgent)" }}>CANCELLED</span>
+          ) : (
+            <select
+              aria-label="Order status"
+              value={order.status}
+              onChange={async (e) => {
+                const target = e.target.value;
+                const move = legalMoves(order.status).find((m) => m.status === target);
+                let justification: string | undefined;
+                if (move?.needsJustification) {
+                  const entered = window.prompt(
+                    `Moving this from ${order.status.replace(/_/g, " ")} back to ${target.replace(/_/g, " ")} — what happened? ` +
+                      "(e.g. Item damaged, Rework needed, Customer changed request)"
+                  );
+                  if (entered === null) return; // cancelled the prompt
+                  if (!entered.trim()) {
+                    setActionError("A reason is required to move this back");
+                    return;
+                  }
+                  justification = entered.trim();
+                }
+                runAction(() => orderTrackerApi.updateStatus(groupId, order.id, target, justification));
+              }}
+            >
+              <option value={order.status}>{order.status.replace(/_/g, " ")}</option>
+              {legalMoves(order.status).map((m) => (
+                <option key={m.status} value={m.status}>
+                  {m.status.replace(/_/g, " ")}
+                  {m.needsJustification ? " (needs a reason)" : ""}
+                </option>
+              ))}
+            </select>
+          )}
           <span className="badge">{order.paymentStatus.replace(/_/g, " ")}</span>
           <span className="spacer" />
           <button onClick={() => setAddingToGroup(true)}>Add to Priority Tracker</button>
-          {!editing && (
+          {!editing && order.status !== "CANCELLED" && (
             <button onClick={() => setEditing(true)}>Edit order</button>
+          )}
+          {order.status !== "CANCELLED" && (
+            <button className="ghost" onClick={() => setCancelling(true)}>
+              Cancel order
+            </button>
           )}
         </div>
         <p className="page-sub">{order.itemName}</p>
       </div>
       {addingToGroup && <AddToGroupModal order={order} onClose={() => setAddingToGroup(false)} />}
+      {cancelling && (
+        <CancelOrderModal
+          groupId={groupId}
+          order={order}
+          onCancelled={(o) => setOrder(o)}
+          onClose={() => setCancelling(false)}
+        />
+      )}
 
       <div className="toolbar" style={{ marginBottom: 20 }}>
         <div className="order-progress-track">
@@ -964,6 +1001,27 @@ export default function OrderDetailPage() {
           )}
         </div>
       </Section>
+
+      {order.cancellation && (
+        <Section title="Cancellation" icon="🚫">
+          <div className="card">
+            <div className="row"><span className="k">Reason</span><span className="v">{order.cancellation.reason}</span></div>
+            {order.cancellation.note && (
+              <div className="row"><span className="k">Note</span><span className="v">{order.cancellation.note}</span></div>
+            )}
+            <div className="row"><span className="k">Cancelled</span><span className="v">{formatDate(order.cancellation.cancelledAt)}</span></div>
+            {(order.cancellation.estimatedMaterialsLoss > 0 || order.cancellation.estimatedLaborLoss > 0) && (
+              <>
+                <p className="muted" style={{ fontSize: 12, marginTop: 10, marginBottom: 4 }}>
+                  Estimated loss (informational only — not a ledger entry)
+                </p>
+                <div className="row"><span className="k">Materials at risk</span><span className="v">{formatMoney(order.cancellation.estimatedMaterialsLoss)}</span></div>
+                <div className="row"><span className="k">Unrecovered labor</span><span className="v">{formatMoney(order.cancellation.estimatedLaborLoss)}</span></div>
+              </>
+            )}
+          </div>
+        </Section>
+      )}
     </div>
   );
 }

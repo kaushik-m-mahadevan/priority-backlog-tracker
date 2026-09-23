@@ -155,6 +155,11 @@ public class Order {
     // mechanics as the cost-config change request) ----
     private Finalization finalization;
 
+    /** ad-3: set only when {@code status == CANCELLED} — the guided cancel flow's own
+     *  record, distinct from the ordinary status-change history entry (which still gets
+     *  one too, for the single unified place order status history is read from). */
+    private Cancellation cancellation;
+
     // =====================================================================================
     // Nested embedded types
     // =====================================================================================
@@ -591,5 +596,28 @@ public class Order {
          *  {@code costEstimate.computedDueDate}. Now also padded by the time-overhead
          *  percentage, same formula as the individual order (round 5 redesign). */
         private Instant computedDueDate;
+    }
+
+    /** ad-3: the guided cancel flow's record — a canned reason (plus optional free text),
+     *  who cancelled it and when, and an informational-only estimated loss (materials +
+     *  unrecovered labor time). The loss figure is never a ledger entry (design decision:
+     *  no cash moved for a pure loss, matches the ledger's real-payments-only rule) and is
+     *  a simplified estimate — it reads the order's already-computed cost snapshot rather
+     *  than tracking actual reserved-vs-consumed material (that needs the Material
+     *  Inventory reservation system, ad-2, which doesn't exist yet). A real refund, if any,
+     *  goes through the ordinary payment-recording flow instead (type = REFUND), not
+     *  through this record. */
+    @Getter
+    @Setter
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class Cancellation {
+        private String reason;
+        private String note;
+        private String cancelledByUserId;
+        private Instant cancelledAt;
+        private double estimatedMaterialsLoss;
+        private double estimatedLaborLoss;
     }
 }

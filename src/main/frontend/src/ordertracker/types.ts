@@ -324,12 +324,25 @@ export interface OrderView {
   shipmentPlan: ShipmentStopView[];
   timeLogEntries: TimeLogEntryView[];
   bulkDetails: BulkDetails | null;
+  /** ad-3: only non-null once status === "CANCELLED". */
+  cancellation: OrderCancellation | null;
   createdAt: string;
   updatedAt: string;
 }
 
+export interface OrderCancellation {
+  reason: string;
+  note: string | null;
+  cancelledByUserId: string;
+  cancelledAt: string;
+  estimatedMaterialsLoss: number;
+  estimatedLaborLoss: number;
+}
+
 export interface ChangeLog {
-  orderStatusChangeHistory: { status: OrderStatus; changedByCreatorId: string; changeTimestamp: string }[];
+  orderStatusChangeHistory: {
+    status: OrderStatus; changedByCreatorId: string; changeTimestamp: string; justification: string | null;
+  }[];
   assigneeChangeHistory: {
     stageKey: string;
     oldValue: string | null;

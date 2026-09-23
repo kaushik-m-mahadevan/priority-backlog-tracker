@@ -29,9 +29,11 @@ import com.backlogtracker.ordertracker.order.domain.Order.StageAssignment;
 import com.backlogtracker.ordertracker.order.domain.Order.Variant;
 import com.backlogtracker.ordertracker.order.domain.OrderChangeLog;
 import com.backlogtracker.ordertracker.order.domain.OrderStatus;
+import com.backlogtracker.ordertracker.order.domain.OrderStatusColumns;
 import com.backlogtracker.ordertracker.order.domain.OrderType;
 import com.backlogtracker.ordertracker.order.dto.AddPaymentRequest;
 import com.backlogtracker.ordertracker.order.dto.AddTimeLogEntryRequest;
+import com.backlogtracker.ordertracker.order.dto.CancelOrderRequest;
 import com.backlogtracker.ordertracker.order.dto.CreateOrderRequest;
 import com.backlogtracker.ordertracker.order.dto.MarkShipmentStopRequest;
 import com.backlogtracker.ordertracker.order.dto.OrderView;
@@ -376,17 +378,98 @@ public class OrderService {
 
     // ---- Status ----
 
+    /** ad-3: column-based, strictly adjacent-only (see {@link OrderStatusColumns}) — replaces
+     *  the old any-status-to-any-status dropdown. Same column (e.g. Inquiry ↔ Confirmed) or
+     *  one column forward is always free; one column backward requires a non-blank
+     *  {@code justification}, logged alongside the change; a multi-column jump is rejected
+     *  outright, even with a reason. {@code CANCELLED} is never reachable here — it's a
+     *  separate, always-available action with its own guided flow, see {@link #cancelOrder}. */
     public OrderView updateStatus(String groupId, String userId, String orderId, UpdateOrderStatusRequest request) {
         groupService.requireMember(groupId, userId);
         Order order = requireById(groupId, orderId);
-        if (order.getStatus() != request.status()) {
-            appendChangeLog(orderId, log -> log.getOrderStatusChangeHistory().add(OrderChangeLog.StatusChange.builder()
-                    .status(request.status()).changedByCreatorId(userId).changeTimestamp(clock.instant()).build()));
+        OrderStatus newStatus = request.status();
+        if (newStatus == OrderStatus.CANCELLED) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Cancelling an order goes through the dedicated cancel flow, not a status move");
         }
-        order.setStatus(request.status());
-        if (request.status() == OrderStatus.DELIVERED && order.getActualDeliveryDate() == null) {
+        if (order.getStatus() == OrderStatus.CANCELLED) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "This order is cancelled and can't be moved");
+        }
+        if (order.getStatus() != newStatus) {
+            int oldColumn = OrderStatusColumns.columnIndex(order.getStatus());
+            int newColumn = OrderStatusColumns.columnIndex(newStatus);
+            int columnDiff = newColumn - oldColumn;
+            if (Math.abs(columnDiff) > 1) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "Can't skip a column — move one step at a time");
+            }
+            if (columnDiff < 0 && (request.justification() == null || request.justification().isBlank())) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Moving this backward needs a reason");
+            }
+            final String justification = columnDiff < 0 ? request.justification().trim() : null;
+            appendChangeLog(orderId, log -> log.getOrderStatusChangeHistory().add(OrderChangeLog.StatusChange.builder()
+                    .status(newStatus).changedByCreatorId(userId).changeTimestamp(clock.instant())
+                    .justification(justification).build()));
+        }
+        order.setStatus(newStatus);
+        if (newStatus == OrderStatus.DELIVERED && order.getActualDeliveryDate() == null) {
             order.setActualDeliveryDate(clock.instant());
         }
+        order.setUpdatedAt(clock.instant());
+        return view(repository.save(order), userId);
+    }
+
+    /** ad-3's guided cancel flow. Logged time and any already-recorded payments are never
+     *  touched — a historical fact and a real ledger record respectively, neither erased by
+     *  a cancellation. A refund, if any, is a separate step through the ordinary
+     *  payment-recording flow (type = REFUND) rather than part of this call. The estimated
+     *  loss is informational only (see {@link Order.Cancellation}'s own doc) — it reads the
+     *  order's already-computed cost snapshot rather than tracking actual
+     *  reserved-vs-consumed material, since that needs the Material Inventory reservation
+     *  system (ad-2), which doesn't exist yet; extending this once it does is a follow-up,
+     *  not a redesign. */
+    public OrderView cancelOrder(String groupId, String userId, String orderId, CancelOrderRequest request) {
+        groupService.requireMember(groupId, userId);
+        Order order = requireById(groupId, orderId);
+        if (order.getStatus() == OrderStatus.CANCELLED) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "This order is already cancelled");
+        }
+        if (request.reason() == null || request.reason().isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "A cancellation reason is required");
+        }
+        BusinessConfig cfg = businessConfigService.get(groupId, userId);
+        double materialsLoss;
+        double laborLoss;
+        if (order.getOrderType() == OrderType.INDIVIDUAL) {
+            Order.CostEstimate est = order.getCostEstimate();
+            materialsLoss = est == null ? 0 : est.getMandatoryItemsCost() + est.getAddOnsCost();
+            laborLoss = est == null ? 0 : est.getLaborCost();
+        } else {
+            List<Variant> variants = order.getBulkDetails() == null ? List.of() : order.getBulkDetails().getVariants();
+            materialsLoss = variants.stream().mapToDouble(v ->
+                    (calculator.mandatoryItemsCost(v.getMandatoryItems()) + calculator.lineItemsCost(v.getAddOns())) * v.getQuantity())
+                    .sum();
+            laborLoss = variants.stream().mapToDouble(v ->
+                    calculator.laborCost((v.getCraftingTimeHours() + v.getAssemblyTimeHours()) * v.getQuantity(), cfg.getHourlyWage()))
+                    .sum();
+        }
+
+        String justification = request.note() == null || request.note().isBlank()
+                ? request.reason().trim()
+                : request.reason().trim() + " — " + request.note().trim();
+        appendChangeLog(orderId, log -> log.getOrderStatusChangeHistory().add(OrderChangeLog.StatusChange.builder()
+                .status(OrderStatus.CANCELLED).changedByCreatorId(userId).changeTimestamp(clock.instant())
+                .justification(justification).build()));
+
+        order.setStatus(OrderStatus.CANCELLED);
+        order.setCancellation(Order.Cancellation.builder()
+                .reason(request.reason().trim())
+                .note(request.note() == null ? null : request.note().trim())
+                .cancelledByUserId(userId)
+                .cancelledAt(clock.instant())
+                .estimatedMaterialsLoss(materialsLoss)
+                .estimatedLaborLoss(laborLoss)
+                .build());
         order.setUpdatedAt(clock.instant());
         return view(repository.save(order), userId);
     }

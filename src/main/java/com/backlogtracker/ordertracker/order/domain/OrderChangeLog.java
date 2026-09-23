@@ -55,6 +55,9 @@ public class OrderChangeLog {
         private OrderStatus status;
         private String changedByCreatorId;
         private Instant changeTimestamp;
+        /** ad-3: only set for a backward column move (or a cancellation's reason) — a
+         *  same-column or forward-column move never requires one. */
+        private String justification;
     }
 
     @Getter

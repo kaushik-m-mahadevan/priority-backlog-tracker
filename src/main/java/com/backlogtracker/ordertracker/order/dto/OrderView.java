@@ -25,7 +25,16 @@ public record OrderView(String id, String orderNumber, OrderType orderType, Stri
                         List<PaymentView> payments, PaymentStatus paymentStatus, double netPaid,
                         double balanceAmount, List<ShipmentStopView> shipmentPlan,
                         List<TimeLogEntryView> timeLogEntries,
-                        BulkDetailsView bulkDetails, Instant createdAt, Instant updatedAt) {
+                        BulkDetailsView bulkDetails, CancellationView cancellation, Instant createdAt, Instant updatedAt) {
+
+    /** ad-3: only non-null once {@code status == CANCELLED} — see {@link Order.Cancellation}. */
+    public record CancellationView(String reason, String note, String cancelledByUserId, Instant cancelledAt,
+                                   double estimatedMaterialsLoss, double estimatedLaborLoss) {
+        static CancellationView of(Order.Cancellation c) {
+            return c == null ? null : new CancellationView(c.getReason(), c.getNote(), c.getCancelledByUserId(),
+                    c.getCancelledAt(), c.getEstimatedMaterialsLoss(), c.getEstimatedLaborLoss());
+        }
+    }
 
     /** {@code recipeSteps} lives here now, not as a separate top-level order field — see
      *  {@link Pattern} for why they're merged. */
@@ -213,6 +222,7 @@ public record OrderView(String id, String orderNumber, OrderType orderType, Stri
                 o.getShipmentPlan() == null ? List.of()
                         : o.getShipmentPlan().getStops().stream().map(ShipmentStopView::of).toList(),
                 o.getTimeLogEntries().stream().map(TimeLogEntryView::of).toList(),
-                BulkDetailsView.of(o.getBulkDetails()), o.getCreatedAt(), o.getUpdatedAt());
+                BulkDetailsView.of(o.getBulkDetails()), CancellationView.of(o.getCancellation()),
+                o.getCreatedAt(), o.getUpdatedAt());
     }
 }

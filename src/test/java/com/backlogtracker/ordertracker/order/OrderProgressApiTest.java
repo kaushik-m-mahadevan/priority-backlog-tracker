@@ -37,6 +37,15 @@ class OrderProgressApiTest extends OrderApiTestSupport {
                 .andExpect(jsonPath("$.status").value("IN_PROGRESS"))
                 .andExpect(jsonPath("$.actualDeliveryDate").doesNotExist());
 
+        // ad-3: column-adjacency only — IN_PROGRESS (column 1) can't jump straight to
+        // DELIVERED (column 3, Closed); READY_TO_SHIP (column 2, Completed) is the required
+        // step in between.
+        mvc.perform(auth(patch("/api/ordertracker/groups/" + groupId + "/orders/" + orderId + "/status"), token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"status\":\"READY_TO_SHIP\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("READY_TO_SHIP"));
+
         String delivered = mvc.perform(auth(patch("/api/ordertracker/groups/" + groupId + "/orders/" + orderId + "/status"), token)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"status\":\"DELIVERED\"}"))
@@ -52,9 +61,11 @@ class OrderProgressApiTest extends OrderApiTestSupport {
                 .truncatedTo(java.time.temporal.ChronoUnit.MILLIS);
 
         // A later status change away from and back to DELIVERED must not re-stamp the date.
+        // DELIVERED -> SHIPPED is one column backward (Closed -> Completed), which ad-3
+        // requires a justification for.
         String shipped = mvc.perform(auth(patch("/api/ordertracker/groups/" + groupId + "/orders/" + orderId + "/status"), token)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"status\":\"SHIPPED\"}"))
+                        .content("{\"status\":\"SHIPPED\",\"justification\":\"Customer asked to hold delivery\"}"))
                 .andExpect(status().isOk())
                 .andReturn().getResponse().getContentAsString();
         assertThat(java.time.Instant.parse(mapper.readTree(shipped).get("actualDeliveryDate").asText()))
@@ -71,9 +82,12 @@ class OrderProgressApiTest extends OrderApiTestSupport {
         String changeLog = mvc.perform(auth(get("/api/ordertracker/groups/" + groupId + "/orders/" + orderId + "/change-log"), token))
                 .andExpect(status().isOk())
                 .andReturn().getResponse().getContentAsString();
-        // 4 real transitions above (IN_PROGRESS, DELIVERED, SHIPPED, DELIVERED again) — no
-        // no-op update was sent in this test, so every one of them should be logged.
-        assertThat(mapper.readTree(changeLog).get(0).get("orderStatusChangeHistory")).hasSize(4);
+        // 5 real transitions above (IN_PROGRESS, READY_TO_SHIP, DELIVERED, SHIPPED,
+        // DELIVERED again) — no no-op update was sent in this test, so every one of them
+        // should be logged, and the backward SHIPPED move should carry its justification.
+        var history = mapper.readTree(changeLog).get(0).get("orderStatusChangeHistory");
+        assertThat(history).hasSize(5);
+        assertThat(history.get(3).get("justification").asText()).isEqualTo("Customer asked to hold delivery");
     }
 
     @Test
