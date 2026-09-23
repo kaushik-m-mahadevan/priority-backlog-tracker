@@ -46,9 +46,9 @@ const blankNeedleDraft = (): NewNeedleDraft => ({ kind: "CROCHET_HOOK", size: ""
  *
  *  ui-2: the yarn identity cell is compact (brand/thickness/colour only) with material
  *  detail, notes, cost, and price history moved behind a per-row expand toggle instead
- *  of always shown — the "reservation in its own section" half of ui-2 is deliberately
- *  not done here: reservation doesn't exist yet (that's ad-2, Order → Material
- *  Inventory decrement), so there's nothing to give a section to until it lands. */
+ *  of always shown. Reservation (from ad-2's Order → Material Inventory decrement) gets
+ *  its own row below the main quantities row, shown only for yarn types with an active
+ *  reservation — keeps the main row's height uniform when nothing is reserved. */
 export default function MyInventoryPage() {
   const { currentInventoryGroup, currentGroupId } = useMaterialInventory();
   const { user } = useAuth();
@@ -467,11 +467,6 @@ export default function MyInventoryPage() {
                               stale
                             </span>
                           )}
-                          {entry && entry.reserved > 0 && (
-                            <div className="muted" style={{ fontSize: 11 }}>
-                              {entry.reserved} reserved · {entry.available} free
-                            </div>
-                          )}
                           {isMe && entry?.personalLow && (
                             <div>
                               <button
@@ -502,6 +497,17 @@ export default function MyInventoryPage() {
                       </button>
                     </td>
                   </tr>
+                  {members.some((m) => (entryFor(y.id, m.id)?.reserved ?? 0) > 0) && (
+                    <tr>
+                      <td colSpan={members.length + 2} className="muted" style={{ fontSize: 11, paddingTop: 0 }}>
+                        Reserved for orders in progress: {members
+                          .map((m) => ({ m, entry: entryFor(y.id, m.id) }))
+                          .filter(({ entry }) => (entry?.reserved ?? 0) > 0)
+                          .map(({ m, entry }) => `${m.id === user?.id ? "you" : m.name}: ${entry!.reserved} reserved · ${entry!.available} free`)
+                          .join(" · ")}
+                      </td>
+                    </tr>
+                  )}
                   {expanded && (
                     <tr>
                       <td colSpan={members.length + 2} className="muted" style={{ fontSize: 12 }}>
