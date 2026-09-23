@@ -58,6 +58,27 @@ public class OrderCalculator {
         return grossCost + profitAmount;
     }
 
+    public record PricingResult(double laborCost, double grossCost, double profitAmount, double finalCost) {
+    }
+
+    /** The materials→addOns→packaging→labor→gross→profit→final pipeline shared by
+     *  {@link #estimateIndividual} and {@link #priceVariant} (bdup-6) — the single
+     *  highest-risk duplication flagged after round 5's pricing rework: this exact 4-step
+     *  sequence used to be written out separately in both places, so a future formula tweak
+     *  applied to only one of them would have been very easy to miss. Both callers still
+     *  differ in everything around this pipeline (what time feeds into it, and what shape
+     *  the result gets built into — a full CostEstimate with a due date for an individual
+     *  order, vs. a Variant's own perUnit/total fields for a bulk one), so only this shared
+     *  core is factored out, not the two methods themselves. */
+    public PricingResult pricingPipeline(double materialsAndComponentsCost, double addOnsCost, double packagingCost,
+                                         double timeHours, double hourlyWage, double profitMarginPct) {
+        double labor = laborCost(timeHours, hourlyWage);
+        double gross = grossCost(materialsAndComponentsCost, addOnsCost, packagingCost, labor);
+        double profit = profitAmount(gross, profitMarginPct);
+        double finalAmount = finalCost(gross, profit);
+        return new PricingResult(labor, gross, profit, finalAmount);
+    }
+
     /** ceil(hours / hoursPerDay), minimum 1 day of work for any non-zero order. */
     public int workDays(double hours, double hoursPerDay) {
         return (int) Math.max(1, Math.ceil(hours / hoursPerDay));
@@ -122,20 +143,18 @@ public class OrderCalculator {
         double componentsTimeHours = componentsTimeHours(components);
         double grossTimeHours = grossTimeHours(craftingTimeHours + componentsTimeHours, assemblyTimeHours, packaging)
                 + researchTimeHours;
-        double labor = laborCost(grossTimeHours, hourlyWage);
-        double gross = grossCost(mandatoryItemsCost + componentsCost, addOnsCost, packagingCost, labor);
-        double profit = profitAmount(gross, profitMarginPct);
-        double finalCost = finalCost(gross, profit);
+        PricingResult pricing = pricingPipeline(mandatoryItemsCost + componentsCost, addOnsCost, packagingCost,
+                grossTimeHours, hourlyWage, profitMarginPct);
         int workDays = workDays(grossTimeHours, assignedCreatorHoursPerDay);
 
         return Order.CostEstimate.builder()
                 .mandatoryItemsCost(mandatoryItemsCost)
                 .addOnsCost(addOnsCost)
                 .packagingCost(packagingCost)
-                .laborCost(labor)
-                .grossCost(gross)
-                .profitAmount(profit)
-                .finalCost(finalCost)
+                .laborCost(pricing.laborCost())
+                .grossCost(pricing.grossCost())
+                .profitAmount(pricing.profitAmount())
+                .finalCost(pricing.finalCost())
                 .grossTimeHours(grossTimeHours)
                 .workDays(workDays)
                 .deliveryBufferDays(deliveryBufferDays)
@@ -144,8 +163,8 @@ public class OrderCalculator {
                         new Order.BreakdownLine("Components", componentsCost),
                         new Order.BreakdownLine("Add-ons", addOnsCost),
                         new Order.BreakdownLine("Packaging", packagingCost),
-                        new Order.BreakdownLine("Labor", labor),
-                        new Order.BreakdownLine("Profit margin", profit)))
+                        new Order.BreakdownLine("Labor", pricing.laborCost()),
+                        new Order.BreakdownLine("Profit margin", pricing.profitAmount())))
                 .computedDueDate(quotableDeliveryDate(orderReceivedDate, workDays, deliveryBufferDays, overheadPct))
                 .build();
     }
@@ -175,10 +194,9 @@ public class OrderCalculator {
         double componentsTimeHours = componentsTimeHours(variant.getComponents());
         double perUnitTimeHours = grossTimeHours(variant.getCraftingTimeHours() + componentsTimeHours, variant.getAssemblyTimeHours(),
                 variant.getPackaging() == null ? Order.Packaging.builder().itemizedList(List.of()).build() : variant.getPackaging());
-        double labor = laborCost(perUnitTimeHours, hourlyWage);
-        double gross = grossCost(mandatoryItemsCost + componentsCost, addOnsCost, packagingCost, labor);
-        double profit = profitAmount(gross, profitMarginPct);
-        double perUnitCost = finalCost(gross, profit);
+        PricingResult pricing = pricingPipeline(mandatoryItemsCost + componentsCost, addOnsCost, packagingCost,
+                perUnitTimeHours, hourlyWage, profitMarginPct);
+        double perUnitCost = pricing.finalCost();
 
         variant.setPerUnitCost(perUnitCost);
         variant.setTotalCost(perUnitCost * variant.getQuantity());
