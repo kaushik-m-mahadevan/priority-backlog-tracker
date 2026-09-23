@@ -68,30 +68,22 @@ public class GroupCategoryService {
         if (!doc.getCategories().contains(n)) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "No such category: " + n);
         }
-        if (doc.getCategories().size() <= 1) {
-            throw new IllegalArgumentException("At least one category must remain");
-        }
+        SafeRemovalRule.requireAtLeastOneRemains(doc.getCategories().size(), "category");
         long used = items.countByGroupIdAndCategory(groupId, n);
-        if (used > 1) {
-            List<String> titles = items.findByGroupIdAndCategory(groupId, n).stream()
-                    .map(Item::getTitle).limit(8).toList();
-            throw new ResponseStatusException(HttpStatus.CONFLICT,
-                    used + " items use the category '" + n + "' — reassign them first: " + titles);
-        }
-        if (used == 1) {
-            if (reassignTo == null || reassignTo.isBlank()) {
-                throw new ResponseStatusException(HttpStatus.CONFLICT,
-                        "One item uses this category — supply reassignTo to move it first");
-            }
-            if (reassignTo.equals(n) || !doc.getCategories().contains(reassignTo)) {
-                throw new IllegalArgumentException("reassignTo must be another existing category");
-            }
+        String target = SafeRemovalRule.checkUsageAndValidateReassign(
+                used, () -> affectedTitles(groupId, n), reassignTo, doc.getCategories(), n, "category");
+        if (target != null) {
             mongo.updateMulti(
                     Query.query(Criteria.where("groupId").is(groupId).and("category").is(n)),
-                    new Update().set("category", reassignTo), Item.class);
+                    new Update().set("category", target), Item.class);
         }
         doc.getCategories().remove(n);
         return repository.save(doc).getCategories();
+    }
+
+    private List<String> affectedTitles(String groupId, String category) {
+        return items.findByGroupIdAndCategory(groupId, category).stream()
+                .map(Item::getTitle).limit(8).toList();
     }
 
     /** The group's saved document, seeded from defaults on first edit (not eagerly on
@@ -101,9 +93,6 @@ public class GroupCategoryService {
     }
 
     private static String requireName(String s) {
-        if (s == null || s.isBlank()) {
-            throw new IllegalArgumentException("A category name is required");
-        }
-        return s.trim();
+        return SafeRemovalRule.requireNonBlank(s, "category");
     }
 }

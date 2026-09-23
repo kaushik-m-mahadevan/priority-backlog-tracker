@@ -124,15 +124,11 @@ public class ConfigService {
         if (!cfg.getPriorities().contains(n)) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "No such priority: " + n);
         }
-        if (cfg.getPriorities().size() <= 1) {
-            throw new IllegalArgumentException("At least one priority must remain");
-        }
+        SafeRemovalRule.requireAtLeastOneRemains(cfg.getPriorities().size(), "priority");
         long used = items.countByPriority(n);
-        if (used > 1) {
-            throw conflict(n, used);
-        }
-        if (used == 1) {
-            String target = validReassign(reassignTo, cfg.getPriorities(), n, "priority");
+        String target = SafeRemovalRule.checkUsageAndValidateReassign(
+                used, () -> affectedTitles(n), reassignTo, cfg.getPriorities(), n, "priority");
+        if (target != null) {
             mongo.updateMulti(Query.query(Criteria.where("priority").is(n)),
                     new Update().set("priority", target), Item.class);
         }
@@ -150,32 +146,15 @@ public class ConfigService {
     // ---- helpers ---------------------------------------------------------------
 
     private static String require(String s, String what) {
-        if (s == null || s.isBlank()) {
-            throw new IllegalArgumentException("A " + what + " name is required");
-        }
-        return s.trim();
+        return SafeRemovalRule.requireNonBlank(s, what);
     }
 
-    private static String validReassign(String reassignTo, List<String> allowed, String removing,
-                                        String what) {
-        if (reassignTo == null || reassignTo.isBlank()) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT,
-                    "One item uses this " + what + " — supply reassignTo to move it first");
-        }
-        if (reassignTo.equals(removing) || !allowed.contains(reassignTo)) {
-            throw new IllegalArgumentException("reassignTo must be another existing " + what);
-        }
-        return reassignTo;
-    }
-
-    private ResponseStatusException conflict(String name, long used) {
-        List<String> titles = items.findAll().stream()
-                .filter(i -> name.equals(i.getPriority()))
+    private List<String> affectedTitles(String priorityName) {
+        return items.findAll().stream()
+                .filter(i -> priorityName.equals(i.getPriority()))
                 .map(Item::getTitle)
                 .limit(8)
                 .toList();
-        return new ResponseStatusException(HttpStatus.CONFLICT,
-                used + " items use the priority '" + name + "' — reassign them first: " + titles);
     }
 
     private static Map<String, Object> snapshot(AppConfig c) {
