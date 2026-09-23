@@ -1,41 +1,14 @@
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect } from "@playwright/test";
+import { ADMIN_EMAIL, ADMIN_PASSWORD, formField, login, unique } from "./helpers";
 
 /**
- * Order Tracker's own smoke test (design: platform integration, Phase 6, spec-accurate
- * rebuild) — the same spirit as core-flow.spec.ts but for the second applet: log in,
- * create a business, set up a creator profile, add a customer, create an individual order,
- * and confirm the computed order number/cost and a payment round-trip through the UI. Not
- * exhaustive — bulk orders, shipment plans, and change history are covered by backend
- * tests only.
+ * Order Tracker's own smoke test — the same spirit as core-flow.spec.ts but for the
+ * second applet: log in, create a business, walk the forced setup wizard, add a
+ * customer, create an individual order, and confirm the computed order number/cost
+ * and a payment round-trip through the UI. Order Tracker's bulk-order path gets its
+ * own spec (order-tracker-bulk-flow.spec.ts) since it's a genuinely different form
+ * and detail-page shape, not a variant of this one.
  */
-
-const ADMIN_EMAIL = "test123";
-const ADMIN_PASSWORD = "test123";
-
-function unique(prefix: string): string {
-  return `${prefix}${Date.now().toString(36)}`;
-}
-
-function escapeRegExp(s: string): string {
-  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
-
-/** Exact-match on the label text, but tolerant of a trailing " *" required-field marker
- *  (added to every required field's label since this suite was first written) — anchored
- *  so a short label never also matches a longer one that contains it as a substring. */
-function formField(page: Page, labelText: string) {
-  return page
-    .locator(".form-row", { has: page.getByText(new RegExp(`^${escapeRegExp(labelText)} ?\\*?$`)) })
-    .locator("input, select, textarea");
-}
-
-async function login(page: Page, email: string, password: string) {
-  await page.goto("/login");
-  await formField(page, "Email").fill(email);
-  await formField(page, "Password").fill(password);
-  await page.getByRole("button", { name: "Sign in" }).click();
-  await page.getByText("Pick where you want to work.").waitFor();
-}
 
 test("create a business, set up a creator, add a customer, place an order, record a payment", async ({ page }) => {
   const stamp = unique("");

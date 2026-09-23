@@ -1,58 +1,22 @@
 import { test, expect, type Page } from "@playwright/test";
+import { ADMIN_EMAIL, ADMIN_PASSWORD, formField, login, unique } from "./helpers";
 
 /**
- * The one smoke suite this app has. Exercises the full spine end to end
- * against the real packaged jar + demo data: register → pending → admin
- * approve → create group → invite → accept → create item → see it ranked.
+ * The one full-spine smoke suite this app has. Exercises end to end against the
+ * real packaged jar + demo data: register → pending → admin approve → create
+ * group → invite → accept → create item → see it ranked.
  *
  * This is the safety net the platform-integration migration leans on — every
  * phase's package move / model split must leave this green. It is not
  * exhaustive coverage; it is "did we break the thing that actually matters."
- *
- * Selectors deliberately avoid `getByLabel`: this app's `.form-row` markup
- * pairs a `<label>` with its `<input>` as plain siblings, not via `for`/`id`
- * or wrapping, so labels aren't programmatically associated with their
- * fields (a real, separate accessibility gap — not fixed here, just worked
- * around). `formField` below scopes by the visible label text instead.
+ * See helpers.ts's formField() docstring for why selectors avoid `getByLabel`.
  */
 
-const ADMIN_EMAIL = "test123";
-const ADMIN_PASSWORD = "test123";
 // Demo data seeds Alex Rivera (@alx) as an ACTIVE user in every environment
 // this suite runs against (DemoDataSeeder) — used as the invite target.
 const INVITEE_HANDLE = "alx";
 const INVITEE_EMAIL = "alex@demo.test";
 const INVITEE_PASSWORD = "test123";
-
-function unique(prefix: string): string {
-  const stamp = Date.now().toString(36);
-  return `${prefix}${stamp}`;
-}
-
-function escapeRegExp(s: string): string {
-  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
-
-/** Exact-match on the label text, but tolerant of a trailing " *" required-field marker
- *  (added to every required field's label since this suite was first written) — anchored
- *  so "Password" never also matches "Confirm password"'s row. */
-function formField(page: Page, labelText: string) {
-  return page
-    .locator(".form-row", { has: page.getByText(new RegExp(`^${escapeRegExp(labelText)} ?\\*?$`)) })
-    .locator("input, select, textarea");
-}
-
-async function login(page: Page, email: string, password: string) {
-  await page.goto("/login");
-  await formField(page, "Email").fill(email);
-  await formField(page, "Password").fill(password);
-  await page.getByRole("button", { name: "Sign in" }).click();
-  // wait for the login POST to resolve and the SPA to actually route away —
-  // without this, an immediate page.goto() right after can race the in-flight
-  // request and land back on a blank /login. Login now lands on the applet
-  // launcher (design: platform integration), not a Backlog Tracker page.
-  await page.getByText("Pick where you want to work.").waitFor();
-}
 
 async function signOut(page: Page) {
   await page.evaluate(() => localStorage.removeItem("pbt.token"));
