@@ -52,8 +52,8 @@ const UNIT_RULES: Record<
 
 export default function ItemFormModal({ existing, onClose, onSaved, onComplete }: Props) {
   const config = useConfig();
-  const { users, nameOf } = useUsers();
-  const { currentGroupId } = useGroups();
+  const { nameOf } = useUsers();
+  const { currentGroup, currentGroupId } = useGroups();
   const { categories } = useGroupCategories();
   const editing = !!existing;
 
@@ -296,11 +296,14 @@ export default function ItemFormModal({ existing, onClose, onSaved, onComplete }
               <label htmlFor="item-assignee">Assignee</label>
               <select id="item-assignee" value={ownerId} onChange={(e) => setOwnerId(e.target.value)}>
                 <option value="">Unassigned</option>
-                {users.map((u) => (
+                {(currentGroup?.members ?? []).map((u) => (
                   <option key={u.id} value={u.id}>
                     {u.name}
                   </option>
                 ))}
+                {ownerId && !currentGroup?.members.some((u) => u.id === ownerId) && (
+                  <option value={ownerId}>{nameOf(ownerId)} (no longer in group)</option>
+                )}
               </select>
             </div>
           </div>
