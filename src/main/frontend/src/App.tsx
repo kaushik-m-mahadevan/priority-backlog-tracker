@@ -43,6 +43,7 @@ import MaterialInventoryRoot from "./materialinventory/MaterialInventoryRoot";
 import MyInventoryPage from "./materialinventory/pages/MyInventoryPage";
 import RequestsPage from "./materialinventory/pages/RequestsPage";
 import InventoryGroupsPage from "./materialinventory/pages/InventoryGroupsPage";
+import ManageInventoryGroupPage from "./materialinventory/pages/ManageInventoryGroupPage";
 
 export default function App() {
   const { user, loading } = useAuth();
@@ -121,6 +122,7 @@ export default function App() {
                   <Route index element={<MyInventoryPage />} />
                   <Route path="requests" element={<RequestsPage />} />
                   <Route path="groups" element={<InventoryGroupsPage />} />
+                  <Route path="manage" element={<ManageInventoryGroupPage />} />
                 </Route>
                 <Route path="/productcatalog" element={<ProductCatalogRoot />}>
                   <Route index element={<ColorwaysPage />} />

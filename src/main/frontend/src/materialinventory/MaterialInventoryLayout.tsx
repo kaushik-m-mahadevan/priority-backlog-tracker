@@ -19,6 +19,7 @@ export default function MaterialInventoryLayout() {
                 My inventory
               </NavLink>
               <NavLink to="/materialinventory/requests">Requests</NavLink>
+              <NavLink to="/materialinventory/manage">Manage</NavLink>
             </div>
           )
         }
@@ -42,6 +43,7 @@ export default function MaterialInventoryLayout() {
             My inventory
           </NavLink>
           <NavLink to="/materialinventory/requests">Requests</NavLink>
+          <NavLink to="/materialinventory/manage">Manage</NavLink>
         </nav>
       )}
     </div>
