@@ -6,6 +6,9 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
+import static com.backlogtracker.commons.web.RequiredField.requireText;
+import static com.backlogtracker.commons.web.RequiredField.trimOrNull;
+
 import com.backlogtracker.commons.group.service.GroupService;
 import com.backlogtracker.materialinventory.needle.domain.NeedleType;
 import com.backlogtracker.materialinventory.needle.dto.CreateNeedleTypeRequest;
@@ -39,7 +42,7 @@ public class NeedleTypeService {
         if (request.kind() == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "kind is required");
         }
-        String size = requireText(request.size());
+        String size = requireText(request.size(), "size");
 
         repository.findByGroupIdAndKindAndSizeIgnoreCase(groupId, request.kind(), size).ifPresent(existing -> {
             throw new ResponseStatusException(HttpStatus.CONFLICT,
@@ -61,7 +64,7 @@ public class NeedleTypeService {
         if (request.kind() == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "kind is required");
         }
-        String size = requireText(request.size());
+        String size = requireText(request.size(), "size");
 
         repository.findByGroupIdAndKindAndSizeIgnoreCase(groupId, request.kind(), size)
                 .filter(existing -> !existing.getId().equals(needleTypeId))
@@ -95,14 +98,4 @@ public class NeedleTypeService {
         return needleType;
     }
 
-    private static String requireText(String value) {
-        if (value == null || value.isBlank()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "size is required");
-        }
-        return value.trim();
-    }
-
-    private static String trimOrNull(String value) {
-        return value == null || value.isBlank() ? null : value.trim();
-    }
 }

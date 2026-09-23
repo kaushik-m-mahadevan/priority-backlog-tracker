@@ -9,6 +9,9 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
+import static com.backlogtracker.commons.web.RequiredField.requireText;
+import static com.backlogtracker.commons.web.RequiredField.trimOrNull;
+
 import com.backlogtracker.commons.group.service.GroupService;
 import com.backlogtracker.materialinventory.inventory.repository.InventoryEntryRepository;
 import com.backlogtracker.materialinventory.yarn.domain.YarnType;
@@ -127,14 +130,4 @@ public class YarnTypeService {
         return yarnType;
     }
 
-    private static String requireText(String value, String field) {
-        if (value == null || value.isBlank()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, field + " is required");
-        }
-        return value.trim();
-    }
-
-    private static String trimOrNull(String value) {
-        return value == null || value.isBlank() ? null : value.trim();
-    }
 }
