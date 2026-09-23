@@ -445,7 +445,7 @@ export default function OrderDetailPage() {
                     {m.kind === "YARN" ? "Yarn" : "Needle"}: {m.value}
                     {m.notes && <span className="muted"> ({m.notes})</span>}
                   </span>
-                  <span className="v">{m.quantity} × {formatMoney(m.unitCost)}</span>
+                  <span className="v">{m.kind === "YARN" ? `${m.quantity} × ${formatMoney(m.unitCost)}` : `${m.quantity}`}</span>
                 </div>
               ))
             )}
@@ -615,7 +615,7 @@ export default function OrderDetailPage() {
                           {m.kind === "YARN" ? "Yarn" : "Needle"}: {m.value}
                           {m.notes && <span className="muted"> ({m.notes})</span>}
                         </span>
-                        <span className="v">{m.quantity} × {formatMoney(m.unitCost)}</span>
+                        <span className="v">{m.kind === "YARN" ? `${m.quantity} × ${formatMoney(m.unitCost)}` : `${m.quantity}`}</span>
                       </div>
                     ))
                   )}

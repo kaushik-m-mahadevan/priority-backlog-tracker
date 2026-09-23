@@ -179,20 +179,22 @@ export function MandatoryItemsFields({
                           }
                         />
                       </div>
-                      <div>
-                        <label htmlFor={costId} className="muted" style={{ fontSize: 11 }}>
-                          Unit cost
-                        </label>
-                        <input
-                          id={costId}
-                          type="number"
-                          min={0}
-                          value={it.unitCost}
-                          onChange={(e) =>
-                            onChange(items.map((x, j) => (j === globalIndex ? { ...x, unitCost: Number(e.target.value) } : x)))
-                          }
-                        />
-                      </div>
+                      {kind === "YARN" && (
+                        <div>
+                          <label htmlFor={costId} className="muted" style={{ fontSize: 11 }}>
+                            Unit cost
+                          </label>
+                          <input
+                            id={costId}
+                            type="number"
+                            min={0}
+                            value={it.unitCost}
+                            onChange={(e) =>
+                              onChange(items.map((x, j) => (j === globalIndex ? { ...x, unitCost: Number(e.target.value) } : x)))
+                            }
+                          />
+                        </div>
+                      )}
                     </div>
                     <label htmlFor={notesId} className="muted" style={{ fontSize: 11, marginTop: 8, display: "block" }}>
                       Notes (optional)
