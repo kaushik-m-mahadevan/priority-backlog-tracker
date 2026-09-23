@@ -550,7 +550,7 @@ export default function OrderDetailPage() {
                   <TimeStageControl
                     icon="🧶"
                     label={`Crochet — ${v.label}`}
-                    estimatedHours={v.craftingTimeHours}
+                    estimatedHours={v.craftingTimeHours * v.quantity}
                     entries={v.timeLogEntries.filter((e) => e.stage === "CRAFTING")}
                     onLog={(hours) => logTime("CRAFTING", hours, v.variantId)}
                   />
@@ -558,7 +558,7 @@ export default function OrderDetailPage() {
                 <TimeStageControl
                   icon="🪡"
                   label={`Assembly — ${v.label}`}
-                  estimatedHours={v.assemblyTimeHours}
+                  estimatedHours={v.assemblyTimeHours * v.quantity}
                   entries={v.timeLogEntries.filter((e) => e.stage === "ASSEMBLY")}
                   onLog={(hours) => logTime("ASSEMBLY", hours, v.variantId)}
                 />
