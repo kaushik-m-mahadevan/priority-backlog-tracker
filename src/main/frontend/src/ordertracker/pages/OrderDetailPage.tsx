@@ -859,6 +859,11 @@ export default function OrderDetailPage() {
             <div className="row"><span className="k">Quoted to customer</span>
               <span className="v"><OrderDueDate iso={order.quotedDeliveryDate} status={order.status} /></span></div>
           )}
+          {dueDate && order.quotedDeliveryDate && new Date(dueDate) > new Date(order.quotedDeliveryDate) && (
+            <p className="hint bad" style={{ marginTop: 6 }}>
+              Estimated delivery is later than what was quoted to the customer.
+            </p>
+          )}
         </div>
       </Section>
 
