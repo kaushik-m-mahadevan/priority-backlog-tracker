@@ -454,6 +454,40 @@
     </div>
   </details>
 
+  <!-- ============ MANUAL BROWSER TEST FINDINGS (2026-09-24) ============ -->
+  <details class="section">
+    <summary>
+      <span class="chev">▶</span>
+      <span class="title">Manual browser test findings (2026-09-24)</span>
+      <a class="src-link" href="BACKLOG.md#manual-browser-test-findings-2026-09-24-mb" target="_blank">source</a>
+      <span class="badge">0/0</span>
+    </summary>
+    <div class="items">
+      <div class="item"><input type="checkbox" id="mb-1"><label for="mb-1">Priority Backlog Tracker assignee dropdown lists every platform user, not just the current group's members</label></div>
+      <div class="item"><input type="checkbox" id="mb-3"><label for="mb-3">Needle types carry a unit-cost field — remove; needles are a reusable tool, not a consumable</label></div>
+      <div class="item"><input type="checkbox" id="mb-7"><label for="mb-7">Disable scroll-wheel changing number input values, app-wide</label></div>
+      <div class="item"><input type="checkbox" id="mb-9"><label for="mb-9">Bulk variant hours display shows per-unit, not the real total (perUnitTimeHours × quantity) — fix display + label wording</label></div>
+      <div class="item"><input type="checkbox" id="mb-11"><label for="mb-11">Overpayment renders as a raw negative balance — show a red "over budget by ₹X" state instead</label></div>
+      <div class="item"><input type="checkbox" id="mb-12"><label for="mb-12">Order finalization sends no notification when it actually resolves (propose/invalidate notices already exist)</label></div>
+      <div class="item"><input type="checkbox" id="mb-19"><label for="mb-19">Setup wizard's finance-tracker/material-inventory toggles don't create those groups</label></div>
+      <div class="item"><input type="checkbox" id="mb-22"><label for="mb-22">Product Catalog can't link to a business or invite members</label></div>
+      <div class="item"><input type="checkbox" id="mb-15"><label for="mb-15">Order payment → Finance Tracker sync/backfill not propagating live, despite ad-1 shipping both <span class="note">reproduce before writing new code — likely a wiring bug in already-shipped work</span></label></div>
+      <div class="item"><input type="checkbox" id="mb-5"><label for="mb-5">Mandatory-item yarn quantity locked to quarter-skein steps — can't express a real yield like 11 pieces/skein</label></div>
+      <div class="item"><input type="checkbox" id="mb-6"><label for="mb-6">Crafting/assembly/research time is hours-only at 0.25 steps — add a minutes-capable entry path</label></div>
+      <div class="item"><input type="checkbox" id="mb-10"><label for="mb-10">No warning when the computed/estimated delivery date exceeds the quoted-to-customer date</label></div>
+      <div class="item"><input type="checkbox" id="mb-14"><label for="mb-14">Business linking should require unanimous group approval (reuse this session's ApprovalService), not be unilateral</label></div>
+      <div class="item"><input type="checkbox" id="mb-16"><label for="mb-16">Finance Tracker has no manual way to associate a ledger entry with a specific order</label></div>
+      <div class="item"><input type="checkbox" id="mb-17"><label for="mb-17">Block a second pending profit-split proposal on the same order while one is already pending</label></div>
+      <div class="item"><input type="checkbox" id="mb-18"><label for="mb-18">Profit-split proposal should auto-populate recipient/unit split from the linked order's real split allocation</label></div>
+      <div class="item"><input type="checkbox" id="mb-20"><label for="mb-20">Material Inventory has no access control or business-linking UI at all</label></div>
+      <div class="item"><input type="checkbox" id="mb-21"><label for="mb-21">Let a member log inventory for another member via propose/accept (not a direct set) for an audit trail</label></div>
+      <div class="item"><input type="checkbox" id="mb-23"><label for="mb-23">Auto-invite business members when linking a new applet group — invite-all at wizard time, delta-check + editable suggestion list for a later link</label></div>
+      <div class="item"><input type="checkbox" id="mb-2"><label for="mb-2">Notifications from different applets can look identical when the underlying groups share a name — add an applet icon/badge</label></div>
+      <div class="item"><input type="checkbox" id="mb-4"><label for="mb-4">Assembly & Packaging: add selectable preloaded templates for a rough cost/time estimate, additive to the existing free-text notes</label></div>
+      <div class="item"><input type="checkbox" id="mb-8"><label for="mb-8">Orders page visual pass — sectioning/readability, no functional change <span class="note">do last, after the functional items above</span></label></div>
+    </div>
+  </details>
+
   <footer>
     Check marks are updated by editing this file's <code>checked</code> attributes and
     committing — that commit <em>is</em> the progress update, not a separate log. Full design

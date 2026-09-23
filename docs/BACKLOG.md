@@ -818,3 +818,91 @@ storage — both, not either/or.
 Direct in-app camera capture on the ledger-entry form, using the same photo-upload
 infrastructure as item 12, additive to the existing photo-attachment flow (see "Already
 well-designed" above) rather than replacing it. Approved as a nice-to-have.
+
+---
+
+## Manual browser test findings — 2026-09-24 (mb-*)
+
+Owner's own manual pass through the live app. Mix of bugs, UI polish, and net-new features;
+sequenced roughly by risk/value, not strictly by number below. Two items (mb-12, mb-15) were
+suspected already-fixed on inspection — verify by reproducing live before assuming the fix,
+don't just trust the code read.
+
+**Bugs**
+- **mb-1**: Priority Backlog Tracker's assignee dropdown lists every user on the platform,
+  not just the current group's members.
+- **mb-3**: Needle types carry a unit-cost field in the UI; needles are a reusable tool, not
+  a consumable — no cost concept belongs there at all.
+- **mb-7**: Number `<input type=number>` fields change value on an accidental scroll-wheel
+  pass, app-wide. Fix once, systemically (e.g. blur-on-wheel), not per call site.
+- **mb-9**: A bulk variant's shown "hours logged/estimated" is the *per-unit* figure
+  (`perUnitTimeHours`), not the variant's real total (`totalTimeHours` = per-unit × quantity,
+  already computed server-side). Show the total; word the label so per-unit vs total is
+  unambiguous.
+- **mb-11**: A payment that exceeds the order's final/quoted price renders as a plain negative
+  balance. Negative numbers are never the right UI for this — show a red "over budget by ₹X"
+  state instead.
+- **mb-12**: *Suspected already fixed, re-verify.* `OrderFinalizationService` already notifies
+  other members on propose (`ORDER_FINALIZATION_PROPOSED`) and the proposer on invalidation
+  (`ORDER_FINALIZATION_INVALIDATED`) — but nothing fires when a finalization actually resolves
+  (reaches unanimous approval). That's the real gap: add a resolved/finalized notice.
+- **mb-15a/b**: *Suspected already fixed, re-verify live.* ad-1 already built
+  `PaymentSyncConsumer` (syncs every `addPayment`/`removePayment` to a linked Finance group)
+  and a manual "sync historical payments" backfill button (Manage Finance Group page). Owner's
+  live test found neither propagating. Reproduce end-to-end (does the group-link exist at
+  payment time? does the backfill button actually call its endpoint?) before writing new code
+  — this may be a wiring bug in already-shipped work, not a missing feature.
+- **mb-19**: Business setup wizard's finance-tracker/material-inventory toggles don't actually
+  create those groups even when switched on.
+- **mb-22**: Product Catalog can't link to a business or invite members — same shape of gap as
+  Material Inventory (mb-20).
+
+**Features (scoped)**
+- **mb-5**: Mandatory-item yarn quantity is locked to quarter-skein steps (0.25/0.5/1...),
+  which can't express a real yield like "11 pieces per skein" (~0.09/piece) without wildly
+  overstating material cost. Needs a finer input path — reconsider the quarter-step floor for
+  yarn specifically (needle/whole-unit counts are a different, correctly-integer case).
+- **mb-6**: Crafting/assembly/research time is hours-only, stepped at 0.25 (15 min) — can't
+  express e.g. a genuine 10-minute task. Add a minutes-capable entry path.
+- **mb-10**: No warning when the computed/estimated delivery date exceeds the quoted-to-customer
+  date. Add a visible warning state where both dates are shown.
+- **mb-14**: Any member can link a business to a group today, unilaterally. Should require the
+  same unanimous-approval flow this session's qd-1 just built into `ApprovalService` — a real
+  fit, not a new mechanism.
+- **mb-16**: Finance Tracker has no way to manually associate a ledger entry with a specific
+  order, even when a business is linked — only the automatic payment-sync path exists today.
+- **mb-17**: Block a second pending profit-split proposal on the same order while one is
+  already pending (mirrors the existing single-pending-approval pattern everywhere else in the
+  app) — confirmed scope, not "allow partial concurrent splits."
+- **mb-18**: A profit-split proposal against a linked order should auto-populate the
+  recipient/unit split from the order's own real split allocation, instead of requiring it
+  re-typed by hand.
+- **mb-20**: Material Inventory has no access control and no business-linking UI at all today
+  — every member of every group can see/edit it. Needs the same link/permission model Order
+  Tracker and Finance Tracker already have.
+- **mb-21**: Let a member log inventory *for* another member with a propose/accept handshake
+  (not a direct set) — e.g. "I'm shipping 5 skeins to Bangalore" is proposed, the receiving
+  member accepts before it lands on their own on-hand row. Chosen over a direct-set model
+  specifically for the audit trail.
+- **mb-23**: When linking a new applet group to an existing business, default to inviting
+  every business member into the new group (setup wizard: invite all outright). For a *later*
+  link of an already-populated group, run a delta check both ways — any business member not
+  yet in the applet group, and any applet-group member not yet in the business, get suggested
+  as invites — and let the person doing the linking cross names off the suggested list before
+  anything actually sends.
+
+**Design/UI, needs no further discussion**
+- **mb-2**: Notifications from different applets can look identical when the underlying
+  groups share a name (e.g. a Backlog Tracker group and a business named the same thing).
+  Add a small applet icon/badge per notification so the source is unambiguous.
+- **mb-4**: Assembly & Packaging is currently one free-text notes field. Confirmed scope:
+  offer selectable preloaded templates (like Packaging's existing preset list) so a rough
+  cost/time estimate gets pulled in automatically, on top of the free-text notes — not a
+  replacement for the notes field.
+- **mb-8**: Orders page visual pass — better sectioning/readability. No functional change,
+  pure layout/visual work; do last, after the functional bugs/features above.
+
+**Answered, no backlog item needed**
+- **mb-13**: `finalCost`/`finalRevenue` explained in chat — `finalCost` is the order's real
+  locked-in cost, `finalRevenue` is what the customer actually paid; `finalProfit = revenue −
+  cost` feeds profit distribution. No code change was being asked for.
