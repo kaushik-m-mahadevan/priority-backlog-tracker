@@ -12,6 +12,7 @@ import static com.backlogtracker.commons.web.RequiredField.trimOrNull;
 
 import com.backlogtracker.commons.group.service.GroupService;
 import com.backlogtracker.commons.pattern.domain.Pattern;
+import com.backlogtracker.commons.web.ScopedLookup;
 import com.backlogtracker.productcatalog.colorway.domain.Colorway;
 import com.backlogtracker.productcatalog.colorway.dto.ColorwayView;
 import com.backlogtracker.productcatalog.colorway.dto.CreateColorwayRequest;
@@ -95,12 +96,7 @@ public class ColorwayService {
     }
 
     private Colorway requireById(String groupId, String colorwayId) {
-        Colorway colorway = repository.findById(colorwayId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Colorway not found"));
-        if (!groupId.equals(colorway.getGroupId())) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Colorway not found");
-        }
-        return colorway;
+        return ScopedLookup.requireInGroup(repository.findById(colorwayId), Colorway::getGroupId, groupId, "Colorway not found");
     }
 
     private static Pattern toPattern(List<String> recipeSteps, String referenceLink) {

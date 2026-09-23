@@ -13,6 +13,7 @@ import static com.backlogtracker.commons.web.RequiredField.requireText;
 import static com.backlogtracker.commons.web.RequiredField.trimOrNull;
 
 import com.backlogtracker.commons.group.service.GroupService;
+import com.backlogtracker.commons.web.ScopedLookup;
 import com.backlogtracker.materialinventory.inventory.repository.InventoryEntryRepository;
 import com.backlogtracker.materialinventory.yarn.domain.YarnType;
 import com.backlogtracker.materialinventory.yarn.dto.CreateYarnTypeRequest;
@@ -122,12 +123,7 @@ public class YarnTypeService {
     }
 
     public YarnType requireById(String groupId, String yarnTypeId) {
-        YarnType yarnType = repository.findById(yarnTypeId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Yarn type not found"));
-        if (!groupId.equals(yarnType.getGroupId())) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Yarn type not found");
-        }
-        return yarnType;
+        return ScopedLookup.requireInGroup(repository.findById(yarnTypeId), YarnType::getGroupId, groupId, "Yarn type not found");
     }
 
 }

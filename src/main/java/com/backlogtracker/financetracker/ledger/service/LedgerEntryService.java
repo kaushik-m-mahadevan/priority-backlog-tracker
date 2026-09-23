@@ -13,6 +13,7 @@ import org.springframework.web.server.ResponseStatusException;
 import com.backlogtracker.commons.finance.PaymentSyncEvent;
 import com.backlogtracker.commons.group.domain.Group;
 import com.backlogtracker.commons.group.service.GroupService;
+import com.backlogtracker.commons.web.ScopedLookup;
 import com.backlogtracker.financetracker.ledger.domain.LedgerEntry;
 import com.backlogtracker.financetracker.ledger.domain.PartyType;
 import com.backlogtracker.financetracker.ledger.dto.CreateLedgerEntryRequest;
@@ -162,11 +163,6 @@ public class LedgerEntryService {
     }
 
     private LedgerEntry requireById(String groupId, String entryId) {
-        LedgerEntry entry = entries.findById(entryId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Ledger entry not found"));
-        if (!groupId.equals(entry.getGroupId())) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Ledger entry not found");
-        }
-        return entry;
+        return ScopedLookup.requireInGroup(entries.findById(entryId), LedgerEntry::getGroupId, groupId, "Ledger entry not found");
     }
 }

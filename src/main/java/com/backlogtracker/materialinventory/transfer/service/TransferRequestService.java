@@ -15,6 +15,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 import com.backlogtracker.commons.group.domain.Group;
 import com.backlogtracker.commons.group.service.GroupService;
+import com.backlogtracker.commons.web.ScopedLookup;
 import com.backlogtracker.materialinventory.QuarterStep;
 import com.backlogtracker.materialinventory.inventory.service.InventoryService;
 import com.backlogtracker.materialinventory.transfer.domain.TransferRequest;
@@ -194,11 +195,8 @@ public class TransferRequestService {
     }
 
     private TransferRequest requireOpenRequest(String groupId, String requestId) {
-        TransferRequest request = repository.findById(requestId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Transfer request not found"));
-        if (!groupId.equals(request.getGroupId())) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Transfer request not found");
-        }
+        TransferRequest request = ScopedLookup.requireInGroup(
+                repository.findById(requestId), TransferRequest::getGroupId, groupId, "Transfer request not found");
         if (request.getStatus() == TransferStatus.COMPLETED || request.getStatus() == TransferStatus.CANCELLED) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "This request is already " + request.getStatus());
         }

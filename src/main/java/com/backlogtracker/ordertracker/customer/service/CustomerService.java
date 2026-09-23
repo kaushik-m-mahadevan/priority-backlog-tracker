@@ -13,6 +13,7 @@ import org.springframework.web.server.ResponseStatusException;
 import com.backlogtracker.commons.crypto.BlindIndexService;
 import com.backlogtracker.commons.crypto.EncryptedString;
 import com.backlogtracker.commons.group.service.GroupService;
+import com.backlogtracker.commons.web.ScopedLookup;
 import com.backlogtracker.ordertracker.customer.domain.Customer;
 import com.backlogtracker.ordertracker.customer.domain.CustomerAddress;
 import com.backlogtracker.ordertracker.customer.dto.CustomerView;
@@ -143,11 +144,6 @@ public class CustomerService {
     }
 
     private Customer requireById(String groupId, String customerId) {
-        Customer customer = repository.findById(customerId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Customer not found"));
-        if (!groupId.equals(customer.getGroupId())) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Customer not found");
-        }
-        return customer;
+        return ScopedLookup.requireInGroup(repository.findById(customerId), Customer::getGroupId, groupId, "Customer not found");
     }
 }

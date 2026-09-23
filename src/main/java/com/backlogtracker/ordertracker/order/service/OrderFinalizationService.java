@@ -19,6 +19,7 @@ import com.backlogtracker.commons.group.service.GroupService;
 import com.backlogtracker.commons.notification.domain.NotificationType;
 import com.backlogtracker.commons.notification.service.NotificationOrchestrator;
 import com.backlogtracker.commons.notification.service.NotificationService;
+import com.backlogtracker.commons.web.ScopedLookup;
 import com.backlogtracker.ordertracker.order.domain.Order;
 import com.backlogtracker.ordertracker.order.dto.OrderFinalizationView;
 import com.backlogtracker.ordertracker.order.dto.ProposeOrderFinalizationRequest;
@@ -173,11 +174,6 @@ public class OrderFinalizationService {
     }
 
     private Order requireOrder(String groupId, String orderId) {
-        Order order = orderRepository.findById(orderId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Order not found"));
-        if (!groupId.equals(order.getGroupId())) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Order not found");
-        }
-        return order;
+        return ScopedLookup.requireInGroup(orderRepository.findById(orderId), Order::getGroupId, groupId, "Order not found");
     }
 }

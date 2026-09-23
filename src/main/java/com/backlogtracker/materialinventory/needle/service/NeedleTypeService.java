@@ -10,6 +10,7 @@ import static com.backlogtracker.commons.web.RequiredField.requireText;
 import static com.backlogtracker.commons.web.RequiredField.trimOrNull;
 
 import com.backlogtracker.commons.group.service.GroupService;
+import com.backlogtracker.commons.web.ScopedLookup;
 import com.backlogtracker.materialinventory.needle.domain.NeedleType;
 import com.backlogtracker.materialinventory.needle.dto.CreateNeedleTypeRequest;
 import com.backlogtracker.materialinventory.needle.dto.NeedleTypeView;
@@ -90,12 +91,7 @@ public class NeedleTypeService {
     }
 
     public NeedleType requireById(String groupId, String needleTypeId) {
-        NeedleType needleType = repository.findById(needleTypeId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Needle type not found"));
-        if (!groupId.equals(needleType.getGroupId())) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Needle type not found");
-        }
-        return needleType;
+        return ScopedLookup.requireInGroup(repository.findById(needleTypeId), NeedleType::getGroupId, groupId, "Needle type not found");
     }
 
 }

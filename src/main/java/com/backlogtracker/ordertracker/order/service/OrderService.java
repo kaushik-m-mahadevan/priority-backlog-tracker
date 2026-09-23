@@ -19,6 +19,7 @@ import com.backlogtracker.commons.group.service.GroupService;
 import com.backlogtracker.commons.inventory.InventoryUsageConsumer;
 import com.backlogtracker.commons.link.service.GroupLinkService;
 import com.backlogtracker.commons.pattern.domain.Pattern;
+import com.backlogtracker.commons.web.ScopedLookup;
 import com.backlogtracker.ordertracker.customer.service.CustomerService;
 import com.backlogtracker.ordertracker.master.domain.BusinessConfig;
 import com.backlogtracker.ordertracker.master.domain.Creator;
@@ -1177,11 +1178,6 @@ public class OrderService {
     }
 
     private Order requireById(String groupId, String orderId) {
-        Order order = repository.findById(orderId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Order not found"));
-        if (!groupId.equals(order.getGroupId())) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Order not found");
-        }
-        return order;
+        return ScopedLookup.requireInGroup(repository.findById(orderId), Order::getGroupId, groupId, "Order not found");
     }
 }

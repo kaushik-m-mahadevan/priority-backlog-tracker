@@ -20,6 +20,7 @@ import com.backlogtracker.commons.approval.repository.ApprovalRequestRepository;
 import com.backlogtracker.commons.group.domain.Group;
 import com.backlogtracker.commons.group.event.MemberLeftGroupEvent;
 import com.backlogtracker.commons.group.service.GroupService;
+import com.backlogtracker.commons.web.ScopedLookup;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -143,11 +144,8 @@ public class ApprovalService {
     }
 
     private ApprovalRequest pendingRequest(String groupId, String requestId) {
-        ApprovalRequest request = repository.findById(requestId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Approval request not found"));
-        if (!request.getGroupId().equals(groupId)) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Approval request not found");
-        }
+        ApprovalRequest request = ScopedLookup.requireInGroup(
+                repository.findById(requestId), ApprovalRequest::getGroupId, groupId, "Approval request not found");
         if (request.getStatus() != ApprovalStatus.PENDING) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "This approval request has already been resolved");
         }
