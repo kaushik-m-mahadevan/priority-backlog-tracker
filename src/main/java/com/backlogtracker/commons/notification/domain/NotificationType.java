@@ -29,6 +29,10 @@ public enum NotificationType {
     COST_CONFIG_PROPOSED,
     /** Informational: another group member proposed an order's final cost/revenue. */
     ORDER_FINALIZATION_PROPOSED,
+    /** Informational (mb-12): an order's finalization proposal just reached unanimous
+     *  approval and is now locked in — previously nothing told anyone this happened; they
+     *  had to open the order and check manually. */
+    ORDER_FINALIZATION_RESOLVED,
     /** Informational: another group member proposed a profit distribution. */
     PROFIT_DISTRIBUTION_PROPOSED,
     /** Informational (admins only): a new account is waiting for approval. */

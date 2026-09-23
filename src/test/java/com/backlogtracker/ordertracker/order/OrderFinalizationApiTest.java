@@ -152,6 +152,31 @@ class OrderFinalizationApiTest {
                 .noneMatch(n -> n.getType() == com.backlogtracker.commons.notification.domain.NotificationType.ORDER_FINALIZATION_PROPOSED);
     }
 
+    /** mb-12: previously nothing told anyone once a finalization actually resolved —
+     *  propose/invalidate had notifications, resolution didn't. */
+    @Test
+    void resolvingNotifiesEveryoneExceptWhoeverJustApprovedIt() throws Exception {
+        String proposerId = mapper.readTree(mvc.perform(auth(get("/api/auth/me"), token))
+                .andReturn().getResponse().getContentAsString()).get("id").asText();
+        String otherId = mapper.readTree(mvc.perform(auth(get("/api/auth/me"), tokenB))
+                .andReturn().getResponse().getContentAsString()).get("id").asText();
+
+        mvc.perform(auth(post(finalizationUrl("/propose")), token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"finalCost\":250.0,\"finalRevenue\":400.0}"))
+                .andExpect(status().isOk());
+
+        mvc.perform(auth(post(finalizationUrl("/approve")), tokenB))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("FINALIZED"));
+
+        org.assertj.core.api.Assertions.assertThat(notifications.findByUserIdOrderByCreatedAtDesc(proposerId))
+                .anySatisfy(n -> org.assertj.core.api.Assertions.assertThat(n.getType())
+                        .isEqualTo(com.backlogtracker.commons.notification.domain.NotificationType.ORDER_FINALIZATION_RESOLVED));
+        org.assertj.core.api.Assertions.assertThat(notifications.findByUserIdOrderByCreatedAtDesc(otherId))
+                .noneMatch(n -> n.getType() == com.backlogtracker.commons.notification.domain.NotificationType.ORDER_FINALIZATION_RESOLVED);
+    }
+
     @Test
     void aSingleRejectionCancelsTheProposalAndAllowsReproposing() throws Exception {
         mvc.perform(auth(post(finalizationUrl("/propose")), token)

@@ -75,7 +75,7 @@ public class OrderFinalizationService {
                 .finalRevenue(request.finalRevenue())
                 .finalProfit(finalProfit)
                 .build());
-        applyIfResolved(order, approval);
+        applyIfResolved(order, approval, group, userId);
         orderRepository.save(order);
         if (approval.getStatus() == ApprovalStatus.PENDING) {
             notificationOrchestrator.notifyOtherMembers(group, userId, NotificationType.ORDER_FINALIZATION_PROPOSED,
@@ -89,7 +89,7 @@ public class OrderFinalizationService {
         Order order = requireOrder(groupId, orderId);
         String requestId = requirePendingRequestId(order);
         ApprovalRequest approval = approvalService.approve(groupId, userId, requestId);
-        applyIfResolved(order, approval);
+        applyIfResolved(order, approval, group, userId);
         orderRepository.save(order);
         return view(order, group, userId);
     }
@@ -104,7 +104,7 @@ public class OrderFinalizationService {
         return view(order, group, userId);
     }
 
-    private void applyIfResolved(Order order, ApprovalRequest approval) {
+    private void applyIfResolved(Order order, ApprovalRequest approval, Group group, String userId) {
         if (approval.getStatus() != ApprovalStatus.APPROVED) {
             return;
         }
@@ -119,6 +119,13 @@ public class OrderFinalizationService {
                 .finalProfit(finalProfit)
                 .finalizedAt(Instant.now(clock))
                 .build());
+        // mb-12: nothing previously told anyone a finalization actually resolved — only
+        // the propose (ORDER_FINALIZATION_PROPOSED) and invalidate cases were covered.
+        // Excludes only whoever's own action just resolved it (matches
+        // notifyOtherMembers' existing shape); the original proposer, if someone else,
+        // still gets told the moment it locks in rather than having to go check manually.
+        notificationOrchestrator.notifyOtherMembers(group, userId, NotificationType.ORDER_FINALIZATION_RESOLVED,
+                "Order " + order.getOrderNumber() + "'s final cost/revenue is now locked in.");
     }
 
     /** A member leaving mid-approval invalidates the underlying ApprovalRequest generically
