@@ -853,7 +853,11 @@ don't just trust the code read.
   payment time? does the backfill button actually call its endpoint?) before writing new code
   — this may be a wiring bug in already-shipped work, not a missing feature.
 - **mb-19**: Business setup wizard's finance-tracker/material-inventory toggles don't actually
-  create those groups even when switched on.
+  create those groups even when switched on. *Investigated, could not reproduce* — a full,
+  faithful walk through the real wizard UI (all 4 steps, both toggles on) correctly created
+  and linked both groups; the network log and a follow-up GET on both links confirmed it.
+  Left open pending more specifics from whoever hit this (which toggle, any error banner,
+  first-time business vs. a retry).
 - **mb-22**: Product Catalog can't link to a business or invite members — same shape of gap as
   Material Inventory (mb-20).
 
