@@ -29,9 +29,16 @@ function unique(prefix: string): string {
   return `${prefix}${stamp}`;
 }
 
+function escapeRegExp(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/** Exact-match on the label text, but tolerant of a trailing " *" required-field marker
+ *  (added to every required field's label since this suite was first written) — anchored
+ *  so "Password" never also matches "Confirm password"'s row. */
 function formField(page: Page, labelText: string) {
   return page
-    .locator(".form-row", { has: page.getByText(labelText, { exact: true }) })
+    .locator(".form-row", { has: page.getByText(new RegExp(`^${escapeRegExp(labelText)} ?\\*?$`)) })
     .locator("input, select, textarea");
 }
 

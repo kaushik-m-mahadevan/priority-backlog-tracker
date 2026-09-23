@@ -16,9 +16,16 @@ function unique(prefix: string): string {
   return `${prefix}${Date.now().toString(36)}`;
 }
 
+function escapeRegExp(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/** Exact-match on the label text, but tolerant of a trailing " *" required-field marker
+ *  (added to every required field's label since this suite was first written) — anchored
+ *  so a short label never also matches a longer one that contains it as a substring. */
 function formField(page: Page, labelText: string) {
   return page
-    .locator(".form-row", { has: page.getByText(labelText, { exact: true }) })
+    .locator(".form-row", { has: page.getByText(new RegExp(`^${escapeRegExp(labelText)} ?\\*?$`)) })
     .locator("input, select, textarea");
 }
 
@@ -45,13 +52,22 @@ test("create a business, set up a creator, add a customer, place an order, recor
   await page.getByRole("button", { name: "+ New business" }).click();
   await page.getByPlaceholder("Business name").fill(businessName);
   await page.getByRole("button", { name: "Create", exact: true }).click();
-  await expect(page.getByRole("combobox").filter({ hasText: businessName })).toBeVisible();
 
-  // --- set up a creator profile ---------------------------------------------
-  await page.getByRole("link", { name: "Business", exact: true }).click();
+  // --- a brand-new business is fully gated behind SetupWizardPage until this
+  //     finishes (OrderTrackerLayout renders it instead of the Outlet) --------
+  await expect(page.getByText("Step 1 of 4")).toBeVisible();
+  await page.getByRole("button", { name: "Continue" }).click(); // step 1: business settings, defaults are fine
+
+  await expect(page.getByText("Step 2 of 4")).toBeVisible(); // step 2: ProfileGatePage (creator profile)
   await formField(page, "Base location").fill("Bangalore");
-  await page.getByRole("button", { name: "Save" }).click();
-  await expect(page.getByText(/Creator code/)).toBeVisible();
+  await page.getByRole("button", { name: "Continue" }).click();
+
+  await expect(page.getByText("Step 3 of 4")).toBeVisible(); // step 3: invite team (optional, skip)
+  await page.getByRole("button", { name: "Continue" }).click();
+
+  await expect(page.getByText("Step 4 of 4")).toBeVisible(); // step 4: Finance & Inventory
+  await page.getByRole("button", { name: "Finish setup" }).click();
+  await expect(page.getByRole("combobox").filter({ hasText: businessName })).toBeVisible();
 
   // --- add a customer ---------------------------------------------------------
   await page.getByRole("link", { name: "Customers" }).click();
@@ -64,7 +80,7 @@ test("create a business, set up a creator, add a customer, place an order, recor
   await page.getByRole("link", { name: "Orders", exact: true }).click();
   await page.getByRole("link", { name: "+ New order" }).click();
   await formField(page, "Item name").fill("Amigurumi bear");
-  await formField(page, "Crafting time (hours)").fill("4");
+  await formField(page, "Crochet time (hours)").fill("4");
   await page.getByRole("button", { name: "Create order" }).click();
 
   // lands on the order detail page: 14-digit order number, unpaid until a payment lands
@@ -72,7 +88,10 @@ test("create a business, set up a creator, add a customer, place an order, recor
   await expect(page.getByText("UNPAID")).toBeVisible();
 
   // --- record a payment and confirm status flips ------------------------------
-  await page.getByPlaceholder("Amount").fill("100");
+  // enough to cover the order's estimated price (a small order's default rate can
+  // exceed 100), so a partial payment doesn't leave it PARTIALLY_PAID instead
+  await page.getByPlaceholder("Amount").fill("100000");
   await page.getByRole("button", { name: "Record" }).click();
-  await expect(page.getByText("PAID_IN_FULL")).toBeVisible();
+  // status badges render enum values with underscores replaced by spaces
+  await expect(page.getByText("PAID IN FULL")).toBeVisible();
 });
