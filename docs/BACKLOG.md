@@ -846,12 +846,11 @@ don't just trust the code read.
   other members on propose (`ORDER_FINALIZATION_PROPOSED`) and the proposer on invalidation
   (`ORDER_FINALIZATION_INVALIDATED`) — but nothing fires when a finalization actually resolves
   (reaches unanimous approval). That's the real gap: add a resolved/finalized notice.
-- **mb-15a/b**: *Suspected already fixed, re-verify live.* ad-1 already built
-  `PaymentSyncConsumer` (syncs every `addPayment`/`removePayment` to a linked Finance group)
-  and a manual "sync historical payments" backfill button (Manage Finance Group page). Owner's
-  live test found neither propagating. Reproduce end-to-end (does the group-link exist at
-  payment time? does the backfill button actually call its endpoint?) before writing new code
-  — this may be a wiring bug in already-shipped work, not a missing feature.
+- **mb-15a/b**: *Investigated, could not reproduce.* Recorded a real payment before linking
+  Finance Tracker (correctly did not auto-sync), linked it, recorded a second real payment
+  after linking (correctly auto-synced), then clicked the real "Sync historical payments"
+  button in the actual UI and it correctly picked up the pre-link payment with no
+  duplicates on a re-run. Left open pending more specifics from whoever hit this.
 - **mb-19**: Business setup wizard's finance-tracker/material-inventory toggles don't actually
   create those groups even when switched on. *Investigated, could not reproduce* — a full,
   faithful walk through the real wizard UI (all 4 steps, both toggles on) correctly created
