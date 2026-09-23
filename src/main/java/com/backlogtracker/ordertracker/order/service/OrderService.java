@@ -54,7 +54,6 @@ import com.backlogtracker.ordertracker.order.dto.UpdateOrderRequest;
 import com.backlogtracker.ordertracker.order.dto.UpdateOrderStatusRequest;
 import com.backlogtracker.ordertracker.order.dto.UpdateStageAssignmentRequest;
 import com.backlogtracker.ordertracker.order.validation.OrderBusinessRules;
-import com.backlogtracker.ordertracker.order.repository.OrderChangeLogRepository;
 import com.backlogtracker.ordertracker.order.repository.OrderRepository;
 
 import lombok.RequiredArgsConstructor;
@@ -68,7 +67,8 @@ import lombok.RequiredArgsConstructor;
 public class OrderService {
 
     private final OrderRepository repository;
-    private final OrderChangeLogRepository changeLogRepository;
+    private final OrderChangeLogService orderChangeLogService;
+    private final TimeLogService timeLogService;
     private final GroupService groupService;
     private final CustomerService customerService;
     private final CreatorService creatorService;
@@ -165,7 +165,7 @@ public class OrderService {
     public List<OrderChangeLog> getChangeLog(String groupId, String userId, String orderId) {
         groupService.requireMember(groupId, userId);
         requireById(groupId, orderId);
-        return changeLogRepository.findByOrderId(orderId).map(List::of).orElse(List.of());
+        return orderChangeLogService.history(orderId);
     }
 
     // ---- Create ----
@@ -661,97 +661,24 @@ public class OrderService {
 
     // ---- Time tracking ----
 
-    private static final double TIME_QUARTER_STEP_EPSILON = 1e-9;
-
     /** RESEARCH is always whole-order; CRAFTING/ASSEMBLY go on the order itself for an
      *  INDIVIDUAL order, or on the named variant for a BULK order — matching exactly how
-     *  those estimates are already split (design decision, see {@link Order#timeLogEntries}). */
+     *  those estimates are already split (design decision, see {@link Order#timeLogEntries}).
+     *  Placement logic lives in {@link TimeLogService} (bdup-7); this method still owns
+     *  loading, persisting, and viewing the order. */
     public OrderView addTimeLogEntry(String groupId, String userId, String orderId, AddTimeLogEntryRequest request) {
         groupService.requireMember(groupId, userId);
         Order order = requireById(groupId, orderId);
         String loggedByCreatorId = creatorService.require(groupId, userId).getId();
-        double hours = requireQuarterStepHours(request.hours());
-
-        Order.TimeLogEntry entry = Order.TimeLogEntry.builder()
-                .entryId(java.util.UUID.randomUUID().toString())
-                .stage(request.stage())
-                .hours(hours)
-                .date(request.date() == null ? clock.instant() : request.date())
-                .loggedByCreatorId(loggedByCreatorId)
-                .note(request.note() == null || request.note().isBlank() ? null : request.note().trim())
-                .build();
-
-        if (request.stage() == Order.TimeStage.RESEARCH) {
-            if (request.variantId() != null || request.componentId() != null) {
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Research time is whole-order — variantId/componentId must not be set");
-            }
-            order.getTimeLogEntries().add(entry);
-        } else if (order.getOrderType() == OrderType.INDIVIDUAL) {
-            if (request.variantId() != null) {
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "This order has no variants");
-            }
-            if (request.componentId() != null) {
-                if (request.stage() != Order.TimeStage.CRAFTING) {
-                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "componentId only applies to crafting time");
-                }
-                requireComponent(order.getComponents(), request.componentId()).getTimeLogEntries().add(entry);
-            } else {
-                order.getTimeLogEntries().add(entry);
-            }
-        } else {
-            requireBulk(order);
-            if (request.variantId() == null) {
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "variantId is required for crafting/assembly time on a bulk order");
-            }
-            Order.Variant variant = order.getBulkDetails().getVariants().stream()
-                    .filter(v -> v.getVariantId().equals(request.variantId())).findFirst()
-                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Variant not found"));
-            if (request.componentId() != null) {
-                if (request.stage() != Order.TimeStage.CRAFTING) {
-                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "componentId only applies to crafting time");
-                }
-                requireComponent(variant.getComponents(), request.componentId()).getTimeLogEntries().add(entry);
-            } else {
-                variant.getTimeLogEntries().add(entry);
-            }
-        }
+        timeLogService.addEntry(order, request, loggedByCreatorId, clock.instant());
         order.setUpdatedAt(clock.instant());
         return view(repository.save(order), userId);
-    }
-
-    private static Order.Component requireComponent(List<Order.Component> components, String componentId) {
-        return components.stream().filter(c -> c.getComponentId().equals(componentId)).findFirst()
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Component not found"));
     }
 
     public OrderView removeTimeLogEntry(String groupId, String userId, String orderId, String entryId) {
         groupService.requireMember(groupId, userId);
         Order order = requireById(groupId, orderId);
-        boolean removed = order.getTimeLogEntries().removeIf(e -> e.getEntryId().equals(entryId));
-        if (!removed) {
-            for (Order.Component c : order.getComponents()) {
-                if (c.getTimeLogEntries().removeIf(e -> e.getEntryId().equals(entryId))) {
-                    removed = true;
-                    break;
-                }
-            }
-        }
-        if (!removed && order.getBulkDetails() != null) {
-            outer:
-            for (Order.Variant v : order.getBulkDetails().getVariants()) {
-                if (v.getTimeLogEntries().removeIf(e -> e.getEntryId().equals(entryId))) {
-                    removed = true;
-                    break;
-                }
-                for (Order.Component c : v.getComponents()) {
-                    if (c.getTimeLogEntries().removeIf(e -> e.getEntryId().equals(entryId))) {
-                        removed = true;
-                        break outer;
-                    }
-                }
-            }
-        }
-        if (!removed) {
+        if (!timeLogService.removeEntry(order, entryId)) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Time log entry not found");
         }
         order.setUpdatedAt(clock.instant());
@@ -886,16 +813,6 @@ public class OrderService {
         return Math.round(quarters) / 4.0;
     }
 
-    private static double requireQuarterStepHours(double hours) {
-        if (hours <= 0) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "hours must be greater than zero");
-        }
-        double quarters = hours * 4;
-        if (Math.abs(quarters - Math.round(quarters)) > TIME_QUARTER_STEP_EPSILON) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "hours must be in quarter-hour steps (e.g. 0.25, 1.5)");
-        }
-        return Math.round(quarters) / 4.0;
-    }
 
     // ---- Shipment plan ----
 
@@ -1131,10 +1048,7 @@ public class OrderService {
     }
 
     private void appendChangeLog(String orderId, java.util.function.Consumer<OrderChangeLog> mutator) {
-        OrderChangeLog log = changeLogRepository.findByOrderId(orderId)
-                .orElseGet(() -> OrderChangeLog.builder().orderId(orderId).build());
-        mutator.accept(log);
-        changeLogRepository.save(log);
+        orderChangeLogService.append(orderId, mutator);
     }
 
     private void requireIndividual(Order order) {
