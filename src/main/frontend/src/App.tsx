@@ -1,5 +1,6 @@
 import { Navigate, Route, Routes } from "react-router-dom";
 import { useAuth } from "./auth/AuthContext";
+import { useDisableNumberInputScroll } from "./lib/useDisableNumberInputScroll";
 import { ConfigProvider } from "./config/ConfigContext";
 import { UsersProvider } from "./users/UsersContext";
 import { GroupProvider } from "./groups/GroupContext";
@@ -44,6 +45,7 @@ import InventoryGroupsPage from "./materialinventory/pages/InventoryGroupsPage";
 
 export default function App() {
   const { user, loading } = useAuth();
+  useDisableNumberInputScroll();
 
   if (loading) {
     return (
