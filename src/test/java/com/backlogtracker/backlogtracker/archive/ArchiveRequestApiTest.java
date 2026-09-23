@@ -169,7 +169,7 @@ class ArchiveRequestApiTest {
                 .andExpect(status().isOk());
         mvc.perform(post("/api/archive-requests/" + rqId + "/approve").header("Authorization", "Bearer " + tokenA))
                 .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.message").value("This request is already INVALIDATED"));
+                .andExpect(jsonPath("$.message").value("This approval request has already been resolved"));
     }
 
     @Test

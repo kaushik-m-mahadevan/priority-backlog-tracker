@@ -14,8 +14,6 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 
-import com.backlogtracker.backlogtracker.archive.domain.ArchiveRequest;
-import com.backlogtracker.backlogtracker.archive.repository.ArchiveRequestRepository;
 import com.backlogtracker.backlogtracker.archive.repository.ArchivedItemRepository;
 import com.backlogtracker.backlogtracker.archive.service.ArchiveRequestService;
 import com.backlogtracker.backlogtracker.item.domain.EffortEstimate;
@@ -23,6 +21,9 @@ import com.backlogtracker.backlogtracker.item.domain.EffortUnit;
 import com.backlogtracker.backlogtracker.item.domain.Item;
 import com.backlogtracker.backlogtracker.item.domain.ItemStatus;
 import com.backlogtracker.backlogtracker.item.repository.ItemRepository;
+import com.backlogtracker.commons.approval.domain.ApprovalRequest;
+import com.backlogtracker.commons.approval.domain.ApprovalStatus;
+import com.backlogtracker.commons.approval.repository.ApprovalRequestRepository;
 import com.backlogtracker.commons.group.domain.Group;
 import com.backlogtracker.commons.group.service.GroupService;
 import com.backlogtracker.commons.security.AuthUser;
@@ -39,7 +40,7 @@ class ArchiveRequestServiceTest {
     @Autowired GroupService groupService;
     @Autowired ArchiveRequestService archiveRequestService;
     @Autowired ItemRepository items;
-    @Autowired ArchiveRequestRepository requests;
+    @Autowired ApprovalRequestRepository requests;
     @Autowired ArchivedItemRepository archivedItems;
     @Autowired UserRepository users;
 
@@ -75,8 +76,8 @@ class ArchiveRequestServiceTest {
 
     @AfterEach
     void cleanUp() {
-        requests.findByGroupIdAndStatus(group.getId(), ArchiveRequest.Status.PENDING).forEach(r -> requests.deleteById(r.getId()));
-        requests.findByGroupIdAndStatus(group.getId(), ArchiveRequest.Status.APPROVED).forEach(r -> requests.deleteById(r.getId()));
+        requests.findByGroupIdAndStatus(group.getId(), ApprovalStatus.PENDING).forEach(r -> requests.deleteById(r.getId()));
+        requests.findByGroupIdAndStatus(group.getId(), ApprovalStatus.APPROVED).forEach(r -> requests.deleteById(r.getId()));
         items.findById(item.getId()).ifPresent(i -> items.deleteById(i.getId()));
         archivedItems.findByGroupIdOrderByMovedAtDesc(group.getId(), org.springframework.data.domain.Pageable.unpaged())
                 .forEach(ai -> archivedItems.deleteById(ai.getId()));
@@ -93,14 +94,14 @@ class ArchiveRequestServiceTest {
      *  with a lost vote. */
     @Test
     void concurrentApprovalsFromEveryMemberAreAllRecordedAndReachUnanimity() throws Exception {
-        ArchiveRequest req = archiveRequestFor(item.getId(), members.get(0));
+        String requestId = archiveRequestService.create(item.getId(), members.get(0), null).id();
 
         List<AuthUser> approvers = members.subList(1, members.size());
         ExecutorService pool = Executors.newFixedThreadPool(approvers.size());
         try {
             List<Callable<Void>> tasks = approvers.stream()
                     .<Callable<Void>>map(actor -> () -> {
-                        archiveRequestService.approve(req.getId(), actor);
+                        archiveRequestService.approve(requestId, actor);
                         return null;
                     })
                     .toList();
@@ -111,8 +112,8 @@ class ArchiveRequestServiceTest {
             pool.shutdownNow();
         }
 
-        ArchiveRequest resolved = requests.findById(req.getId()).orElseThrow();
-        assertThat(resolved.getStatus()).isEqualTo(ArchiveRequest.Status.APPROVED);
+        ApprovalRequest resolved = requests.findById(requestId).orElseThrow();
+        assertThat(resolved.getStatus()).isEqualTo(ApprovalStatus.APPROVED);
         assertThat(resolved.getApprovedByUserIds()).containsExactlyInAnyOrderElementsOf(
                 members.stream().map(AuthUser::id).toList());
         // and the item was actually archived exactly once -- concurrent approve() calls
@@ -123,10 +124,5 @@ class ArchiveRequestServiceTest {
         assertThat(archivedItems.findByGroupIdOrderByMovedAtDesc(group.getId(),
                 org.springframework.data.domain.Pageable.unpaged()).getContent())
                 .hasSize(1);
-    }
-
-    private ArchiveRequest archiveRequestFor(String itemId, AuthUser requester) {
-        var view = archiveRequestService.create(itemId, requester, null);
-        return requests.findById(view.getId()).orElseThrow();
     }
 }

@@ -80,8 +80,8 @@ public class ArchiveService {
         return move(item, terminal, actorId);
     }
 
-    /** Final archive after an {@link com.backlogtracker.backlogtracker.archive.domain.ArchiveRequest} is
-     *  unanimously approved. The approval already stands in for the membership check. */
+    /** Final archive after an archive request ({@link com.backlogtracker.backlogtracker.archive.service.ArchiveRequestService})
+     *  is unanimously approved. The approval already stands in for the membership check. */
     public ArchivedItem completeApproved(String itemId, String actorId) {
         Item item = items.findById(itemId).orElseThrow(
                 () -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Item not found: " + itemId));

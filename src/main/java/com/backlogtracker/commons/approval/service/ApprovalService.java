@@ -43,7 +43,15 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class ApprovalService {
 
-    private static final int MAX_APPROVE_RETRIES = 3;
+    // Was 3 (this service's original cap, inherited from CostConfigChangeService's own
+    // handful-of-members contention case) until qd-1 migrated ArchiveRequestService onto
+    // this class — that caller's own regression test races 5 concurrent approvers against
+    // one request, which can legitimately need more than 3 retries in the worst case under
+    // heavy contention (archive's old bespoke retry cap was 20, specifically for this same
+    // reason). Bumped for every caller, not just archive's: more retries only costs a little
+    // worst-case latency under real contention, never incorrectness, so there's no reason to
+    // keep the other callers on a tighter cap.
+    private static final int MAX_APPROVE_RETRIES = 10;
 
     private final ApprovalRequestRepository repository;
     private final GroupService groupService;

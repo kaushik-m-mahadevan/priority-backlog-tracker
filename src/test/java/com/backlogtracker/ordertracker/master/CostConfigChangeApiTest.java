@@ -16,6 +16,7 @@ import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 
+import com.backlogtracker.commons.approval.repository.ApprovalRequestRepository;
 import com.backlogtracker.commons.group.repository.GroupRepository;
 import com.backlogtracker.commons.notification.domain.NotificationType;
 import com.backlogtracker.commons.notification.repository.NotificationRepository;
@@ -24,7 +25,6 @@ import com.backlogtracker.commons.user.domain.AccountStatus;
 import com.backlogtracker.commons.user.domain.Role;
 import com.backlogtracker.commons.user.domain.User;
 import com.backlogtracker.commons.user.repository.UserRepository;
-import com.backlogtracker.ordertracker.master.repository.CostConfigChangeRequestRepository;
 import com.backlogtracker.support.AuthTestSupport;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -37,7 +37,7 @@ class CostConfigChangeApiTest {
     @Autowired UserRepository users;
     @Autowired GroupRepository groups;
     @Autowired JwtService jwt;
-    @Autowired CostConfigChangeRequestRepository changeRequests;
+    @Autowired ApprovalRequestRepository approvalRequests;
     @Autowired NotificationRepository notifications;
 
     private String proposerToken;
@@ -46,7 +46,7 @@ class CostConfigChangeApiTest {
 
     @BeforeEach
     void setUp() throws Exception {
-        changeRequests.deleteAll();
+        approvalRequests.deleteAll();
         users.findByEmailIgnoreCase("ccc-member2@ot.test").ifPresent(users::delete);
         users.findByEmailIgnoreCase("ccc-member3@ot.test").ifPresent(users::delete);
         // the bootstrap admin's group membership accumulates across test classes sharing the
@@ -95,7 +95,7 @@ class CostConfigChangeApiTest {
         mvc.perform(auth(delete("/api/groups/" + groupId + "/members/me"), member2Token))
                 .andExpect(status().isNoContent());
 
-        assertThat(changeRequests.findById(requestId).orElseThrow().getStatus().name())
+        assertThat(approvalRequests.findById(requestId).orElseThrow().getStatus().name())
                 .isEqualTo("INVALIDATED");
 
         assertThat(notifications.findByUserIdOrderByCreatedAtDesc(proposerId))

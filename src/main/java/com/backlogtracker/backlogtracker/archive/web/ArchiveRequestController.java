@@ -35,26 +35,25 @@ public class ArchiveRequestController {
                                     @Valid @RequestBody(required = false) RaiseArchiveRequest body,
                                     @AuthenticationPrincipal AuthUser actor) {
         String note = body == null ? null : body.note();
-        return ArchiveRequestView.of(service.create(itemId, actor, note));
+        return service.create(itemId, actor, note);
     }
 
     /** Pending archive requests in a group (drives the row markers + the bell). */
     @GetMapping("/api/archive-requests")
     public List<ArchiveRequestView> pending(@RequestParam String groupId,
                                             @AuthenticationPrincipal AuthUser actor) {
-        return service.pendingForGroup(groupId, actor).stream()
-                .map(ArchiveRequestView::of).toList();
+        return service.pendingForGroup(groupId, actor);
     }
 
     @PostMapping("/api/archive-requests/{id}/approve")
     public ArchiveRequestView approve(@PathVariable String id,
                                       @AuthenticationPrincipal AuthUser actor) {
-        return ArchiveRequestView.of(service.approve(id, actor));
+        return service.approve(id, actor);
     }
 
     @PostMapping("/api/archive-requests/{id}/reject")
     public ArchiveRequestView reject(@PathVariable String id,
                                      @AuthenticationPrincipal AuthUser actor) {
-        return ArchiveRequestView.of(service.reject(id, actor));
+        return service.reject(id, actor);
     }
 }
