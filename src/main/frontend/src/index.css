@@ -91,16 +91,37 @@ button {
 button:hover {
   border-color: var(--accent);
 }
-button.primary {
+/* mb-8: an <a className="primary"> (e.g. Link "+ New order") previously matched none of
+   this — only the button element selector — so it rendered as bare unstyled text with
+   zero button chrome. a.primary now gets the same base treatment as button so a "primary"
+   link looks like the button it's standing in for, not a stray plus sign. */
+a.primary {
+  display: inline-block;
+  font: inherit;
+  cursor: pointer;
+  border: 1px solid var(--border);
+  background: var(--bg-elev-2);
+  color: var(--text);
+  padding: 7px 14px;
+  border-radius: 10px;
+  transition: border-color 0.15s, background 0.15s;
+}
+a.primary:hover {
+  border-color: var(--accent);
+}
+button.primary,
+a.primary {
   background: var(--accent);
   border-color: var(--accent);
   color: #2a1c12;
   font-weight: 600;
 }
-:root[data-theme="tide"] button.primary {
+:root[data-theme="tide"] button.primary,
+:root[data-theme="tide"] a.primary {
   color: #10262a;
 }
-button.primary:hover {
+button.primary:hover,
+a.primary:hover {
   background: var(--accent-hover);
 }
 /* SlideToggle's active label sits on top of a moving accent-colored highlight (not its
@@ -1084,6 +1105,19 @@ tr:last-child td {
     flex: 1 1 100%;
     width: 100%;
   }
+  .toolbar .spacer {
+    display: none;
+  }
+}
+/* mb-8: a flex:1 .spacer inside a wrapping toolbar looks fine as long as the row never
+   wraps, but the moment it does (a real, common width between "fits on one line" and the
+   620px phone-card breakpoint above — e.g. a resized browser window or this app's own
+   narrower panel widths) the spacer claims the rest of whatever line it lands on, then
+   shoves every toolbar item after it onto its own line with a large empty gap in front.
+   Dropping the spacer here, without touching the phone-specific card-collapse rules above,
+   keeps every toolbar control on sane, evenly-gapped wrapped rows in that whole in-between
+   range instead of just the narrowest one. */
+@media (min-width: 621px) and (max-width: 900px) {
   .toolbar .spacer {
     display: none;
   }
