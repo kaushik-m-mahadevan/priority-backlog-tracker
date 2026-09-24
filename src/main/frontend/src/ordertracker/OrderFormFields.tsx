@@ -173,7 +173,7 @@ export function MandatoryItemsFields({
                           id={qtyId}
                           type="number"
                           min={0}
-                          step={0.5}
+                          step={kind === "YARN" ? 0.01 : 1}
                           value={it.quantity}
                           onChange={(e) =>
                             onChange(items.map((x, j) => (j === globalIndex ? { ...x, quantity: Number(e.target.value) } : x)))
