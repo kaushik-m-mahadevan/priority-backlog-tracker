@@ -7,7 +7,7 @@ import com.backlogtracker.financetracker.ledger.domain.LedgerEntry;
 import com.backlogtracker.financetracker.ledger.domain.PartyType;
 
 public record LedgerEntryView(String id, Instant date, String description, BigDecimal amount,
-                              PartyView debit, PartyView credit, String sourceRef,
+                              PartyView debit, PartyView credit, String sourceRef, String orderReference,
                               String createdByUserId, Instant createdAt) {
 
     public record PartyView(PartyType type, String userId, String displayName) {
@@ -18,7 +18,7 @@ public record LedgerEntryView(String id, Instant date, String description, BigDe
 
     public static LedgerEntryView of(LedgerEntry e) {
         return new LedgerEntryView(e.getId(), e.getDate(), e.getDescription(), e.getAmount(),
-                PartyView.of(e.getDebit()), PartyView.of(e.getCredit()), e.getSourceRef(),
+                PartyView.of(e.getDebit()), PartyView.of(e.getCredit()), e.getSourceRef(), e.getOrderReference(),
                 e.getCreatedByUserId(), e.getCreatedAt());
     }
 }

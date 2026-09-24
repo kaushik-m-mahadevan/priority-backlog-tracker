@@ -50,6 +50,8 @@ public class LedgerEntryService {
                 .amount(request.amount())
                 .debit(debit)
                 .credit(credit)
+                .orderReference(request.orderReference() == null || request.orderReference().isBlank()
+                        ? null : request.orderReference().trim())
                 .createdByUserId(userId)
                 .build();
         return LedgerEntryView.of(entries.save(entry));

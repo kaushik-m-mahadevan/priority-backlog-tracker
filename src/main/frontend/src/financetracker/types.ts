@@ -21,6 +21,9 @@ export interface LedgerEntryView {
   credit: PartyView;
   /** Set only for a row auto-created from an Order Tracker payment. */
   sourceRef: string | null;
+  /** mb-16: an optional free-text order reference a member typed in when manually entering
+   *  this row — independent of `sourceRef`, which is the auto-sync idempotency key. */
+  orderReference: string | null;
   createdByUserId: string;
   createdAt: string;
 }
@@ -31,6 +34,7 @@ export interface CreateLedgerEntryRequest {
   amount: number;
   debit: PartyInput;
   credit: PartyInput;
+  orderReference: string | null;
 }
 
 export interface MemberBalanceView {

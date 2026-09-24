@@ -50,6 +50,15 @@ public class LedgerEntry {
     @Indexed
     private String sourceRef;
 
+    /** mb-16: an optional free-text order reference a member types in when manually
+     *  entering a ledger row for a specific order (e.g. "reimbursed for yarn on Order
+     *  #94561842000001") — same free-text-reference convention as
+     *  {@code ProfitDistributionService}'s own {@code orderReferences}, deliberately not a
+     *  live cross-applet read. Independent of {@link #sourceRef}: this is a member's own
+     *  note, not the auto-sync idempotency key, so a manual and a synced row can both
+     *  reference the same real order without colliding. */
+    private String orderReference;
+
     private String createdByUserId;
 
     @CreatedDate

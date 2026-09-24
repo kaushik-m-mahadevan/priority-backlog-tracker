@@ -40,6 +40,7 @@ export default function LedgerPage() {
   const [description, setDescription] = useState("");
   const [amount, setAmount] = useState("");
   const [date, setDate] = useState("");
+  const [orderReference, setOrderReference] = useState("");
   const [debit, setDebit] = useState<PartyDraft>(blankParty());
   const [credit, setCredit] = useState<PartyDraft>(blankParty(user?.id ?? ""));
   const [submitting, setSubmitting] = useState(false);
@@ -74,6 +75,7 @@ export default function LedgerPage() {
     setDate("");
     setDebit(blankParty());
     setCredit(blankParty(user?.id ?? ""));
+    setOrderReference("");
     setBillFile(null);
   };
 
@@ -96,6 +98,7 @@ export default function LedgerPage() {
         amount: amt,
         debit: debitInput,
         credit: creditInput,
+        orderReference: orderReference.trim() || null,
       });
       const uploadWarning = await imagesApi.uploadIfAny(currentGroupId, LEDGER_ENTRY_OWNER_TYPE, created.id, billFile, "Ledger entry logged");
       if (uploadWarning) setError(uploadWarning);
@@ -214,6 +217,19 @@ export default function LedgerPage() {
             {partyPicker(credit, setCredit, "credit")}
           </div>
 
+          <div className="form-row">
+            <label htmlFor="ledger-order-reference">Order reference (optional)</label>
+            <input
+              id="ledger-order-reference"
+              placeholder="e.g. Order #94561842000001"
+              value={orderReference}
+              onChange={(e) => setOrderReference(e.target.value)}
+            />
+            <p className="hint" style={{ marginTop: 4 }}>
+              Ties this row to a specific order for your own reference — a plain note, not a live lookup.
+            </p>
+          </div>
+
           <BillFileInput id="ledger-bill" editingId={null} onChange={setBillFile} />
 
           <div className="toolbar">
@@ -244,6 +260,9 @@ export default function LedgerPage() {
                   <td className="cell-title">
                     {e.description}
                     {e.sourceRef && <span className="badge" style={{ marginLeft: 6, fontSize: 10 }}>auto-synced</span>}
+                    {e.orderReference && (
+                      <div className="muted" style={{ fontSize: 11, marginTop: 2 }}>{e.orderReference}</div>
+                    )}
                   </td>
                   <td className="cell-order mono">{formatMoney(e.amount)}</td>
                   <td className="cell-subtitle">{partyLabel(e.debit)}</td>

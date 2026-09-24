@@ -167,7 +167,8 @@ public class ProfitDistributionService {
                     "Profit distribution: " + label,
                     amount,
                     new PartyInput(PartyType.BUSINESS, null, null),
-                    new PartyInput(PartyType.MEMBER, personId, null)));
+                    new PartyInput(PartyType.MEMBER, personId, null),
+                    orderReferences.isEmpty() ? null : label));
         }
     }
 
