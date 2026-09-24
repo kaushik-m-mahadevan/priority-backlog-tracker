@@ -59,8 +59,8 @@ public class PasswordRequestService {
                 .status(Status.PENDING)
                 .newPasswordHash(passwordEncoder.encode(newPassword))
                 .build());
-        notificationOrchestrator.notifyAdmins(NotificationType.PASSWORD_REQUEST_PENDING,
-                user.getName() + " requested a password change and is waiting for approval.");
+        notificationOrchestrator.notifyAdmins(NotificationType.PASSWORD_REQUEST_PENDING, "Password request",
+                user.getName() + " requested a password change and is waiting for approval.", "/admin");
     }
 
     /** Login-screen "forgot password". Silent about whether the account exists — so unlike
@@ -83,8 +83,8 @@ public class PasswordRequestService {
             // Safe to name the account here — this goes only to admins, never back to the
             // (possibly unauthenticated) caller, so it doesn't touch the anti-enumeration
             // silence this endpoint's own response keeps.
-            notificationOrchestrator.notifyAdmins(NotificationType.PASSWORD_REQUEST_PENDING,
-                    user.getName() + " requested a password reset and is waiting for approval.");
+            notificationOrchestrator.notifyAdmins(NotificationType.PASSWORD_REQUEST_PENDING, "Password request",
+                    user.getName() + " requested a password reset and is waiting for approval.", "/admin");
         });
     }
 
@@ -112,18 +112,18 @@ public class PasswordRequestService {
         }
         users.save(user);
         decide(req, Status.APPROVED, admin.id());
-        notificationService.info(user.getId(), NotificationType.PASSWORD_RESULT,
+        notificationService.info(user.getId(), NotificationType.PASSWORD_RESULT, "Password request",
                 req.getType() == Type.CHANGE
                         ? "Your password change was approved — the new password is now active."
                         : "An admin set a temporary password for your account. Ask them for it, "
-                                + "then change it from Settings.");
+                                + "then change it from Settings.", null);
     }
 
     public void reject(String id, AuthUser admin) {
         PasswordRequest req = pendingReq(id);
         decide(req, Status.REJECTED, admin.id());
-        notificationService.info(req.getUserId(), NotificationType.PASSWORD_RESULT,
-                "Your password request was declined. Talk to an admin if you still need help.");
+        notificationService.info(req.getUserId(), NotificationType.PASSWORD_RESULT, "Password request",
+                "Your password request was declined. Talk to an admin if you still need help.", null);
     }
 
     private void decide(PasswordRequest req, Status status, String adminId) {

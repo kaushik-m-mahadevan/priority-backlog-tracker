@@ -313,7 +313,7 @@ export default function CustomerDetailPage() {
                     </td>
                     <td className="cell-completion">{o.completionPercentage.toFixed(0)}%</td>
                     <td className="cell-due">
-                      <OrderDueDate iso={o.costEstimate?.computedDueDate ?? o.bulkDetails?.computedDueDate ?? null} status={o.status} />
+                      <OrderDueDate iso={o.costEstimate?.computedDueDate ?? o.bulkDetails?.computedDueDate ?? null} status={o.status} quotedIso={o.quotedDeliveryDate} />
                     </td>
                     <td className="cell-payment">
                       <span className="badge">{o.paymentStatus.replace(/_/g, " ")}</span>

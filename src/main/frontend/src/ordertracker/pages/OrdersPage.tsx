@@ -163,6 +163,7 @@ export default function OrdersPage() {
                       <OrderDueDate
                         iso={(o.orderType === "INDIVIDUAL" ? o.costEstimate?.computedDueDate : o.bulkDetails?.computedDueDate) ?? null}
                         status={o.status}
+                        quotedIso={o.quotedDeliveryDate}
                       />
                     </td>
                     <td className="cell-payment">
@@ -239,6 +240,7 @@ function BoardCard({
         <OrderDueDate
           iso={(o.orderType === "INDIVIDUAL" ? o.costEstimate?.computedDueDate : o.bulkDetails?.computedDueDate) ?? null}
           status={o.status}
+          quotedIso={o.quotedDeliveryDate}
         />
       </div>
       {moves.length > 0 && (

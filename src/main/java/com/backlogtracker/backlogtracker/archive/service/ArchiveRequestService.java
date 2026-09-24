@@ -128,8 +128,8 @@ public class ArchiveRequestService {
         }
         approvalRequests.findById(event.requestId()).ifPresent(req -> {
             notificationService.info(event.proposedByUserId(), NotificationType.ARCHIVE_REQUEST_INVALIDATED,
-                    "Your request to archive “" + itemTitle(req) + "” was cancelled because a "
-                            + "member left the group mid-approval. You can raise it again.");
+                    "Archive request", "Your request to archive “" + itemTitle(req) + "” was cancelled because a "
+                            + "member left the group mid-approval. You can raise it again.", null);
             log.info("Archive request {} invalidated", event.requestId());
         });
     }

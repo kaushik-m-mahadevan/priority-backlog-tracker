@@ -19,18 +19,20 @@ function renderBell() {
 
 function groupInvite(overrides: Partial<Record<string, unknown>> = {}) {
   return {
-    id: "n1", type: "GROUP_INVITE", status: "PENDING", createdAt: "2026-01-01T00:00:00Z",
+    id: "n1", type: "GROUP_INVITE", status: "PENDING", actionable: true, title: "Group invite",
+    createdAt: "2026-01-01T00:00:00Z",
     groupId: "g1", groupName: "Crochet Co", invitedByName: "Priya", archiveRequestId: null,
-    itemId: null, itemTitle: null, message: null,
+    itemId: null, itemTitle: null, message: null, linkPath: null,
     ...overrides,
   };
 }
 
 function archiveRequest(overrides: Partial<Record<string, unknown>> = {}) {
   return {
-    id: "n2", type: "ARCHIVE_REQUEST", status: "PENDING", createdAt: "2026-01-01T00:00:00Z",
+    id: "n2", type: "ARCHIVE_REQUEST", status: "PENDING", actionable: true, title: "Archive request",
+    createdAt: "2026-01-01T00:00:00Z",
     groupId: "g1", groupName: "Crochet Co", invitedByName: "Priya", archiveRequestId: "ar1",
-    itemId: "i1", itemTitle: "Write onboarding doc", message: null,
+    itemId: "i1", itemTitle: "Write onboarding doc", message: null, linkPath: null,
     ...overrides,
   };
 }

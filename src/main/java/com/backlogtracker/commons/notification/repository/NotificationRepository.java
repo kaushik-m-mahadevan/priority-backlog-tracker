@@ -1,6 +1,5 @@
 package com.backlogtracker.commons.notification.repository;
 
-import java.util.Collection;
 import java.util.List;
 
 import org.springframework.data.mongodb.repository.MongoRepository;
@@ -15,10 +14,12 @@ public interface NotificationRepository extends MongoRepository<Notification, St
 
     long countByUserIdAndStatus(String userId, NotificationStatus status);
 
-    long countByUserIdAndStatusAndTypeIn(
-            String userId, NotificationStatus status, Collection<NotificationType> types);
+    long countByUserIdAndStatusAndActionableTrue(String userId, NotificationStatus status);
 
     List<Notification> findByArchiveRequestId(String archiveRequestId);
+
+    List<Notification> findByTypeAndReferenceIdAndStatus(
+            NotificationType type, String referenceId, NotificationStatus status);
 
     boolean existsByUserIdAndGroupIdAndTypeAndStatus(
             String userId, String groupId, NotificationType type, NotificationStatus status);

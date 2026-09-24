@@ -89,6 +89,11 @@ export default function LedgerPage() {
       setError("Fill in a description, a positive amount, and both parties");
       return;
     }
+    const involvesCustomer = debitInput.type === "CUSTOMER" || creditInput.type === "CUSTOMER";
+    if (involvesCustomer && !orderReference.trim()) {
+      setError("Order reference is required for a payment involving a customer");
+      return;
+    }
 
     setSubmitting(true);
     try {
@@ -218,15 +223,20 @@ export default function LedgerPage() {
           </div>
 
           <div className="form-row">
-            <label htmlFor="ledger-order-reference">Order reference (optional)</label>
+            <label htmlFor="ledger-order-reference">
+              Order reference{debit.type === "CUSTOMER" || credit.type === "CUSTOMER" ? "" : " (optional)"}
+            </label>
             <input
               id="ledger-order-reference"
               placeholder="e.g. Order #94561842000001"
               value={orderReference}
               onChange={(e) => setOrderReference(e.target.value)}
+              required={debit.type === "CUSTOMER" || credit.type === "CUSTOMER"}
             />
             <p className="hint" style={{ marginTop: 4 }}>
-              Ties this row to a specific order for your own reference — a plain note, not a live lookup.
+              {debit.type === "CUSTOMER" || credit.type === "CUSTOMER"
+                ? "Required for a payment involving a customer — a plain note, not a live lookup."
+                : "Ties this row to a specific order for your own reference — a plain note, not a live lookup."}
             </p>
           </div>
 

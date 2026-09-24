@@ -60,8 +60,9 @@ public class GroupLinkProposalService {
         if (approval.getStatus() == ApprovalStatus.APPROVED) {
             applyLink(approval);
         } else {
-            notificationOrchestrator.notifyOtherMembers(group, userId, NotificationType.GROUP_LINK_PROPOSED,
-                    "A proposal to link this group to another applet's group is waiting for your approval.");
+            notificationOrchestrator.notifyOtherMembersActionable(group, userId, NotificationType.GROUP_LINK_PROPOSED,
+                    "Group link", "A proposal to link this group to another applet's group is waiting for your approval — "
+                            + "approve or reject it in Connections.", null, approval.getId());
         }
         return view(approval, group);
     }
@@ -71,13 +72,18 @@ public class GroupLinkProposalService {
         ApprovalRequest approval = approvalService.approve(groupId, userId, requestId);
         if (approval.getStatus() == ApprovalStatus.APPROVED) {
             applyLink(approval);
+            notificationService.resolveByReference(NotificationType.GROUP_LINK_PROPOSED, requestId, true);
+        } else {
+            notificationService.resolveOneByReference(NotificationType.GROUP_LINK_PROPOSED, requestId, userId, true);
         }
         return view(approval, group);
     }
 
     public GroupLinkProposalView reject(String groupId, String userId, String requestId) {
         Group group = groupService.requireMember(groupId, userId);
-        return view(approvalService.reject(groupId, userId, requestId), group);
+        ApprovalRequest approval = approvalService.reject(groupId, userId, requestId);
+        notificationService.resolveByReference(NotificationType.GROUP_LINK_PROPOSED, requestId, false);
+        return view(approval, group);
     }
 
     public List<GroupLinkProposalView> list(String groupId, String userId) {
@@ -107,9 +113,10 @@ public class GroupLinkProposalService {
         if (!event.kind().startsWith(KIND_PREFIX)) {
             return;
         }
+        notificationService.resolveByReference(NotificationType.GROUP_LINK_PROPOSED, event.requestId(), false);
         notificationService.info(event.proposedByUserId(), NotificationType.GROUP_LINK_INVALIDATED,
-                "Your proposed group link was cancelled because a member left the group mid-approval. "
-                        + "You can propose it again.");
+                "Group link", "Your proposed group link was cancelled because a member left the group mid-approval. "
+                        + "You can propose it again.", null);
         log.info("Group link proposal {} invalidated", event.requestId());
     }
 

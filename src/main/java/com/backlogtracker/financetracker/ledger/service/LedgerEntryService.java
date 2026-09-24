@@ -43,6 +43,14 @@ public class LedgerEntryService {
         Group group = groupService.requireMember(groupId, userId);
         LedgerEntry.Party debit = validateParty(group, request.debit());
         LedgerEntry.Party credit = validateParty(group, request.credit());
+        boolean orderReferenceBlank = request.orderReference() == null || request.orderReference().isBlank();
+        // A payment involving a customer is money moving against a specific order — leaving
+        // it untied would make the ledger untraceable back to the order it actually belongs
+        // to, unlike a plain member/business/external transaction (rent, supplies, ...).
+        if (orderReferenceBlank && (debit.getType() == PartyType.CUSTOMER || credit.getType() == PartyType.CUSTOMER)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Order reference is required for a payment involving a customer");
+        }
         LedgerEntry entry = LedgerEntry.builder()
                 .groupId(groupId)
                 .date(request.date() == null ? clock.instant() : request.date())
@@ -50,8 +58,7 @@ public class LedgerEntryService {
                 .amount(request.amount())
                 .debit(debit)
                 .credit(credit)
-                .orderReference(request.orderReference() == null || request.orderReference().isBlank()
-                        ? null : request.orderReference().trim())
+                .orderReference(orderReferenceBlank ? null : request.orderReference().trim())
                 .createdByUserId(userId)
                 .build();
         return LedgerEntryView.of(entries.save(entry));

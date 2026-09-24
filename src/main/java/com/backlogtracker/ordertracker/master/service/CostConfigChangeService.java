@@ -51,7 +51,8 @@ public class CostConfigChangeService {
         applyIfResolved(approval);
         if (approval.getStatus() == ApprovalStatus.PENDING) {
             notificationOrchestrator.notifyOtherMembers(group, userId, NotificationType.COST_CONFIG_PROPOSED,
-                    "A new overhead/profit-margin proposal is waiting for your approval.");
+                    "Cost settings", "A new overhead/profit-margin proposal is waiting for your approval.",
+                    "/ordertracker/business-settings");
         }
         return CostConfigChangeRequestView.of(approval);
     }
@@ -82,8 +83,8 @@ public class CostConfigChangeService {
             return;
         }
         notificationService.info(event.proposedByUserId(), NotificationType.COST_CONFIG_INVALIDATED,
-                "Your proposed overhead/profit-margin change was cancelled because a member left "
-                        + "the group mid-approval. You can propose it again.");
+                "Cost settings", "Your proposed overhead/profit-margin change was cancelled because a member left "
+                        + "the group mid-approval. You can propose it again.", "/ordertracker/business-settings");
         log.info("Cost-config request {} invalidated", event.requestId());
     }
 

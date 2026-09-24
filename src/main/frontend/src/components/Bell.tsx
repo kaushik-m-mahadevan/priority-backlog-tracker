@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useLocation } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { api } from "../api/client";
 import { APPLETS } from "../api/applets";
 import { useItemsChanged, notifyItemsChanged } from "../lib/events";
@@ -16,9 +16,12 @@ function appletIcon(appletKey: string | null): string | null {
   return APPLETS.find((a) => a.key === appletKey)?.icon ?? null;
 }
 
-/** Every purely-informational, message-only notification type — rendered identically,
- *  regardless of which applet's workflow raised it (see the render logic below). */
-const INFO_ONLY_TYPES = [
+/** Every notification type rendered with the uniform header/text/link template below,
+ *  regardless of which applet's workflow raised it or whether it's actionable — the two
+ *  types with their own bespoke accept/decline UI (GROUP_INVITE, ARCHIVE_REQUEST) are the
+ *  only ones handled separately. A type landing in this list needs no frontend change: the
+ *  backend's title/message/linkPath/actionable already carry everything the template needs. */
+const TEMPLATE_TYPES = [
   "ARCHIVE_RESULT",
   "PASSWORD_RESULT",
   "COST_CONFIG_INVALIDATED",
@@ -31,17 +34,24 @@ const INFO_ONLY_TYPES = [
   "ORDER_FINALIZATION_PROPOSED",
   "ORDER_FINALIZATION_RESOLVED",
   "PROFIT_DISTRIBUTION_PROPOSED",
-  // mb-14: approve/reject happens in the Connections widget, not inline here (unlike
-  // GROUP_INVITE/ARCHIVE_REQUEST) — this is just the heads-up that one is waiting.
+  // mb-14/ad-5: approve/reject or accept/fulfill happens on the linked page, not inline
+  // here (unlike GROUP_INVITE/ARCHIVE_REQUEST) — this is the heads-up that one is waiting,
+  // with a link straight to where to act on it.
   "GROUP_LINK_PROPOSED",
   "SIGNUP_PENDING",
   "PASSWORD_REQUEST_PENDING",
+  "MATERIAL_ASSIGNMENT_PROPOSED",
+  "MATERIAL_ASSIGNMENT_RESOLVED",
+  "TRANSFER_REQUEST_CREATED",
+  "TRANSFER_REQUEST_RESOLVED",
 ] as const;
 
 interface NotificationView {
   id: string;
-  type: "GROUP_INVITE" | "ARCHIVE_REQUEST" | (typeof INFO_ONLY_TYPES)[number];
+  type: "GROUP_INVITE" | "ARCHIVE_REQUEST" | (typeof TEMPLATE_TYPES)[number];
   status: "PENDING" | "ACCEPTED" | "DECLINED";
+  actionable: boolean;
+  title: string | null;
   createdAt: string | null;
   groupId: string;
   groupName: string;
@@ -51,6 +61,7 @@ interface NotificationView {
   itemId: string | null;
   itemTitle: string | null;
   message: string | null;
+  linkPath: string | null;
 }
 
 /** Notification inbox. Badge = pending count. Group invites are accepted/declined inline. */
@@ -63,6 +74,14 @@ export default function Bell() {
   const { popoverRef, style: popoverStyle } = usePopoverPosition(triggerRef, open);
   const [busy, setBusy] = useState(false);
   const loc = useLocation();
+  const navigate = useNavigate();
+
+  function goTo(n: NotificationView) {
+    if (!n.linkPath) return;
+    if (n.groupId) setCurrentGroup(n.groupId);
+    setOpen(false);
+    navigate(n.linkPath);
+  }
 
   const load = useCallback(() => {
     api
@@ -182,11 +201,26 @@ export default function Bell() {
                 </>
               )}
 
-              {(INFO_ONLY_TYPES as readonly string[]).includes(n.type) && (
-                <>
+              {(TEMPLATE_TYPES as readonly string[]).includes(n.type) && (
+                <div
+                  role={n.linkPath ? "button" : undefined}
+                  tabIndex={n.linkPath ? 0 : undefined}
+                  style={n.linkPath ? { cursor: "pointer" } : undefined}
+                  onClick={() => goTo(n)}
+                  onKeyDown={(e) => {
+                    if (n.linkPath && (e.key === "Enter" || e.key === " ")) {
+                      e.preventDefault();
+                      goTo(n);
+                    }
+                  }}
+                >
+                  {n.title && <div style={{ fontWeight: 600 }}>{n.title}</div>}
                   <div>{n.message}</div>
-                  <div className="sub">{formatDateTime(n.createdAt)}</div>
-                </>
+                  <div className="sub">
+                    {formatDateTime(n.createdAt)}
+                    {n.actionable && n.status === "PENDING" && " · needs your response"}
+                  </div>
+                </div>
               )}
             </div>
           ))}

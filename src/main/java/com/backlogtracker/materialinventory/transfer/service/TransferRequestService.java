@@ -15,6 +15,8 @@ import org.springframework.web.server.ResponseStatusException;
 
 import com.backlogtracker.commons.group.domain.Group;
 import com.backlogtracker.commons.group.service.GroupService;
+import com.backlogtracker.commons.notification.domain.NotificationType;
+import com.backlogtracker.commons.notification.service.NotificationService;
 import com.backlogtracker.commons.web.ScopedLookup;
 import com.backlogtracker.materialinventory.QuarterStep;
 import com.backlogtracker.materialinventory.inventory.service.InventoryService;
@@ -39,11 +41,14 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class TransferRequestService {
 
+    private static final String LINK_PATH = "/materialinventory/requests";
+
     private final TransferRequestRepository repository;
     private final MongoOperations mongo;
     private final GroupService groupService;
     private final YarnTypeService yarnTypeService;
     private final InventoryService inventoryService;
+    private final NotificationService notificationService;
     private final Clock clock;
 
     public List<TransferRequestView> list(String groupId, String userId) {
@@ -62,7 +67,7 @@ public class TransferRequestService {
         if (!group.hasMember(request.targetUserId())) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "targetUserId must be a member of this inventory group");
         }
-        yarnTypeService.requireById(groupId, request.yarnTypeId());
+        var yarnType = yarnTypeService.requireById(groupId, request.yarnTypeId());
         double requestedQuantity = requireQuarterStep(request.requestedQuantity());
         if (requestedQuantity <= 0) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "requestedQuantity must be greater than zero");
@@ -78,6 +83,9 @@ public class TransferRequestService {
                 .status(TransferStatus.PENDING)
                 .createdAt(Instant.now(clock))
                 .build());
+        notificationService.actionable(request.targetUserId(), NotificationType.TRANSFER_REQUEST_CREATED,
+                "Yarn request", "Someone is asking you for " + requestedQuantity + " " + yarnType.getBrand() + " "
+                        + yarnType.getThickness() + " (" + yarnType.getColour() + ").", LINK_PATH, saved.getId());
         return TransferRequestView.of(saved);
     }
 
@@ -117,6 +125,9 @@ public class TransferRequestService {
             unreserve(groupId, requestId, amount);
             throw e;
         }
+        notificationService.resolveOneByReference(NotificationType.TRANSFER_REQUEST_CREATED, requestId, userId, true);
+        notificationService.info(request.getRequesterId(), NotificationType.TRANSFER_REQUEST_RESOLVED,
+                "Yarn request", amount + " was sent your way.", LINK_PATH);
         return TransferRequestView.of(reserved);
     }
 
@@ -179,6 +190,9 @@ public class TransferRequestService {
         }
         request.setStatus(TransferStatus.COMPLETED);
         request.setResolvedAt(Instant.now(clock));
+        notificationService.resolveByReference(NotificationType.TRANSFER_REQUEST_CREATED, requestId, true);
+        notificationService.info(request.getRequesterId(), NotificationType.TRANSFER_REQUEST_RESOLVED,
+                "Yarn request", "Your yarn request was marked complete.", LINK_PATH);
         return TransferRequestView.of(repository.save(request));
     }
 
@@ -191,6 +205,9 @@ public class TransferRequestService {
         }
         request.setStatus(TransferStatus.CANCELLED);
         request.setResolvedAt(Instant.now(clock));
+        notificationService.resolveByReference(NotificationType.TRANSFER_REQUEST_CREATED, requestId, false);
+        notificationService.info(request.getTargetUserId(), NotificationType.TRANSFER_REQUEST_RESOLVED,
+                "Yarn request", "A yarn request to you was withdrawn.", LINK_PATH);
         return TransferRequestView.of(repository.save(request));
     }
 

@@ -15,6 +15,8 @@ import org.springframework.web.server.ResponseStatusException;
 
 import com.backlogtracker.commons.group.domain.Group;
 import com.backlogtracker.commons.group.service.GroupService;
+import com.backlogtracker.commons.notification.domain.NotificationType;
+import com.backlogtracker.commons.notification.service.NotificationService;
 import com.backlogtracker.commons.web.ScopedLookup;
 import com.backlogtracker.materialinventory.QuarterStep;
 import com.backlogtracker.materialinventory.assignment.domain.MaterialAssignment;
@@ -37,11 +39,14 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class MaterialAssignmentService {
 
+    private static final String LINK_PATH = "/materialinventory/assignments";
+
     private final MaterialAssignmentRepository repository;
     private final MongoOperations mongo;
     private final GroupService groupService;
     private final YarnTypeService yarnTypeService;
     private final InventoryService inventoryService;
+    private final NotificationService notificationService;
     private final Clock clock;
 
     public List<MaterialAssignmentView> list(String groupId, String userId) {
@@ -64,7 +69,7 @@ public class MaterialAssignmentService {
         if (!group.hasMember(request.recipientId())) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "recipientId must be a member of this inventory group");
         }
-        yarnTypeService.requireById(groupId, request.yarnTypeId());
+        var yarnType = yarnTypeService.requireById(groupId, request.yarnTypeId());
         double quantity = QuarterStep.require(request.quantity());
         if (quantity <= 0) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "quantity must be greater than zero");
@@ -80,6 +85,9 @@ public class MaterialAssignmentService {
                 .status(MaterialAssignmentStatus.PENDING)
                 .createdAt(Instant.now(clock))
                 .build());
+        notificationService.actionable(request.recipientId(), NotificationType.MATERIAL_ASSIGNMENT_PROPOSED,
+                "Yarn assignment", quantity + " " + yarnType.getBrand() + " " + yarnType.getThickness() + " ("
+                        + yarnType.getColour() + ") is waiting for you to accept or reject.", LINK_PATH, saved.getId());
         return MaterialAssignmentView.of(saved);
     }
 
@@ -93,6 +101,9 @@ public class MaterialAssignmentService {
         }
         MaterialAssignment resolved = transitionIfPending(groupId, assignmentId, MaterialAssignmentStatus.ACCEPTED);
         inventoryService.adjustQuantity(groupId, assignment.getRecipientId(), assignment.getYarnTypeId(), assignment.getQuantity());
+        notificationService.resolveOneByReference(NotificationType.MATERIAL_ASSIGNMENT_PROPOSED, assignmentId, userId, true);
+        notificationService.info(assignment.getProposerId(), NotificationType.MATERIAL_ASSIGNMENT_RESOLVED,
+                "Yarn assignment", "Your yarn assignment was accepted.", LINK_PATH);
         return MaterialAssignmentView.of(resolved);
     }
 
@@ -106,6 +117,9 @@ public class MaterialAssignmentService {
         }
         MaterialAssignment resolved = transitionIfPending(groupId, assignmentId, MaterialAssignmentStatus.REJECTED);
         inventoryService.adjustQuantity(groupId, assignment.getProposerId(), assignment.getYarnTypeId(), assignment.getQuantity());
+        notificationService.resolveOneByReference(NotificationType.MATERIAL_ASSIGNMENT_PROPOSED, assignmentId, userId, false);
+        notificationService.info(assignment.getProposerId(), NotificationType.MATERIAL_ASSIGNMENT_RESOLVED,
+                "Yarn assignment", "Your yarn assignment was rejected — the quantity is back in your own inventory.", LINK_PATH);
         return MaterialAssignmentView.of(resolved);
     }
 
@@ -119,6 +133,9 @@ public class MaterialAssignmentService {
         }
         MaterialAssignment resolved = transitionIfPending(groupId, assignmentId, MaterialAssignmentStatus.CANCELLED);
         inventoryService.adjustQuantity(groupId, assignment.getProposerId(), assignment.getYarnTypeId(), assignment.getQuantity());
+        notificationService.resolveByReference(NotificationType.MATERIAL_ASSIGNMENT_PROPOSED, assignmentId, false);
+        notificationService.info(assignment.getRecipientId(), NotificationType.MATERIAL_ASSIGNMENT_RESOLVED,
+                "Yarn assignment", "A yarn assignment to you was withdrawn by the proposer.", LINK_PATH);
         return MaterialAssignmentView.of(resolved);
     }
 

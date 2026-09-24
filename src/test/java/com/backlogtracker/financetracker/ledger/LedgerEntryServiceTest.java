@@ -186,7 +186,7 @@ class LedgerEntryServiceTest {
         // Debit CUSTOMER, Credit BUSINESS — a plain sale, no member involved at all.
         ledgerEntryService.create(financeGroup.getId(), aliceId,
                 new CreateLedgerEntryRequest(null, "Order payment", new BigDecimal("1500.00"),
-                        customer("Priya Sharma"), business(), null));
+                        customer("Priya Sharma"), business(), "Order #94561842000001"));
 
         assertThat(ledgerEntryService.balances(financeGroup.getId(), aliceId)).isEmpty();
     }

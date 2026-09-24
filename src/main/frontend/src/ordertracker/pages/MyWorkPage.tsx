@@ -155,6 +155,7 @@ export default function MyWorkPage() {
                     <OrderDueDate
                       iso={(o.orderType === "INDIVIDUAL" ? o.costEstimate?.computedDueDate : o.bulkDetails?.computedDueDate) ?? null}
                       status={o.status}
+                      quotedIso={o.quotedDeliveryDate}
                     />
                   </td>
                 </tr>

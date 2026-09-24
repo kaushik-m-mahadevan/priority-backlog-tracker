@@ -78,8 +78,9 @@ public class OrderFinalizationService {
         applyIfResolved(order, approval, group, userId);
         orderRepository.save(order);
         if (approval.getStatus() == ApprovalStatus.PENDING) {
-            notificationOrchestrator.notifyOtherMembers(group, userId, NotificationType.ORDER_FINALIZATION_PROPOSED,
-                    "A final cost/revenue proposal for order " + order.getOrderNumber() + " is waiting for your approval.");
+            notificationOrchestrator.notifyOtherMembersActionable(group, userId, NotificationType.ORDER_FINALIZATION_PROPOSED,
+                    "Order finalization", "A final cost/revenue proposal for order " + order.getOrderNumber()
+                            + " is waiting for your approval.", orderLinkPath(order), approval.getId());
         }
         return view(order, group, userId);
     }
@@ -91,6 +92,11 @@ public class OrderFinalizationService {
         ApprovalRequest approval = approvalService.approve(groupId, userId, requestId);
         applyIfResolved(order, approval, group, userId);
         orderRepository.save(order);
+        if (approval.getStatus() == ApprovalStatus.APPROVED) {
+            notificationService.resolveByReference(NotificationType.ORDER_FINALIZATION_PROPOSED, requestId, true);
+        } else {
+            notificationService.resolveOneByReference(NotificationType.ORDER_FINALIZATION_PROPOSED, requestId, userId, true);
+        }
         return view(order, group, userId);
     }
 
@@ -101,7 +107,12 @@ public class OrderFinalizationService {
         approvalService.reject(groupId, userId, requestId);
         order.setFinalization(Order.Finalization.builder().status(Order.FinalizationStatus.NONE).build());
         orderRepository.save(order);
+        notificationService.resolveByReference(NotificationType.ORDER_FINALIZATION_PROPOSED, requestId, false);
         return view(order, group, userId);
+    }
+
+    private static String orderLinkPath(Order order) {
+        return "/ordertracker/orders/" + order.getId();
     }
 
     private void applyIfResolved(Order order, ApprovalRequest approval, Group group, String userId) {
@@ -125,7 +136,8 @@ public class OrderFinalizationService {
         // notifyOtherMembers' existing shape); the original proposer, if someone else,
         // still gets told the moment it locks in rather than having to go check manually.
         notificationOrchestrator.notifyOtherMembers(group, userId, NotificationType.ORDER_FINALIZATION_RESOLVED,
-                "Order " + order.getOrderNumber() + "'s final cost/revenue is now locked in.");
+                "Order finalization", "Order " + order.getOrderNumber() + "'s final cost/revenue is now locked in.",
+                orderLinkPath(order));
     }
 
     /** A member leaving mid-approval invalidates the underlying ApprovalRequest generically
@@ -143,9 +155,11 @@ public class OrderFinalizationService {
             }
             order.setFinalization(Order.Finalization.builder().status(Order.FinalizationStatus.NONE).build());
             orderRepository.save(order);
+            notificationService.resolveByReference(NotificationType.ORDER_FINALIZATION_PROPOSED, event.requestId(), false);
             notificationService.info(event.proposedByUserId(), NotificationType.ORDER_FINALIZATION_INVALIDATED,
-                    "Your proposed final cost/revenue for order " + order.getOrderNumber()
-                            + " was cancelled because a member left the group mid-approval. You can propose it again.");
+                    "Order finalization", "Your proposed final cost/revenue for order " + order.getOrderNumber()
+                            + " was cancelled because a member left the group mid-approval. You can propose it again.",
+                    orderLinkPath(order));
             log.info("Order finalization for order {} invalidated — approval request {}", orderId, event.requestId());
         });
     }

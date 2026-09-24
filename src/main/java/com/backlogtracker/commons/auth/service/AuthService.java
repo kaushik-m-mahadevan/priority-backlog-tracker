@@ -36,8 +36,8 @@ public class AuthService {
     /** Self-registration → a PENDING account plus a token so the SPA can show the wait screen. */
     public LoginResponse register(RegisterRequest request) {
         User user = userService.register(request);
-        notificationOrchestrator.notifyAdmins(NotificationType.SIGNUP_PENDING,
-                user.getName() + " (" + user.getEmail() + ") signed up and is waiting for approval.");
+        notificationOrchestrator.notifyAdmins(NotificationType.SIGNUP_PENDING, "New signup",
+                user.getName() + " (" + user.getEmail() + ") signed up and is waiting for approval.", "/admin");
         return new LoginResponse(jwtService.issue(user), UserView.of(user));
     }
 }

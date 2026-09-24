@@ -149,10 +149,9 @@ export function MaterialsSection({
   return (
     <>
       {error && <div className="error">{error}</div>}
-      <h2 className="settings-section">Variants</h2>
       <div className="divided-list">
       {order.bulkDetails?.variants.map((v) => (
-        <div key={v.variantId}>
+        <div className="card" key={v.variantId} style={{ marginBottom: 14 }}>
           <div className="toolbar">
             <strong>{v.label}</strong>
             <span className="muted">Qty {v.quantity}</span>
@@ -249,6 +248,11 @@ export function MaterialsSection({
                   </div>
                 ))
               )}
+            </div>
+            <div>
+              <h2>Packaging</h2>
+              <div className="row"><span className="k">Cost</span><span className="v">{v.packaging?.cost != null ? formatMoney(v.packaging.cost) : "₹0.00"}</span></div>
+              <div className="row"><span className="k">Time</span><span className="v">{v.packaging?.timeHours ?? 0}h</span></div>
             </div>
           </div>
           <div className="muted" style={{ fontSize: 12, fontWeight: 600, margin: "12px 0 4px" }}>

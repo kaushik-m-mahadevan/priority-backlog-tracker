@@ -2,9 +2,7 @@ package com.backlogtracker.commons.notification.service;
 
 import java.time.Instant;
 import java.util.Collection;
-import java.util.EnumSet;
 import java.util.List;
-import java.util.Set;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -36,13 +34,12 @@ public class NotificationService {
         return notifications.findByUserIdOrderByCreatedAtDesc(userId);
     }
 
-    /** Types the recipient can act on — these drive the bell's badge count. */
-    private static final Set<NotificationType> ACTIONABLE =
-            EnumSet.of(NotificationType.GROUP_INVITE, NotificationType.ARCHIVE_REQUEST);
-
+    /** The bell's badge count — every applet's actionable notices are judged by the same
+     *  flag (see {@link com.backlogtracker.commons.notification.domain.Notification#isActionable()}),
+     *  not a hardcoded per-type list that a new actionable type could ship without ever
+     *  being added to. */
     public long pendingCount(String userId) {
-        return notifications.countByUserIdAndStatusAndTypeIn(
-                userId, NotificationStatus.PENDING, ACTIONABLE);
+        return notifications.countByUserIdAndStatusAndActionableTrue(userId, NotificationStatus.PENDING);
     }
 
     /** One inbox entry per other group member, asking them to approve/reject the archive.
@@ -55,6 +52,8 @@ public class NotificationService {
                     .userId(uid)
                     .type(NotificationType.ARCHIVE_REQUEST)
                     .status(NotificationStatus.PENDING)
+                    .actionable(true)
+                    .title("Archive request")
                     .archiveRequestId(archiveRequestId)
                     .groupId(groupId)
                     .itemId(itemId)
@@ -103,6 +102,7 @@ public class NotificationService {
                     .userId(uid)
                     .type(NotificationType.ARCHIVE_RESULT)
                     .status(NotificationStatus.ACCEPTED) // informational — never counts as pending
+                    .title("Archive request")
                     .archiveRequestId(archiveRequestId)
                     .groupId(groupId)
                     .itemId(itemId)
@@ -146,6 +146,8 @@ public class NotificationService {
                 .userId(target.getId())
                 .type(NotificationType.GROUP_INVITE)
                 .status(NotificationStatus.PENDING)
+                .actionable(true)
+                .title("Group invite")
                 .groupId(groupId)
                 .groupName(g.getName())
                 .invitedByUserId(inviter.id())
@@ -170,14 +172,70 @@ public class NotificationService {
                 .toList();
     }
 
-    /** A one-line informational notice (no action). Never counts toward the badge. */
-    public void info(String userId, NotificationType type, String message) {
+    /** The uniform template every applet's notifications go through: a header, a body, and
+     *  (for the two kinds below) whether it needs the recipient to act and where clicking it
+     *  should take them. This is the informational half — no action needed, doesn't count
+     *  toward the badge. {@code linkPath} may be {@code null} when there's nowhere more
+     *  specific to send them than the inbox itself. */
+    public void info(String userId, NotificationType type, String title, String message, String linkPath) {
         notifications.save(Notification.builder()
                 .userId(userId)
                 .type(type)
                 .status(NotificationStatus.ACCEPTED)
+                .actionable(false)
+                .title(title)
                 .message(message)
+                .linkPath(linkPath)
                 .build());
+    }
+
+    /** The actionable half of the same template — for a type that needs a response but has
+     *  no bespoke accept/decline flow of its own on the {@code Notification} (unlike
+     *  GROUP_INVITE/ARCHIVE_REQUEST): it counts toward the badge and links out to wherever
+     *  the actual response happens (e.g. the Assignments page), and stays PENDING here until
+     *  {@link #resolveByReference} clears it once the real thing is resolved there.
+     *  {@code referenceId} is whatever id lets that later lookup find this notice again. */
+    public Notification actionable(String userId, NotificationType type, String title, String message,
+                                   String linkPath, String referenceId) {
+        return notifications.save(Notification.builder()
+                .userId(userId)
+                .type(type)
+                .status(NotificationStatus.PENDING)
+                .actionable(true)
+                .title(title)
+                .message(message)
+                .linkPath(linkPath)
+                .referenceId(referenceId)
+                .build());
+    }
+
+    /** Clears every still-pending notice of {@code type} carrying {@code referenceId} —
+     *  the generalized version of {@link #markArchiveVoteCast}/{@link #resolveArchiveRequest}
+     *  for a type that resolves through its own applet's endpoint rather than through this
+     *  notification directly (e.g. accepting a {@code MaterialAssignment} on the Assignments
+     *  page). {@code approved} only affects the stored status — the human-readable outcome is
+     *  whatever the caller separately posts via {@link #info}. */
+    public void resolveByReference(NotificationType type, String referenceId, boolean approved) {
+        Instant now = Instant.now();
+        for (Notification n : notifications.findByTypeAndReferenceIdAndStatus(type, referenceId, NotificationStatus.PENDING)) {
+            n.setStatus(approved ? NotificationStatus.ACCEPTED : NotificationStatus.DECLINED);
+            n.setActedAt(now);
+            notifications.save(n);
+        }
+    }
+
+    /** Same as {@link #resolveByReference}, but only for one recipient — for a unanimous
+     *  multi-party approval, one member acting doesn't mean the others no longer need to;
+     *  only their own notice is done. */
+    public void resolveOneByReference(NotificationType type, String referenceId, String userId, boolean approved) {
+        Instant now = Instant.now();
+        for (Notification n : notifications.findByTypeAndReferenceIdAndStatus(type, referenceId, NotificationStatus.PENDING)) {
+            if (n.getUserId().equals(userId)) {
+                n.setStatus(approved ? NotificationStatus.ACCEPTED : NotificationStatus.DECLINED);
+                n.setActedAt(now);
+                notifications.save(n);
+            }
+        }
     }
 
     public Notification accept(String id, String userId) {

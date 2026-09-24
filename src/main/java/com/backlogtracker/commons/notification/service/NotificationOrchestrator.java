@@ -26,20 +26,36 @@ public class NotificationOrchestrator {
 
     /** Every current member of {@code group} except the one who just acted — the shape
      *  behind "someone proposed X, go take a look" across Order Tracker and Finance
-     *  Tracker's unanimous-approval proposals. */
-    public void notifyOtherMembers(Group group, String actingUserId, NotificationType type, String message) {
+     *  Tracker's unanimous-approval proposals. {@code linkPath} may be {@code null}. */
+    public void notifyOtherMembers(Group group, String actingUserId, NotificationType type,
+                                   String title, String message, String linkPath) {
         for (String memberId : group.getMemberIds()) {
             if (!memberId.equals(actingUserId)) {
-                notificationService.info(memberId, type, message);
+                notificationService.info(memberId, type, title, message, linkPath);
+            }
+        }
+    }
+
+    /** Same recipients as {@link #notifyOtherMembers}, but for a proposal that genuinely
+     *  needs each of them to act (counts toward their badge) rather than a plain FYI —
+     *  {@code referenceId} lets the caller later clear these via
+     *  {@link NotificationService#resolveByReference}/{@code resolveOneByReference} once
+     *  votes come in. */
+    public void notifyOtherMembersActionable(Group group, String actingUserId, NotificationType type,
+                                             String title, String message, String linkPath, String referenceId) {
+        for (String memberId : group.getMemberIds()) {
+            if (!memberId.equals(actingUserId)) {
+                notificationService.actionable(memberId, type, title, message, linkPath, referenceId);
             }
         }
     }
 
     /** Every admin — new signups and password requests both need one to act, and nothing
-     *  told them one was waiting except manually checking Admin. */
-    public void notifyAdmins(NotificationType type, String message) {
+     *  told them one was waiting except manually checking Admin. {@code linkPath} may be
+     *  {@code null}. */
+    public void notifyAdmins(NotificationType type, String title, String message, String linkPath) {
         for (User admin : userService.admins()) {
-            notificationService.info(admin.getId(), type, message);
+            notificationService.info(admin.getId(), type, title, message, linkPath);
         }
     }
 }

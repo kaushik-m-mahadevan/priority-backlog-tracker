@@ -117,7 +117,8 @@ public class ProfitDistributionService {
             applyDistribution(groupId, userId, approval);
         } else {
             notificationOrchestrator.notifyOtherMembers(group, userId, NotificationType.PROFIT_DISTRIBUTION_PROPOSED,
-                    "A new profit distribution proposal is waiting for your approval.");
+                    "Profit distribution", "A new profit distribution proposal is waiting for your approval.",
+                    "/financetracker/profit-split");
         }
         return view(approval, group);
     }
@@ -189,8 +190,8 @@ public class ProfitDistributionService {
             return;
         }
         notificationService.info(event.proposedByUserId(), NotificationType.PROFIT_DISTRIBUTION_INVALIDATED,
-                "Your proposed profit distribution was cancelled because a member left the group mid-approval. "
-                        + "You can propose it again.");
+                "Profit distribution", "Your proposed profit distribution was cancelled because a member left "
+                        + "the group mid-approval. You can propose it again.", "/financetracker/profit-split");
         log.info("Profit distribution request {} invalidated", event.requestId());
     }
 

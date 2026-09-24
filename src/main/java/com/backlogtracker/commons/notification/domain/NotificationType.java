@@ -44,5 +44,14 @@ public enum NotificationType {
     /** Informational (admins only): a new account is waiting for approval. */
     SIGNUP_PENDING,
     /** Informational (admins only): a password change/reset request is waiting. */
-    PASSWORD_REQUEST_PENDING
+    PASSWORD_REQUEST_PENDING,
+
+    /** Actionable: someone proposed handing you yarn — accept/reject on the Assignments page. */
+    MATERIAL_ASSIGNMENT_PROPOSED,
+    /** Informational: the yarn hand-off you proposed was accepted or rejected. */
+    MATERIAL_ASSIGNMENT_RESOLVED,
+    /** Actionable: another member is asking you for yarn — fulfill/decline on the Requests page. */
+    TRANSFER_REQUEST_CREATED,
+    /** Informational: a yarn request you made was fulfilled, completed, or cancelled. */
+    TRANSFER_REQUEST_RESOLVED
 }
