@@ -275,7 +275,7 @@ public class DemoDataSeeder implements ApplicationRunner {
         OrderView order1 = orderService.create(groupId, alex.getId(), new CreateOrderRequest(
                 meera.id(), "INDIVIDUAL", alexCreator.getId(),
                 "Coral crochet tote bag", Instant.now().minus(6, ChronoUnit.DAYS),
-                Instant.now().plus(9, ChronoUnit.DAYS), null, null, List.of(), 2.0, null, null,
+                Instant.now().plus(9, ChronoUnit.DAYS), null, null, List.of(), 2.0, null, null, null,
                 List.of(new MandatoryItemInput(MaterialKind.YARN, "Coral cotton yarn", 4, 120, null, null, null)),
                 List.of(), List.of(), null, List.of(), 6.0, 2.0,
                 null, null, 0));
@@ -284,7 +284,7 @@ public class DemoDataSeeder implements ApplicationRunner {
         orderService.create(groupId, priya.getId(), new CreateOrderRequest(
                 rahul.id(), "INDIVIDUAL", priyaCreator.getId(),
                 "Custom amigurumi elephant", Instant.now().minus(2, ChronoUnit.DAYS),
-                Instant.now().plus(14, ChronoUnit.DAYS), null, null, List.of(), 1.5, null, null,
+                Instant.now().plus(14, ChronoUnit.DAYS), null, null, List.of(), 1.5, null, null, null,
                 List.of(new MandatoryItemInput(MaterialKind.YARN, "Grey acrylic yarn", 2, 90, null, null, null)),
                 List.of(), List.of(), null, List.of(), 4.0, 1.5,
                 null, null, 0));
@@ -292,7 +292,7 @@ public class DemoDataSeeder implements ApplicationRunner {
         OrderView vaseOrder = orderService.create(groupId, alex.getId(), new CreateOrderRequest(
                 meera.id(), "INDIVIDUAL", alexCreator.getId(),
                 "Spring bouquet vase", Instant.now().minus(3, ChronoUnit.DAYS),
-                Instant.now().plus(10, ChronoUnit.DAYS), null, null, List.of(), 1.0, null, null,
+                Instant.now().plus(10, ChronoUnit.DAYS), null, null, List.of(), 1.0, null, null, null,
                 List.of(), List.of(),
                 List.of(
                         new ComponentInput(null, vaseTemplate.getId(), 1, List.of(
@@ -311,7 +311,7 @@ public class DemoDataSeeder implements ApplicationRunner {
         OrderView bulkOrder = orderService.create(groupId, alex.getId(), new CreateOrderRequest(
                 pooja.id(), "BULK", alexCreator.getId(),
                 "Wedding favour coasters (set of 8)", Instant.now().minus(4, ChronoUnit.DAYS),
-                Instant.now().plus(20, ChronoUnit.DAYS), null, null, List.of(), 1.0, null, null,
+                Instant.now().plus(20, ChronoUnit.DAYS), null, null, List.of(), 1.0, null, null, null,
                 null, null, null, null, null, 0, 0,
                 List.of(
                         new VariantInput("v1", "Sage Meadow coaster", 5, List.of(), List.of(), List.of(), null, List.of(),

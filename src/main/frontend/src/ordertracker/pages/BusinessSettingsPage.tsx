@@ -3,7 +3,7 @@ import { orderTrackerApi } from "../api";
 import { useAuth } from "../../auth/AuthContext";
 import { Switch } from "../../components/Switch";
 import { useBusiness } from "../BusinessContext";
-import type { BusinessConfig, ComponentTemplate, CostConfigChangeRequest, Creator, PresetOption } from "../types";
+import type { AssemblyPreset, BusinessConfig, ComponentTemplate, CostConfigChangeRequest, Creator, PresetOption } from "../types";
 
 const toRecipeSteps = (text: string): string[] =>
   text.split("\n").map((s) => s.trim()).filter(Boolean);
@@ -15,6 +15,7 @@ export default function BusinessSettingsPage() {
   const [config, setConfig] = useState<BusinessConfig | null>(null);
   const [profile, setProfile] = useState<Creator | null>(null);
   const [presets, setPresets] = useState<PresetOption[]>([]);
+  const [assemblyPresets, setAssemblyPresets] = useState<AssemblyPreset[]>([]);
   const [templates, setTemplates] = useState<ComponentTemplate[]>([]);
   const [changeRequests, setChangeRequests] = useState<CostConfigChangeRequest[]>([]);
   const [baseLocation, setBaseLocation] = useState("");
@@ -22,6 +23,9 @@ export default function BusinessSettingsPage() {
   const [presetLabel, setPresetLabel] = useState("");
   const [presetCost, setPresetCost] = useState(0);
   const [presetHours, setPresetHours] = useState(0);
+  const [assemblyPresetLabel, setAssemblyPresetLabel] = useState("");
+  const [assemblyPresetCost, setAssemblyPresetCost] = useState(0);
+  const [assemblyPresetHours, setAssemblyPresetHours] = useState(0);
   const [templateLabel, setTemplateLabel] = useState("");
   const [templateHours, setTemplateHours] = useState(0);
   const [templateRecipe, setTemplateRecipe] = useState("");
@@ -36,16 +40,18 @@ export default function BusinessSettingsPage() {
   const [bufferInternational, setBufferInternational] = useState(5);
 
   const load = async () => {
-    const [cfg, me, p, t, changes] = await Promise.all([
+    const [cfg, me, p, ap, t, changes] = await Promise.all([
       orderTrackerApi.businessConfig(groupId),
       orderTrackerApi.myCreatorProfile(groupId).catch(() => null),
       orderTrackerApi.packagingPresets(groupId),
+      orderTrackerApi.assemblyPresets(groupId),
       orderTrackerApi.componentTemplates(groupId),
       orderTrackerApi.costConfigChangeRequests(groupId),
     ]);
     setConfig(cfg);
     setProfile(me ?? null);
     setPresets(p);
+    setAssemblyPresets(ap);
     setTemplates(t);
     setChangeRequests(changes);
     setProposedOverhead(cfg.overheadPercentage * 100);
@@ -85,6 +91,18 @@ export default function BusinessSettingsPage() {
     setPresetLabel("");
     setPresetCost(0);
     setPresetHours(0);
+    await load();
+  };
+
+  const addAssemblyPreset = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!assemblyPresetLabel.trim()) return;
+    await orderTrackerApi.addAssemblyPreset(groupId, {
+      label: assemblyPresetLabel.trim(), estimatedCost: assemblyPresetCost, estimatedTimeHours: assemblyPresetHours,
+    });
+    setAssemblyPresetLabel("");
+    setAssemblyPresetCost(0);
+    setAssemblyPresetHours(0);
     await load();
   };
 
@@ -338,6 +356,46 @@ export default function BusinessSettingsPage() {
         ) : (
           <div className="kv" style={{ marginTop: 12 }}>
             {presets.map((p) => (
+              <span key={p.id} className="chip">
+                {p.label} · {config.currency} {p.estimatedCost} · {p.estimatedTimeHours}h
+              </span>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <h2 className="settings-section">Assembly &amp; packaging templates</h2>
+      <div className="card">
+        <p className="muted" style={{ marginTop: 0, fontSize: 13 }}>
+          A rough cost/time estimate a member can pick on an order, on top of its own free-text
+          assembly &amp; packaging notes — not a replacement for them.
+        </p>
+        <form className="toolbar" onSubmit={addAssemblyPreset}>
+          <input aria-label="New assembly template label" placeholder="Label" value={assemblyPresetLabel} onChange={(e) => setAssemblyPresetLabel(e.target.value)} required />
+          <input
+            aria-label="New assembly template cost"
+            type="number"
+            placeholder="Cost"
+            value={assemblyPresetCost || ""}
+            onChange={(e) => setAssemblyPresetCost(Number(e.target.value))}
+          />
+          <input
+            aria-label="New assembly template time in hours"
+            type="number"
+            placeholder="Time (hours)"
+            step={0.05}
+            value={assemblyPresetHours || ""}
+            onChange={(e) => setAssemblyPresetHours(Number(e.target.value))}
+          />
+          <button className="primary" type="submit">
+            Add
+          </button>
+        </form>
+        {assemblyPresets.length === 0 ? (
+          <p className="empty">No assembly &amp; packaging templates yet.</p>
+        ) : (
+          <div className="kv" style={{ marginTop: 12 }}>
+            {assemblyPresets.map((p) => (
               <span key={p.id} className="chip">
                 {p.label} · {config.currency} {p.estimatedCost} · {p.estimatedTimeHours}h
               </span>

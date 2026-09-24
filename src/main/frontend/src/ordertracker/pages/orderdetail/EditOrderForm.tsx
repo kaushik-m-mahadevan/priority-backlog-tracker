@@ -13,7 +13,7 @@ import {
 } from "../../OrderFormFields";
 import { OrderSummaryFields } from "./OrderSummaryFields";
 import { HoursMinutesInput } from "../../../components/HoursMinutesInput";
-import type { BusinessConfig, ComponentTemplate, Customer, DeliveryTier, OrderView, PatternType, PresetOption } from "../../types";
+import type { AssemblyPreset, BusinessConfig, ComponentTemplate, Customer, DeliveryTier, OrderView, PatternType, PresetOption } from "../../types";
 
 /** Extracted from OrderDetailPage.tsx (fdup-1) — fully self-contained via props, no
  *  closure over the parent's state. Individual-order edit form; see EditBulkDetailsForm
@@ -37,8 +37,10 @@ export function EditOrderForm({
   const linkedYarnTypes = useLinkedYarnTypes(groupId);
   const linkedNeedleTypes = useLinkedNeedleTypes(groupId);
   const [componentTemplates, setComponentTemplates] = useState<ComponentTemplate[]>([]);
+  const [assemblyPresets, setAssemblyPresets] = useState<AssemblyPreset[]>([]);
   useEffect(() => {
     orderTrackerApi.componentTemplates(groupId).then(setComponentTemplates);
+    orderTrackerApi.assemblyPresets(groupId).then(setAssemblyPresets);
   }, [groupId]);
   const [customerId, setCustomerId] = useState(order.customerId);
   const [itemName, setItemName] = useState(order.itemName ?? "");
@@ -50,6 +52,7 @@ export function EditOrderForm({
   const [customPatternNotes, setCustomPatternNotes] = useState(order.pattern?.customPatternNotes ?? "");
   const [recipeStepsText, setRecipeStepsText] = useState((order.pattern?.recipeSteps ?? []).join("\n"));
   const [assemblyPackagingInstructions, setAssemblyPackagingInstructions] = useState(order.assemblyPackagingInstructions ?? "");
+  const [assemblyPresetId, setAssemblyPresetId] = useState(order.assemblyPresetId ?? "");
   const [notes, setNotes] = useState(order.notes ?? "");
   const [mandatoryItems, setMandatoryItems] = useState<MandatoryItemDraft[]>(
     order.mandatoryItems.length > 0
@@ -101,6 +104,7 @@ export function EditOrderForm({
         researchItems: order.researchItems,
         researchTimeHours,
         assemblyPackagingInstructions: assemblyPackagingInstructions.trim() || null,
+        assemblyPresetId: assemblyPresetId || null,
         notes: notes.trim() || null,
         mandatoryItems: mandatoryItems.filter((m) => m.value.trim()),
         addOns: addOns.filter((a) => a.name.trim()),
@@ -146,6 +150,9 @@ export function EditOrderForm({
         onResearchTimeHoursChange={setResearchTimeHours}
         assemblyPackagingInstructions={assemblyPackagingInstructions}
         onAssemblyPackagingInstructionsChange={setAssemblyPackagingInstructions}
+        assemblyPresets={assemblyPresets}
+        assemblyPresetId={assemblyPresetId}
+        onAssemblyPresetIdChange={setAssemblyPresetId}
       />
 
       <h2 className="settings-section">Materials</h2>

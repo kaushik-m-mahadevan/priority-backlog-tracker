@@ -23,7 +23,7 @@ import {
   type VariantDraft,
 } from "../OrderFormFields";
 import { NewCustomerFields, blankNewCustomerFieldsDraft, type NewCustomerFieldsDraft } from "../NewCustomerFields";
-import type { BusinessConfig, ComponentTemplate, Creator, Customer, DeliveryTier, OrderType, PatternType, PresetOption } from "../types";
+import type { AssemblyPreset, BusinessConfig, ComponentTemplate, Creator, Customer, DeliveryTier, OrderType, PatternType, PresetOption } from "../types";
 
 const DELIVERY_TIERS: { value: DeliveryTier; label: string }[] = [
   { value: "SAME_CITY", label: "Same city" },
@@ -43,6 +43,7 @@ export default function NewOrderPage() {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [creators, setCreators] = useState<Creator[]>([]);
   const [presets, setPresets] = useState<PresetOption[]>([]);
+  const [assemblyPresets, setAssemblyPresets] = useState<AssemblyPreset[]>([]);
   const [templates, setTemplates] = useState<ComponentTemplate[]>([]);
   const [error, setError] = useState<string | null>(null);
 
@@ -71,6 +72,7 @@ export default function NewOrderPage() {
   const [craftingTimeHours, setCraftingTimeHours] = useState(0);
   const [assemblyTimeHours, setAssemblyTimeHours] = useState(0);
   const [packagingPresetId, setPackagingPresetId] = useState("");
+  const [assemblyPresetId, setAssemblyPresetId] = useState("");
 
   // bulk-only
   const [variants, setVariants] = useState<VariantDraft[]>([]);
@@ -81,8 +83,9 @@ export default function NewOrderPage() {
       orderTrackerApi.customers(groupId),
       orderTrackerApi.creators(groupId),
       orderTrackerApi.packagingPresets(groupId),
+      orderTrackerApi.assemblyPresets(groupId),
       orderTrackerApi.componentTemplates(groupId),
-    ]).then(([cfg, c, cr, p, t]) => {
+    ]).then(([cfg, c, cr, p, ap, t]) => {
       setConfig(cfg);
       setCustomers(c);
       setCreators(cr);
@@ -90,6 +93,7 @@ export default function NewOrderPage() {
       setCustomerMode(c.length === 0 ? "new" : "existing");
       setCreatedByCreatorId(cr[0]?.id ?? "");
       setPresets(p);
+      setAssemblyPresets(ap);
       setTemplates(t);
       setMandatoryItems(blankMandatoryItems());
       setVariants([blankVariant()]);
@@ -167,6 +171,7 @@ export default function NewOrderPage() {
           ...c, mandatoryItems: c.mandatoryItems.filter((m) => m.value.trim()), addOns: c.addOns.filter((a) => a.name.trim()),
         }));
         body.packagingPresetId = packagingPresetId || null;
+        body.assemblyPresetId = assemblyPresetId || null;
         body.craftingTimeHours = craftingTimeHours;
         body.assemblyTimeHours = assemblyTimeHours;
       } else {
@@ -353,6 +358,19 @@ export default function NewOrderPage() {
         </Section>
 
         <Section title="Assembly &amp; packaging" icon="📦">
+        {orderType === "INDIVIDUAL" && (
+          <div className="form-row" style={{ maxWidth: 300 }}>
+            <label htmlFor="no-assembly-preset">Template (rough cost/time estimate)</label>
+            <select id="no-assembly-preset" value={assemblyPresetId} onChange={(e) => setAssemblyPresetId(e.target.value)}>
+              <option value="">None</option>
+              {assemblyPresets.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.label} ({p.estimatedTimeHours}h)
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
         <div className="form-row">
           <label htmlFor="no-assembly-packaging" className="sr-only">
             How to assemble and pack this order

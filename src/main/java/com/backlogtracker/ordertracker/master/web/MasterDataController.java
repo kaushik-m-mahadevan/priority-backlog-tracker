@@ -17,6 +17,7 @@ import com.backlogtracker.commons.pattern.domain.Pattern;
 import com.backlogtracker.commons.pattern.domain.PatternType;
 import com.backlogtracker.commons.security.AuthUser;
 import com.backlogtracker.commons.security.RequiresUser;
+import com.backlogtracker.ordertracker.master.domain.AssemblyPreset;
 import com.backlogtracker.ordertracker.master.domain.ComponentTemplate;
 import com.backlogtracker.ordertracker.master.domain.PresetOption;
 import com.backlogtracker.ordertracker.master.domain.ShippingLanePreset;
@@ -52,6 +53,26 @@ public class MasterDataController {
     public void removePackagingPreset(@PathVariable String groupId, @PathVariable String presetId,
                                       @AuthenticationPrincipal AuthUser actor) {
         service.removePackagingPreset(groupId, actor.id(), presetId);
+    }
+
+    @GetMapping("/assembly-presets")
+    public List<AssemblyPreset> assemblyPresets(@PathVariable String groupId, @AuthenticationPrincipal AuthUser actor) {
+        return service.assemblyPresets(groupId, actor.id());
+    }
+
+    @PostMapping("/assembly-presets")
+    @ResponseStatus(HttpStatus.CREATED)
+    public AssemblyPreset addAssemblyPreset(@PathVariable String groupId, @RequestBody PresetRequest request,
+                                            @AuthenticationPrincipal AuthUser actor) {
+        return service.addAssemblyPreset(groupId, actor.id(), request.label(),
+                request.estimatedCost(), request.estimatedTimeHours());
+    }
+
+    @DeleteMapping("/assembly-presets/{presetId}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void removeAssemblyPreset(@PathVariable String groupId, @PathVariable String presetId,
+                                     @AuthenticationPrincipal AuthUser actor) {
+        service.removeAssemblyPreset(groupId, actor.id(), presetId);
     }
 
     @GetMapping("/shipping-lanes")

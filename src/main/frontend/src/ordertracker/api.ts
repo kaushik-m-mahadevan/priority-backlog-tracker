@@ -1,5 +1,5 @@
 import { api } from "../api/client";
-import type { BusinessConfig, ChangeLog, ComponentTemplate, CostConfigChangeRequest, Creator, Customer, OrderFinalizationView, OrderView, Pattern, PresetOption, TimeStage, WorkStageType } from "./types";
+import type { AssemblyPreset, BusinessConfig, ChangeLog, ComponentTemplate, CostConfigChangeRequest, Creator, Customer, OrderFinalizationView, OrderView, Pattern, PresetOption, TimeStage, WorkStageType } from "./types";
 
 /** create/update customer body — addressId is nullable here (a not-yet-saved address
  *  row, same "null means assign one" convention as bulk order variants) even though a
@@ -51,6 +51,12 @@ export const orderTrackerApi = {
     api.post<PresetOption>(`${base(groupId)}/packaging-presets`, body),
   removePackagingPreset: (groupId: string, presetId: string) =>
     api.delete<void>(`${base(groupId)}/packaging-presets/${presetId}`),
+
+  assemblyPresets: (groupId: string) => api.get<AssemblyPreset[]>(`${base(groupId)}/assembly-presets`),
+  addAssemblyPreset: (groupId: string, body: { label: string; estimatedCost: number; estimatedTimeHours: number }) =>
+    api.post<AssemblyPreset>(`${base(groupId)}/assembly-presets`, body),
+  removeAssemblyPreset: (groupId: string, presetId: string) =>
+    api.delete<void>(`${base(groupId)}/assembly-presets/${presetId}`),
 
   componentTemplates: (groupId: string) => api.get<ComponentTemplate[]>(`${base(groupId)}/component-templates`),
   addComponentTemplate: (groupId: string, body: { label: string; pattern: Pattern | null; baseCraftingTimeHours: number; notes: string | null }) =>

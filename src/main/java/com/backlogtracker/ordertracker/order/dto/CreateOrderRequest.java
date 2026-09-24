@@ -13,7 +13,8 @@ public record CreateOrderRequest(String customerId, String orderType, String cre
                                  String itemName, Instant orderReceivedDate, Instant quotedDeliveryDate,
                                  DeliveryTier deliveryTier,
                                  PatternInput pattern, List<ResearchItemInput> researchItems,
-                                 double researchTimeHours, String assemblyPackagingInstructions, String notes,
+                                 double researchTimeHours, String assemblyPackagingInstructions,
+                                 String assemblyPresetId, String notes,
                                  // individual-only
                                  List<MandatoryItemInput> mandatoryItems,
                                  List<LineItemInput> addOns,

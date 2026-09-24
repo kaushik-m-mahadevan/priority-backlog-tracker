@@ -204,6 +204,7 @@ public class OrderService {
                 .researchTimeHours(request.researchTimeHours())
                 .assemblyPackagingInstructions(request.assemblyPackagingInstructions())
                 .notes(request.notes())
+                .assemblyPresetId(request.assemblyPresetId())
                 .payments(new ArrayList<>())
                 .paymentStatus(calculator.derivePaymentStatus(List.of(), 0))
                 .createdAt(now)
@@ -214,14 +215,21 @@ public class OrderService {
             List<LineItem> addOns = toLineItems(request.addOns());
             List<Order.Component> components = toComponents(groupId, userId, request.components(), List.of());
             Order.Packaging packaging = buildPackaging(groupId, userId, request.packagingPresetId(), request.itemizedPackaging());
+            com.backlogtracker.ordertracker.master.domain.AssemblyPreset assemblyPreset =
+                    requireAssemblyPresetOrNull(groupId, userId, request.assemblyPresetId());
+            double assemblyPresetCost = assemblyPreset == null ? 0 : assemblyPreset.getEstimatedCost();
+            double assemblyPresetTimeHours = assemblyPreset == null ? 0 : assemblyPreset.getEstimatedTimeHours();
             builder.mandatoryItems(mandatoryItems)
                     .addOns(addOns)
                     .components(components)
                     .packaging(packaging)
                     .craftingTimeHours(request.craftingTimeHours())
                     .assemblyTimeHours(request.assemblyTimeHours())
+                    .assemblyPresetCost(assemblyPresetCost)
+                    .assemblyPresetTimeHours(assemblyPresetTimeHours)
                     .costEstimate(calculator.estimateIndividual(mandatoryItems, addOns, components, packaging,
                             request.craftingTimeHours(), request.assemblyTimeHours(), request.researchTimeHours(),
+                            assemblyPresetCost, assemblyPresetTimeHours,
                             cfg.getOverheadPercentage(), cfg.getProfitMarginPercentage(), cfg.effectiveHourlyWage(),
                             cfg.bufferDaysFor(request.deliveryTier() == null ? DeliveryTier.SAME_CITY : request.deliveryTier()),
                             orderReceivedDate, createdBy.getHoursAvailablePerDay()))
@@ -291,14 +299,22 @@ public class OrderService {
         List<LineItem> addOns = toLineItems(request.addOns());
         List<Order.Component> components = toComponents(groupId, userId, request.components(), order.getComponents());
         Order.Packaging packaging = buildPackaging(groupId, userId, request.packagingPresetId(), request.itemizedPackaging());
+        com.backlogtracker.ordertracker.master.domain.AssemblyPreset assemblyPreset =
+                requireAssemblyPresetOrNull(groupId, userId, request.assemblyPresetId());
+        double assemblyPresetCost = assemblyPreset == null ? 0 : assemblyPreset.getEstimatedCost();
+        double assemblyPresetTimeHours = assemblyPreset == null ? 0 : assemblyPreset.getEstimatedTimeHours();
         order.setMandatoryItems(mandatoryItems);
         order.setAddOns(addOns);
         order.setComponents(components);
         order.setPackaging(packaging);
         order.setCraftingTimeHours(request.craftingTimeHours());
         order.setAssemblyTimeHours(request.assemblyTimeHours());
+        order.setAssemblyPresetId(request.assemblyPresetId());
+        order.setAssemblyPresetCost(assemblyPresetCost);
+        order.setAssemblyPresetTimeHours(assemblyPresetTimeHours);
         order.setCostEstimate(calculator.estimateIndividual(mandatoryItems, addOns, components, packaging,
                 request.craftingTimeHours(), request.assemblyTimeHours(), request.researchTimeHours(),
+                assemblyPresetCost, assemblyPresetTimeHours,
                 cfg.getOverheadPercentage(), cfg.getProfitMarginPercentage(), cfg.effectiveHourlyWage(),
                 cfg.bufferDaysFor(order.getDeliveryTier() == null ? DeliveryTier.SAME_CITY : order.getDeliveryTier()),
                 order.getOrderReceivedDate() == null ? clock.instant() : order.getOrderReceivedDate(),
@@ -925,6 +941,14 @@ public class OrderService {
                     .build();
         }
         return Order.Packaging.builder().itemizedList(List.of()).build();
+    }
+
+    /** mb-4: same snapshot-at-build contract as {@link #buildPackaging} — no preset selected
+     *  just means zero cost/time contribution. */
+    private com.backlogtracker.ordertracker.master.domain.AssemblyPreset requireAssemblyPresetOrNull(
+            String groupId, String userId, String presetId) {
+        return presetId == null || presetId.isBlank() ? null
+                : masterDataService.requireAssemblyPreset(groupId, userId, presetId);
     }
 
     private Pattern toPattern(CreateOrderRequest.PatternInput input) {

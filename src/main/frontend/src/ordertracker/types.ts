@@ -108,6 +108,15 @@ export interface PresetOption {
   estimatedTimeHours: number;
 }
 
+/** mb-4: same shape as PresetOption (packaging's own preset) — kept as a separate type
+ *  since the backend stores it in its own collection, not because the fields differ. */
+export interface AssemblyPreset {
+  id: string;
+  label: string;
+  estimatedCost: number;
+  estimatedTimeHours: number;
+}
+
 export interface ComponentTemplate {
   id: string;
   label: string;
@@ -319,6 +328,7 @@ export interface OrderView {
   researchItems: ResearchItem[];
   researchTimeHours: number;
   assemblyPackagingInstructions: string | null;
+  assemblyPresetId: string | null;
   notes: string | null;
   mandatoryItems: MandatoryItem[];
   addOns: LineItem[];

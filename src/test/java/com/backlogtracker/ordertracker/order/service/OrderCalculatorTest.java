@@ -44,7 +44,7 @@ class OrderCalculatorTest {
         // grossTimeHours = 7h crafting / 4h-per-day = 1.75 -> rounds up to 2 work days; no
         // delivery buffer, no time-overhead percentage -> quotable delivery stays 2 days out
         Order.CostEstimate estimate = calc.estimateIndividual(List.of(), List.of(), List.of(), packaging, 7.0, 0, 0,
-                0, 0, 0, 0, received, 4.0);
+                0, 0, 0, 0, 0, 0, received, 4.0);
         assertThat(estimate.getWorkDays()).isEqualTo(2);
         assertThat(estimate.getComputedDueDate()).isEqualTo(received.plusSeconds(2 * 24 * 3600));
     }
@@ -55,7 +55,7 @@ class OrderCalculatorTest {
         Instant received = Instant.parse("2026-01-01T00:00:00Z");
         // grossTimeHours = 4h crafting + 0 assembly + 0 packaging + 4h research = 8h / 4h-per-day = 2 days
         Order.CostEstimate estimate = calc.estimateIndividual(List.of(), List.of(), List.of(), packaging, 4.0, 0, 4.0,
-                0, 0, 0, 0, received, 4.0);
+                0, 0, 0, 0, 0, 0, received, 4.0);
         assertThat(estimate.getGrossTimeHours()).isCloseTo(8.0, within(1e-9));
         assertThat(estimate.getComputedDueDate()).isEqualTo(received.plusSeconds(2 * 24 * 3600));
     }
@@ -75,7 +75,7 @@ class OrderCalculatorTest {
         Instant received = Instant.parse("2026-01-01T00:00:00Z");
 
         Order.CostEstimate estimate = calc.estimateIndividual(mandatory, addOns, List.of(), packaging,
-                3.5, 1.0, 0.5, 0.15, 0.20, 100.0, 1, received, 4.0);
+                3.5, 1.0, 0.5, 0, 0, 0.15, 0.20, 100.0, 1, received, 4.0);
 
         assertThat(estimate.getMandatoryItemsCost()).isEqualTo(425);
         assertThat(estimate.getAddOnsCost()).isEqualTo(50);
@@ -91,6 +91,26 @@ class OrderCalculatorTest {
         assertThat(estimate.getWorkDays()).isEqualTo(2);
         assertThat(estimate.getDeliveryBufferDays()).isEqualTo(1);
         assertThat(estimate.getComputedDueDate()).isEqualTo(received.plusSeconds(4 * 24 * 3600));
+    }
+
+    /** mb-4: an assembly preset's rough cost/time is additive on top of packaging's own,
+     *  feeding grossCost/grossTimeHours the same way packaging's preset does, and shows up
+     *  as its own itemized breakdown line rather than being folded into "Packaging". */
+    @Test
+    void assemblyPresetCostAndTimeAreAdditiveOnTopOfPackaging() {
+        Packaging packaging = Packaging.builder().presetCost(60).presetTimeHours(0.5).itemizedList(List.of()).build();
+        Instant received = Instant.parse("2026-01-01T00:00:00Z");
+
+        Order.CostEstimate estimate = calc.estimateIndividual(List.of(), List.of(), List.of(), packaging,
+                0, 0, 0, 40, 0.25, 0, 0, 100.0, 0, received, 4.0);
+
+        assertThat(estimate.getPackagingCost()).isEqualTo(60);
+        assertThat(estimate.getGrossTimeHours()).isCloseTo(0.75, within(1e-9)); // 0.5 packaging + 0.25 assembly preset
+        assertThat(estimate.getGrossCost()).isCloseTo(60 + 40 + 75, within(1e-9)); // packaging + preset + labor(0.75h*100)
+        assertThat(estimate.getItemizedBreakdown()).anySatisfy(b -> {
+            assertThat(b.getLabel()).isEqualTo("Assembly template");
+            assertThat(b.getAmount()).isEqualTo(40);
+        });
     }
 
     @Test
@@ -121,7 +141,7 @@ class OrderCalculatorTest {
                 .build());
 
         Order.CostEstimate estimate = calc.estimateIndividual(mandatory, List.of(), List.of(lily), packaging,
-                2.0, 0, 0, 0, 0, 0, 0, Instant.parse("2026-01-01T00:00:00Z"), 4.0);
+                2.0, 0, 0, 0, 0, 0, 0, 0, 0, Instant.parse("2026-01-01T00:00:00Z"), 4.0);
 
         // gross = mandatoryItemsCost(100) + componentsCost(3*30=90) = 190
         assertThat(estimate.getMandatoryItemsCost()).isEqualTo(100);

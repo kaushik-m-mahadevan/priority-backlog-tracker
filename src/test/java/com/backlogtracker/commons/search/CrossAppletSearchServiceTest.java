@@ -92,7 +92,7 @@ class CrossAppletSearchServiceTest {
                         null, null, null));
         return orderService.create(business.getId(), userId,
                 new CreateOrderRequest(customer.id(), "INDIVIDUAL", creator.getId(),
-                        itemName, null, null, null, null, null, 0, null, null,
+                        itemName, null, null, null, null, null, 0, null, null, null,
                         null, null, null, null, null, 0, 0, null, null, 0));
     }
 

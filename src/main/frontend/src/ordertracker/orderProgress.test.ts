@@ -37,7 +37,7 @@ function order(overrides: Partial<OrderView> = {}): OrderView {
     id: "o1", orderNumber: "1", orderType: "INDIVIDUAL", customerId: "cust1", createdByCreatorId: "c1",
     status: "IN_PROGRESS", itemName: "Bear", orderReceivedDate: "2026-01-01T00:00:00Z",
     quotedDeliveryDate: null, deliveryTier: "SAME_CITY", actualDeliveryDate: null, pattern: null,
-    researchItems: [], researchTimeHours: 0, assemblyPackagingInstructions: null, notes: null,
+    researchItems: [], researchTimeHours: 0, assemblyPackagingInstructions: null, assemblyPresetId: null, notes: null,
     mandatoryItems: [], addOns: [], components: [], packaging: null,
     craftingTimeHours: 0, assemblyTimeHours: 0, costEstimate: null, stageAssignments: [],
     completionPercentage: 0, payments: [], paymentStatus: "UNPAID", netPaid: 0, balanceAmount: 0,

@@ -1,6 +1,6 @@
 import { HoursMinutesInput } from "../../../components/HoursMinutesInput";
 import { DELIVERY_TIER_LABELS } from "./deliveryTiers";
-import type { Customer, DeliveryTier, PatternType } from "../../types";
+import type { AssemblyPreset, Customer, DeliveryTier, PatternType } from "../../types";
 
 /** The identity/pattern/recipe/assembly-packaging block shared byte-for-byte (qd-2) between
  *  EditOrderForm and EditBulkDetailsForm — the only difference between the two was the id
@@ -34,6 +34,9 @@ export function OrderSummaryFields({
   onResearchTimeHoursChange,
   assemblyPackagingInstructions,
   onAssemblyPackagingInstructionsChange,
+  assemblyPresets,
+  assemblyPresetId,
+  onAssemblyPresetIdChange,
 }: {
   idPrefix: string;
   customers: Customer[];
@@ -59,6 +62,11 @@ export function OrderSummaryFields({
   onResearchTimeHoursChange: (v: number) => void;
   assemblyPackagingInstructions: string;
   onAssemblyPackagingInstructionsChange: (v: string) => void;
+  /** mb-4: individual orders only (bulk has no per-variant equivalent) — omitted entirely
+   *  by EditBulkDetailsForm, which renders no select at all rather than a disabled one. */
+  assemblyPresets?: AssemblyPreset[];
+  assemblyPresetId?: string;
+  onAssemblyPresetIdChange?: (v: string) => void;
 }) {
   return (
     <>
@@ -164,6 +172,23 @@ export function OrderSummaryFields({
       </div>
 
       <h2 className="settings-section">Assembly &amp; packaging</h2>
+      {assemblyPresets && onAssemblyPresetIdChange && (
+        <div className="form-row" style={{ maxWidth: 300 }}>
+          <label htmlFor={`${idPrefix}-assembly-preset`}>Template (rough cost/time estimate)</label>
+          <select
+            id={`${idPrefix}-assembly-preset`}
+            value={assemblyPresetId ?? ""}
+            onChange={(e) => onAssemblyPresetIdChange(e.target.value)}
+          >
+            <option value="">None</option>
+            {assemblyPresets.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.label} ({p.estimatedTimeHours}h)
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
       <div className="form-row">
         <label htmlFor={`${idPrefix}-assembly-packaging`}>How to assemble and pack this order</label>
         <textarea

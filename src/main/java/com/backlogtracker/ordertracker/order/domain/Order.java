@@ -115,6 +115,15 @@ public class Order {
      *  is the crochet pattern itself, not what happens after the pieces are made. Design-decision
      *  extension, not in the original spec. */
     private String assemblyPackagingInstructions;
+    /** mb-4: an optional selected {@code AssemblyPreset}, additive on top of the free-text
+     *  {@link #assemblyPackagingInstructions} above (not a replacement for it) — same
+     *  snapshot-at-creation contract as {@link Packaging#tentativePresetId}: cost/time are
+     *  copied in when selected so a later preset edit never retroactively changes a past
+     *  order. Individual orders only, same scope as {@link #assemblyPackagingInstructions}
+     *  itself (bulk has no per-variant equivalent today). */
+    private String assemblyPresetId;
+    private double assemblyPresetCost;
+    private double assemblyPresetTimeHours;
     /** Free-text catch-all: customer interactions, things that changed mid-order, or any
      *  other detail that doesn't fit the structured fields above. Design-decision
      *  extension, not in the original spec. */

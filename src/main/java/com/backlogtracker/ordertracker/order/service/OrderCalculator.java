@@ -133,6 +133,7 @@ public class OrderCalculator {
                                                  List<Order.Component> components,
                                                  Packaging packaging, double craftingTimeHours,
                                                  double assemblyTimeHours, double researchTimeHours,
+                                                 double assemblyPresetCost, double assemblyPresetTimeHours,
                                                  double overheadPct, double profitMarginPct, double hourlyWage,
                                                  int deliveryBufferDays,
                                                  Instant orderReceivedDate, double assignedCreatorHoursPerDay) {
@@ -142,9 +143,9 @@ public class OrderCalculator {
         double packagingCost = packaging.cost();
         double componentsTimeHours = componentsTimeHours(components);
         double grossTimeHours = grossTimeHours(craftingTimeHours + componentsTimeHours, assemblyTimeHours, packaging)
-                + researchTimeHours;
-        PricingResult pricing = pricingPipeline(mandatoryItemsCost + componentsCost, addOnsCost, packagingCost,
-                grossTimeHours, hourlyWage, profitMarginPct);
+                + researchTimeHours + assemblyPresetTimeHours;
+        PricingResult pricing = pricingPipeline(mandatoryItemsCost + componentsCost, addOnsCost,
+                packagingCost + assemblyPresetCost, grossTimeHours, hourlyWage, profitMarginPct);
         int workDays = workDays(grossTimeHours, assignedCreatorHoursPerDay);
 
         return Order.CostEstimate.builder()
@@ -163,6 +164,7 @@ public class OrderCalculator {
                         new Order.BreakdownLine("Components", componentsCost),
                         new Order.BreakdownLine("Add-ons", addOnsCost),
                         new Order.BreakdownLine("Packaging", packagingCost),
+                        new Order.BreakdownLine("Assembly template", assemblyPresetCost),
                         new Order.BreakdownLine("Labor", pricing.laborCost()),
                         new Order.BreakdownLine("Profit margin", pricing.profitAmount())))
                 .computedDueDate(quotableDeliveryDate(orderReceivedDate, workDays, deliveryBufferDays, overheadPct))
