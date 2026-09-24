@@ -41,7 +41,7 @@ public class GroupLinkController {
     @ResponseStatus(HttpStatus.CREATED)
     public void link(@PathVariable String id, @Valid @RequestBody LinkGroupRequest request,
                      @AuthenticationPrincipal AuthUser actor) {
-        linkService.link(id, actor.id(), request.groupId());
+        linkService.link(id, actor.id(), request.groupId(), request.inviteAllMembers());
     }
 
     @DeleteMapping("/{otherAppletKey}")

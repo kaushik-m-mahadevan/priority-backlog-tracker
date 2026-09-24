@@ -25,6 +25,8 @@ import com.backlogtracker.commons.group.repository.GroupRepository;
 import com.backlogtracker.commons.group.service.GroupService;
 import com.backlogtracker.commons.link.repository.GroupLinkRepository;
 import com.backlogtracker.commons.link.service.GroupLinkService;
+import com.backlogtracker.commons.notification.domain.NotificationType;
+import com.backlogtracker.commons.notification.repository.NotificationRepository;
 import com.backlogtracker.commons.user.domain.AccountStatus;
 import com.backlogtracker.commons.user.domain.Role;
 import com.backlogtracker.commons.user.domain.User;
@@ -38,9 +40,11 @@ class GroupLinkServiceTest {
     @Autowired GroupRepository groups;
     @Autowired GroupLinkRepository links;
     @Autowired UserRepository users;
+    @Autowired NotificationRepository notifications;
 
     private String userId;
     private String outsiderId;
+    private String secondMemberId;
 
     @BeforeEach
     void setUp() {
@@ -50,14 +54,54 @@ class GroupLinkServiceTest {
         User outsider = users.save(User.builder().name("Outsider").email("link-outsider@x.test")
                 .passwordHash("x").role(Role.USER).status(AccountStatus.ACTIVE).handle("linkoutsider").build());
         outsiderId = outsider.getId();
+        User second = users.save(User.builder().name("Second Member").email("link-second@x.test")
+                .passwordHash("x").role(Role.USER).status(AccountStatus.ACTIVE).handle("linksecond").build());
+        secondMemberId = second.getId();
     }
 
     @AfterEach
     void cleanUp() {
         groups.findByMemberIdsContaining(userId).forEach(g -> groups.delete(g));
         groups.findByMemberIdsContaining(outsiderId).forEach(g -> groups.delete(g));
+        groups.findByMemberIdsContaining(secondMemberId).forEach(g -> groups.delete(g));
         users.deleteById(userId);
         users.deleteById(outsiderId);
+        users.deleteById(secondMemberId);
+    }
+
+    /** mb-23: the Setup Wizard's "invite all outright" behaviour — every business member
+     *  missing from the newly-linked group gets a real invite, with no suggestion/
+     *  confirmation step (unlike the manual link path, which defaults inviteAllMembers to
+     *  false and leaves the delta review to the linker). */
+    @Test
+    void inviteAllMembersInvitesEveryBusinessMemberMissingFromTheNewlyLinkedGroup() {
+        Group business = groupService.create("Business", userId, Group.APPLET_ORDER_TRACKER);
+        business = groupService.addMember(business.getId(), secondMemberId);
+        Group finance = groupService.create("Finance", userId, Group.APPLET_FINANCE_TRACKER);
+
+        linkService.link(business.getId(), userId, finance.getId(), true);
+
+        assertThat(notifications.findByUserIdOrderByCreatedAtDesc(secondMemberId))
+                .anySatisfy(n -> {
+                    assertThat(n.getType()).isEqualTo(NotificationType.GROUP_INVITE);
+                    assertThat(n.getGroupId()).isEqualTo(finance.getId());
+                });
+        // the sole finance-group member (userId) is already in the business both ways —
+        // nothing to invite back into the business, and no invite to itself either.
+        assertThat(notifications.findByUserIdOrderByCreatedAtDesc(userId))
+                .noneMatch(n -> n.getType() == NotificationType.GROUP_INVITE);
+    }
+
+    @Test
+    void manualLinkWithoutInviteAllMembersSendsNoInvites() {
+        Group business = groupService.create("Business", userId, Group.APPLET_ORDER_TRACKER);
+        business = groupService.addMember(business.getId(), secondMemberId);
+        Group finance = groupService.create("Finance", userId, Group.APPLET_FINANCE_TRACKER);
+
+        linkService.link(business.getId(), userId, finance.getId());
+
+        assertThat(notifications.findByUserIdOrderByCreatedAtDesc(secondMemberId))
+                .noneMatch(n -> n.getType() == NotificationType.GROUP_INVITE);
     }
 
     @Test

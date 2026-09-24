@@ -3,6 +3,8 @@ import { api, ApiError } from "../../api/client";
 import { orderTrackerApi } from "../api";
 import { useBusiness } from "../BusinessContext";
 import { Creature } from "../../components/Creature";
+import { LinkInvitePreviewList } from "../../components/LinkInvitePreview";
+import { useLinkInvitePreview } from "../../lib/useLinkInvitePreview";
 import { formatDateTime } from "../../lib/format";
 import type { GroupView, PendingInvite } from "../../types";
 
@@ -26,6 +28,7 @@ export default function ManageBusinessPage() {
   const [linkLoading, setLinkLoading] = useState(true);
   const [membersWithoutProfile, setMembersWithoutProfile] = useState<string[]>([]);
   const [pendingInvites, setPendingInvites] = useState<PendingInvite[]>([]);
+  const linkPreview = useLinkInvitePreview(currentGroupId);
 
   const loadPendingInvites = () => {
     if (!currentGroupId) return;
@@ -56,20 +59,17 @@ export default function ManageBusinessPage() {
       .finally(() => setLinkLoading(false));
   }, [currentGroupId]);
 
-  const linkFinanceGroup = async () => {
-    if (!selectedFinanceGroupId) return;
-    setBusy(true);
-    setErr(null);
-    try {
-      await api.post(`/groups/${currentGroupId}/links`, { groupId: selectedFinanceGroupId });
+  const reviewLinkFinanceGroup = () => {
+    const target = financeGroups.find((g) => g.id === selectedFinanceGroupId);
+    if (!target || !currentBusiness) return;
+    linkPreview.review(currentBusiness.members, target);
+  };
+
+  const confirmLinkFinanceGroup = () =>
+    linkPreview.confirm(selectedFinanceGroupId, () => {
       setLinkedFinanceGroupId(selectedFinanceGroupId);
       setMsg("Finance group linked.");
-    } catch (e) {
-      setErr(e instanceof ApiError ? e.message : "Could not link that finance group");
-    } finally {
-      setBusy(false);
-    }
-  };
+    });
 
   const unlinkFinanceGroup = async () => {
     setBusy(true);
@@ -243,6 +243,15 @@ export default function ManageBusinessPage() {
             No Finance Tracker groups yet — create one from the Finance Tracker applet first, then come
             back here to link it.
           </p>
+        ) : linkPreview.preview ? (
+          <LinkInvitePreviewList
+            preview={linkPreview.preview}
+            targetName={financeGroups.find((g) => g.id === selectedFinanceGroupId)?.name ?? "the finance group"}
+            busy={linkPreview.busy}
+            onToggle={linkPreview.toggle}
+            onConfirm={confirmLinkFinanceGroup}
+            onCancel={linkPreview.cancel}
+          />
         ) : (
           <div className="team-add">
             <label htmlFor="link-finance-group" className="sr-only">
@@ -262,11 +271,12 @@ export default function ManageBusinessPage() {
                 </option>
               ))}
             </select>
-            <button className="primary" disabled={busy || !selectedFinanceGroupId} onClick={linkFinanceGroup}>
-              Link
+            <button className="primary" disabled={busy || !selectedFinanceGroupId} onClick={reviewLinkFinanceGroup}>
+              Review &amp; link
             </button>
           </div>
         )}
+        {linkPreview.error && <div className="error" style={{ marginTop: 8 }}>{linkPreview.error}</div>}
       </div>
     </div>
   );

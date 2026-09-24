@@ -3,6 +3,8 @@ import { useNavigate } from "react-router-dom";
 import { ApiError } from "../api/client";
 import { groupLinkApi } from "../api/groupLinks";
 import { otherApplets, type AppletMeta } from "../api/applets";
+import { LinkInvitePreviewList } from "./LinkInvitePreview";
+import { missingFrom, type LinkPreview } from "../lib/useLinkInvitePreview";
 import { useDismissableMenu } from "../lib/useDismissableMenu";
 import { usePopoverPosition } from "../lib/usePopoverPosition";
 import type { GroupView } from "../types";
@@ -14,9 +16,12 @@ interface RowState {
   expanded: boolean;
   busy: boolean;
   error: string | null;
+  preview: LinkPreview | null;
 }
 
-const blankRow = (): RowState => ({ linkedGroupId: undefined, groups: undefined, selected: "", expanded: false, busy: false, error: null });
+const blankRow = (): RowState => ({
+  linkedGroupId: undefined, groups: undefined, selected: "", expanded: false, busy: false, error: null, preview: null,
+});
 
 /** One consistent "🔗 Connections" affordance in every applet's header, replacing the
  *  need to go hunting through each applet's own Manage/Settings page to find out (or set
@@ -30,6 +35,7 @@ export default function Connections({ appletKey, groupId }: { appletKey: string;
   const triggerRef = useRef<HTMLButtonElement>(null);
   const { popoverRef, style: popoverStyle } = usePopoverPosition(triggerRef, open);
   const [rows, setRows] = useState<Record<string, RowState>>({});
+  const [currentGroup, setCurrentGroup] = useState<GroupView | undefined>(undefined);
   const nav = useNavigate();
   const others = otherApplets(appletKey);
 
@@ -38,6 +44,7 @@ export default function Connections({ appletKey, groupId }: { appletKey: string;
     const initial: Record<string, RowState> = {};
     others.forEach((a) => (initial[a.key] = blankRow()));
     setRows(initial);
+    groupLinkApi.group(groupId).then(setCurrentGroup).catch(() => setCurrentGroup(undefined));
     others.forEach((a) => {
       Promise.all([groupLinkApi.linkedGroupId(groupId, a.key), groupLinkApi.myGroupsIn(a.key)])
         .then(([linkedGroupId, groups]) => {
@@ -57,13 +64,41 @@ export default function Connections({ appletKey, groupId }: { appletKey: string;
   const patchRow = (key: string, patch: Partial<RowState>) =>
     setRows((prev) => ({ ...prev, [key]: { ...prev[key], ...patch } }));
 
-  const doLink = async (a: AppletMeta) => {
+  /** mb-23: shows the suggested two-way invite delta instead of linking immediately —
+   *  every business member not yet in the target group, and every target-group member not
+   *  yet in the business, all pre-checked but freely uncheckable before anything sends. */
+  const reviewLink = (a: AppletMeta) => {
     const row = rows[a.key];
-    if (!groupId || !row?.selected) return;
+    const target = row?.groups?.find((g) => g.id === row.selected);
+    if (!row || !target || !currentGroup) return;
+    const intoCurrent = missingFrom(target.members, currentGroup.members);
+    const intoTarget = missingFrom(currentGroup.members, target.members);
+    const checked: Record<string, boolean> = {};
+    [...intoCurrent, ...intoTarget].forEach((m) => (checked[m.id] = true));
+    patchRow(a.key, { preview: { intoCurrent, intoTarget, checked }, error: null });
+  };
+
+  const toggleChecked = (a: AppletMeta, personId: string) => {
+    const preview = rows[a.key]?.preview;
+    if (!preview) return;
+    patchRow(a.key, { preview: { ...preview, checked: { ...preview.checked, [personId]: !preview.checked[personId] } } });
+  };
+
+  const confirmLink = async (a: AppletMeta) => {
+    const row = rows[a.key];
+    const preview = row?.preview;
+    if (!groupId || !row?.selected || !preview) return;
     patchRow(a.key, { busy: true, error: null });
     try {
       await groupLinkApi.link(groupId, row.selected);
-      patchRow(a.key, { linkedGroupId: row.selected, expanded: false, busy: false });
+      const invites = [
+        ...preview.intoCurrent.filter((m) => preview.checked[m.id]).map((m) => groupLinkApi.invite(groupId, m.email)),
+        ...preview.intoTarget.filter((m) => preview.checked[m.id]).map((m) => groupLinkApi.invite(row.selected, m.email)),
+      ];
+      // Best-effort: an individual invite failing (already pending, group at capacity)
+      // shouldn't undo the link itself, which already succeeded.
+      await Promise.allSettled(invites);
+      patchRow(a.key, { linkedGroupId: row.selected, expanded: false, busy: false, preview: null });
     } catch (e) {
       patchRow(a.key, { busy: false, error: e instanceof ApiError ? e.message : "Could not link" });
     }
@@ -143,6 +178,15 @@ export default function Connections({ appletKey, groupId }: { appletKey: string;
                   >
                     {(row.groups ?? []).length === 0 ? `No ${a.name} groups yet` : "Link…"}
                   </button>
+                ) : row.preview ? (
+                  <LinkInvitePreviewList
+                    preview={row.preview}
+                    targetName={a.name}
+                    busy={row.busy}
+                    onToggle={(id) => toggleChecked(a, id)}
+                    onConfirm={() => confirmLink(a)}
+                    onCancel={() => patchRow(a.key, { preview: null })}
+                  />
                 ) : (
                   <div style={{ display: "flex", gap: 6 }}>
                     <select
@@ -160,8 +204,8 @@ export default function Connections({ appletKey, groupId }: { appletKey: string;
                         </option>
                       ))}
                     </select>
-                    <button type="button" className="primary" disabled={row.busy || !row.selected} onClick={() => doLink(a)} style={{ fontSize: 12, padding: "2px 8px" }}>
-                      Link
+                    <button type="button" className="primary" disabled={row.busy || !row.selected} onClick={() => reviewLink(a)} style={{ fontSize: 12, padding: "2px 8px" }}>
+                      Review &amp; link
                     </button>
                   </div>
                 )}

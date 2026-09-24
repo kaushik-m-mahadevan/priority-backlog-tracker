@@ -13,8 +13,14 @@ import com.backlogtracker.commons.group.event.GroupDeletedEvent;
 import com.backlogtracker.commons.group.service.GroupService;
 import com.backlogtracker.commons.link.domain.GroupLink;
 import com.backlogtracker.commons.link.repository.GroupLinkRepository;
+import com.backlogtracker.commons.notification.service.NotificationService;
+import com.backlogtracker.commons.security.AuthUser;
+import com.backlogtracker.commons.user.domain.User;
+import com.backlogtracker.commons.user.dto.UserSummary;
+import com.backlogtracker.commons.user.repository.UserRepository;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * Generic cross-applet group linking (design: platform integration follow-up) — see
@@ -25,17 +31,35 @@ import lombok.RequiredArgsConstructor;
  */
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class GroupLinkService {
 
     private final GroupLinkRepository links;
     private final GroupService groupService;
+    private final NotificationService notificationService;
+    private final UserRepository users;
+
+    /** Links {@code groupIdA} to {@code groupIdB} with no invites — the manual "link an
+     *  existing group" path, where the linker reviews and edits a suggested delta of
+     *  invites themselves before any are sent (mb-23). */
+    public GroupLink link(String groupIdA, String userId, String groupIdB) {
+        return link(groupIdA, userId, groupIdB, false);
+    }
 
     /** Links {@code groupIdA} to {@code groupIdB}. The caller must be a member of both —
      *  linking two groups you don't belong to would let you snoop on membership/appletKey
      *  of a group you have no business seeing. Rejects same-applet pairs (linking is for
      *  crossing a permission boundary, not within one) and either side already being
-     *  linked to that other applet. */
-    public GroupLink link(String groupIdA, String userId, String groupIdB) {
+     *  linked to that other applet.
+     *
+     *  <p>{@code inviteAllMembers} is the Setup Wizard's "invite all outright" behaviour
+     *  (mb-23) — no suggestion/confirmation step, unlike the manual link path. Invites run
+     *  both ways (every member of A missing from B, and vice versa) so it stays correct
+     *  regardless of which side is the newly-created, still-empty group. A member an invite
+     *  can't reach for a reason of their own (a full group, an already-pending invite) is
+     *  skipped rather than failing the whole link — this is a best-effort convenience, not
+     *  a guarantee every member ends up invited. */
+    public GroupLink link(String groupIdA, String userId, String groupIdB, boolean inviteAllMembers) {
         Group a = groupService.requireMember(groupIdA, userId);
         Group b = groupService.requireMember(groupIdB, userId);
         if (a.getAppletKey().equals(b.getAppletKey())) {
@@ -49,8 +73,9 @@ public class GroupLinkService {
             throw new ResponseStatusException(HttpStatus.CONFLICT,
                     "That group is already linked to a " + a.getAppletKey() + " group");
         }
+        GroupLink saved;
         try {
-            return links.save(GroupLink.builder()
+            saved = links.save(GroupLink.builder()
                     .groupIdA(groupIdA).appletKeyA(a.getAppletKey())
                     .groupIdB(groupIdB).appletKeyB(b.getAppletKey())
                     .build());
@@ -58,6 +83,28 @@ public class GroupLinkService {
             // Two concurrent link attempts raced past the checks above — the unique index
             // is the real guard; the pre-checks are just a friendlier error message.
             throw new ResponseStatusException(HttpStatus.CONFLICT, "One of these groups was just linked elsewhere");
+        }
+        if (inviteAllMembers) {
+            inviteMissingMembers(a, b, userId);
+            inviteMissingMembers(b, a, userId);
+        }
+        return saved;
+    }
+
+    private void inviteMissingMembers(Group source, Group target, String actorUserId) {
+        User actorUser = users.findById(actorUserId).orElseThrow(
+                () -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+        AuthUser actor = AuthUser.from(actorUser);
+        for (UserSummary member : groupService.members(source)) {
+            if (target.hasMember(member.id())) {
+                continue;
+            }
+            try {
+                notificationService.createGroupInvite(target.getId(), member.email(), actor);
+            } catch (ResponseStatusException e) {
+                log.info("Skipped inviting {} to group {} during invite-all link: {}",
+                        member.id(), target.getId(), e.getReason());
+            }
         }
     }
 

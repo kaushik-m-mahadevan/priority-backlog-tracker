@@ -97,11 +97,11 @@ export default function SetupWizardPage({ onDone }: { onDone: () => void }) {
     try {
       if (setUpFinance) {
         const financeGroup = await api.post<{ id: string }>(`/groups?appletKey=financetracker`, { name: currentBusiness.name });
-        await api.post(`/groups/${groupId}/links`, { groupId: financeGroup.id });
+        await api.post(`/groups/${groupId}/links`, { groupId: financeGroup.id, inviteAllMembers: true });
       }
       if (setUpInventory) {
         const inventoryGroup = await api.post<{ id: string }>(`/groups?appletKey=materialinventory`, { name: currentBusiness.name });
-        await api.post(`/groups/${groupId}/links`, { groupId: inventoryGroup.id });
+        await api.post(`/groups/${groupId}/links`, { groupId: inventoryGroup.id, inviteAllMembers: true });
       }
       await orderTrackerApi.completeBusinessSetup(groupId);
       onDone();

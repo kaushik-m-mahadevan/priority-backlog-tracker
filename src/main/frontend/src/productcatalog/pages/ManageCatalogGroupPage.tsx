@@ -1,6 +1,8 @@
 import { FormEvent, useEffect, useState } from "react";
 import { api, ApiError } from "../../api/client";
 import { Creature } from "../../components/Creature";
+import { LinkInvitePreviewList } from "../../components/LinkInvitePreview";
+import { useLinkInvitePreview } from "../../lib/useLinkInvitePreview";
 import { useProductCatalog } from "../ProductCatalogContext";
 import type { GroupView } from "../../types";
 
@@ -25,6 +27,7 @@ export default function ManageCatalogGroupPage() {
   const [businesses, setBusinesses] = useState<GroupView[]>([]);
   const [selectedBusinessId, setSelectedBusinessId] = useState("");
   const [linkLoading, setLinkLoading] = useState(true);
+  const linkPreview = useLinkInvitePreview(currentGroupId);
 
   useEffect(() => {
     if (!currentGroupId) return;
@@ -40,20 +43,17 @@ export default function ManageCatalogGroupPage() {
       .finally(() => setLinkLoading(false));
   }, [currentGroupId]);
 
-  const linkBusiness = async () => {
-    if (!selectedBusinessId) return;
-    setBusy(true);
-    setErr(null);
-    try {
-      await api.post(`/groups/${currentGroupId}/links`, { groupId: selectedBusinessId });
+  const reviewLinkBusiness = () => {
+    const target = businesses.find((g) => g.id === selectedBusinessId);
+    if (!target || !currentCatalogGroup) return;
+    linkPreview.review(currentCatalogGroup.members, target);
+  };
+
+  const confirmLinkBusiness = () =>
+    linkPreview.confirm(selectedBusinessId, () => {
       setLinkedBusinessId(selectedBusinessId);
       setMsg("Business linked.");
-    } catch (e) {
-      setErr(e instanceof ApiError ? e.message : "Could not link that business");
-    } finally {
-      setBusy(false);
-    }
-  };
+    });
 
   const unlinkBusiness = async () => {
     setBusy(true);
@@ -199,6 +199,15 @@ export default function ManageCatalogGroupPage() {
             No Order Tracker businesses yet — create one from the Order Tracker applet first, then come
             back here to link it.
           </p>
+        ) : linkPreview.preview ? (
+          <LinkInvitePreviewList
+            preview={linkPreview.preview}
+            targetName={businesses.find((g) => g.id === selectedBusinessId)?.name ?? "the business"}
+            busy={linkPreview.busy}
+            onToggle={linkPreview.toggle}
+            onConfirm={confirmLinkBusiness}
+            onCancel={linkPreview.cancel}
+          />
         ) : (
           <div className="team-add">
             <label htmlFor="link-business" className="sr-only">
@@ -218,11 +227,12 @@ export default function ManageCatalogGroupPage() {
                 </option>
               ))}
             </select>
-            <button className="primary" disabled={busy || !selectedBusinessId} onClick={linkBusiness}>
-              Link
+            <button className="primary" disabled={busy || !selectedBusinessId} onClick={reviewLinkBusiness}>
+              Review &amp; link
             </button>
           </div>
         )}
+        {linkPreview.error && <div className="error" style={{ marginTop: 8 }}>{linkPreview.error}</div>}
       </div>
     </div>
   );

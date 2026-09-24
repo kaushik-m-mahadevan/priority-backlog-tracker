@@ -15,7 +15,16 @@ export const groupLinkApi = {
   /** Every group in `appletKey` that the current user belongs to — candidates to link to. */
   myGroupsIn: (appletKey: string) => api.get<GroupView[]>(`/groups?appletKey=${appletKey}`),
 
+  /** Full member list for `groupId` itself — used to compute the mb-23 invite-delta preview
+   *  against a candidate group's own members. */
+  group: (groupId: string) => api.get<GroupView>(`/groups/${groupId}`),
+
+  /** {@code inviteAllMembers} is the Setup Wizard's own "invite everyone outright" behaviour
+   *  (mb-23) — the manual link path here always omits it, since the linker reviews and
+   *  edits a suggested delta of invites themselves before any are sent. */
   link: (groupId: string, otherGroupId: string) => api.post<void>(`/groups/${groupId}/links`, { groupId: otherGroupId }),
 
   unlink: (groupId: string, otherAppletKey: string) => api.delete<void>(`/groups/${groupId}/links/${otherAppletKey}`),
+
+  invite: (groupId: string, to: string) => api.post<void>(`/groups/${groupId}/invites`, { to }),
 };

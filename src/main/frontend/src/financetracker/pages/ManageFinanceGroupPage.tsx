@@ -1,7 +1,9 @@
 import { FormEvent, useEffect, useState } from "react";
 import { api, ApiError } from "../../api/client";
 import { Creature } from "../../components/Creature";
+import { LinkInvitePreviewList } from "../../components/LinkInvitePreview";
 import { Switch } from "../../components/Switch";
+import { useLinkInvitePreview } from "../../lib/useLinkInvitePreview";
 import { financeTrackerApi } from "../api";
 import { useFinanceGroup } from "../FinanceGroupContext";
 import type { GroupView } from "../../types";
@@ -28,6 +30,7 @@ export default function ManageFinanceGroupPage() {
   const [linkLoading, setLinkLoading] = useState(true);
   const [businessAccountConfigured, setBusinessAccountConfigured] = useState(false);
   const [backfillResult, setBackfillResult] = useState<string | null>(null);
+  const linkPreview = useLinkInvitePreview(currentGroupId);
 
   useEffect(() => {
     if (!currentGroupId) return;
@@ -66,20 +69,17 @@ export default function ManageFinanceGroupPage() {
     }
   };
 
-  const linkBusiness = async () => {
-    if (!selectedBusinessId) return;
-    setBusy(true);
-    setErr(null);
-    try {
-      await api.post(`/groups/${currentGroupId}/links`, { groupId: selectedBusinessId });
+  const reviewLinkBusiness = () => {
+    const target = businesses.find((g) => g.id === selectedBusinessId);
+    if (!target || !currentFinanceGroup) return;
+    linkPreview.review(currentFinanceGroup.members, target);
+  };
+
+  const confirmLinkBusiness = () =>
+    linkPreview.confirm(selectedBusinessId, () => {
       setLinkedBusinessId(selectedBusinessId);
       setMsg("Business linked.");
-    } catch (e) {
-      setErr(e instanceof ApiError ? e.message : "Could not link that business");
-    } finally {
-      setBusy(false);
-    }
-  };
+    });
 
   const unlinkBusiness = async () => {
     setBusy(true);
@@ -233,6 +233,15 @@ export default function ManageFinanceGroupPage() {
             No Order Tracker businesses yet — create one from the Order Tracker applet first, then come
             back here to link it.
           </p>
+        ) : linkPreview.preview ? (
+          <LinkInvitePreviewList
+            preview={linkPreview.preview}
+            targetName={businesses.find((g) => g.id === selectedBusinessId)?.name ?? "the business"}
+            busy={linkPreview.busy}
+            onToggle={linkPreview.toggle}
+            onConfirm={confirmLinkBusiness}
+            onCancel={linkPreview.cancel}
+          />
         ) : (
           <div className="team-add">
             <label htmlFor="link-business" className="sr-only">
@@ -252,11 +261,12 @@ export default function ManageFinanceGroupPage() {
                 </option>
               ))}
             </select>
-            <button className="primary" disabled={busy || !selectedBusinessId} onClick={linkBusiness}>
-              Link
+            <button className="primary" disabled={busy || !selectedBusinessId} onClick={reviewLinkBusiness}>
+              Review &amp; link
             </button>
           </div>
         )}
+        {linkPreview.error && <div className="error" style={{ marginTop: 8 }}>{linkPreview.error}</div>}
       </div>
 
       <div className="card" style={{ marginTop: 16 }}>
