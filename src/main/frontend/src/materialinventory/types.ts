@@ -108,3 +108,24 @@ export interface CreateTransferRequestRequest {
 export interface FulfillTransferRequest {
   quantity: number;
 }
+
+export type MaterialAssignmentStatus = "PENDING" | "ACCEPTED" | "REJECTED" | "CANCELLED";
+
+/** mb-21: a proposed yarn hand-off from one member to another, gated by propose/accept —
+ *  quantity is already debited from proposerId's on-hand the moment this is PENDING. */
+export interface MaterialAssignmentView {
+  id: string;
+  proposerId: string;
+  recipientId: string;
+  yarnTypeId: string;
+  quantity: number;
+  status: MaterialAssignmentStatus;
+  createdAt: string;
+  resolvedAt: string | null;
+}
+
+export interface CreateMaterialAssignmentRequest {
+  recipientId: string;
+  yarnTypeId: string;
+  quantity: number;
+}

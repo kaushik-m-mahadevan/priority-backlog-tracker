@@ -1,10 +1,12 @@
 import { api } from "../api/client";
 import type {
+  CreateMaterialAssignmentRequest,
   CreateNeedleTypeRequest,
   CreateTransferRequestRequest,
   CreateYarnTypeRequest,
   FulfillTransferRequest,
   InventoryEntryView,
+  MaterialAssignmentView,
   NeedleInventoryEntryView,
   NeedleTypeView,
   SetInventoryQuantityRequest,
@@ -41,6 +43,16 @@ export const materialInventoryApi = {
     api.post<TransferRequestView>(`${base(groupId)}/transfers/${requestId}/complete`),
   cancelTransferRequest: (groupId: string, requestId: string) =>
     api.post<TransferRequestView>(`${base(groupId)}/transfers/${requestId}/cancel`),
+
+  assignments: (groupId: string) => api.get<MaterialAssignmentView[]>(`${base(groupId)}/assignments`),
+  proposeAssignment: (groupId: string, body: CreateMaterialAssignmentRequest) =>
+    api.post<MaterialAssignmentView>(`${base(groupId)}/assignments`, body),
+  acceptAssignment: (groupId: string, assignmentId: string) =>
+    api.post<MaterialAssignmentView>(`${base(groupId)}/assignments/${assignmentId}/accept`),
+  rejectAssignment: (groupId: string, assignmentId: string) =>
+    api.post<MaterialAssignmentView>(`${base(groupId)}/assignments/${assignmentId}/reject`),
+  cancelAssignment: (groupId: string, assignmentId: string) =>
+    api.post<MaterialAssignmentView>(`${base(groupId)}/assignments/${assignmentId}/cancel`),
 
   needleTypes: (groupId: string) => api.get<NeedleTypeView[]>(`${base(groupId)}/needle-types`),
   createNeedleType: (groupId: string, body: CreateNeedleTypeRequest) =>

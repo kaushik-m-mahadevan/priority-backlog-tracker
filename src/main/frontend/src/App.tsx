@@ -42,6 +42,7 @@ import ManageCatalogGroupPage from "./productcatalog/pages/ManageCatalogGroupPag
 import MaterialInventoryRoot from "./materialinventory/MaterialInventoryRoot";
 import MyInventoryPage from "./materialinventory/pages/MyInventoryPage";
 import RequestsPage from "./materialinventory/pages/RequestsPage";
+import AssignmentsPage from "./materialinventory/pages/AssignmentsPage";
 import InventoryGroupsPage from "./materialinventory/pages/InventoryGroupsPage";
 import ManageInventoryGroupPage from "./materialinventory/pages/ManageInventoryGroupPage";
 
@@ -121,6 +122,7 @@ export default function App() {
                 <Route path="/materialinventory" element={<MaterialInventoryRoot />}>
                   <Route index element={<MyInventoryPage />} />
                   <Route path="requests" element={<RequestsPage />} />
+                  <Route path="assignments" element={<AssignmentsPage />} />
                   <Route path="groups" element={<InventoryGroupsPage />} />
                   <Route path="manage" element={<ManageInventoryGroupPage />} />
                 </Route>
