@@ -3,11 +3,13 @@ import { useNavigate } from "react-router-dom";
 import { ApiError } from "../api/client";
 import { groupLinkApi } from "../api/groupLinks";
 import { otherApplets, type AppletMeta } from "../api/applets";
+import { useAuth } from "../auth/AuthContext";
 import { LinkInvitePreviewList } from "./LinkInvitePreview";
+import { PendingLinkProposal } from "./PendingLinkProposal";
 import { missingFrom, type LinkPreview } from "../lib/useLinkInvitePreview";
 import { useDismissableMenu } from "../lib/useDismissableMenu";
 import { usePopoverPosition } from "../lib/usePopoverPosition";
-import type { GroupView } from "../types";
+import type { GroupLinkProposalView, GroupView } from "../types";
 
 interface RowState {
   linkedGroupId: string | null | undefined; // undefined = still loading
@@ -36,6 +38,9 @@ export default function Connections({ appletKey, groupId }: { appletKey: string;
   const { popoverRef, style: popoverStyle } = usePopoverPosition(triggerRef, open);
   const [rows, setRows] = useState<Record<string, RowState>>({});
   const [currentGroup, setCurrentGroup] = useState<GroupView | undefined>(undefined);
+  const [pending, setPending] = useState<GroupLinkProposalView | null>(null);
+  const [pendingBusy, setPendingBusy] = useState(false);
+  const { user } = useAuth();
   const nav = useNavigate();
   const others = otherApplets(appletKey);
 
@@ -45,6 +50,7 @@ export default function Connections({ appletKey, groupId }: { appletKey: string;
     others.forEach((a) => (initial[a.key] = blankRow()));
     setRows(initial);
     groupLinkApi.group(groupId).then(setCurrentGroup).catch(() => setCurrentGroup(undefined));
+    groupLinkApi.linkProposals(groupId).then((proposals) => setPending(proposals.find((p) => p.status === "PENDING") ?? null));
     others.forEach((a) => {
       Promise.all([groupLinkApi.linkedGroupId(groupId, a.key), groupLinkApi.myGroupsIn(a.key)])
         .then(([linkedGroupId, groups]) => {
@@ -54,6 +60,33 @@ export default function Connections({ appletKey, groupId }: { appletKey: string;
           setRows((prev) => ({ ...prev, [a.key]: { ...prev[a.key], linkedGroupId: null, groups: [], error: "Couldn't load" } }));
         });
     });
+  };
+
+  /** Resolves the pending proposal's target group name once that applet's row has loaded
+   *  its candidate groups (the proposal itself only carries the id). */
+  const pendingTargetName = () => {
+    if (!pending) return "another group";
+    for (const a of others) {
+      const match = rows[a.key]?.groups?.find((g) => g.id === pending.targetGroupId);
+      if (match) return match.name;
+    }
+    return "another group";
+  };
+
+  const respondToPending = async (approve: boolean) => {
+    if (!groupId || !pending) return;
+    setPendingBusy(true);
+    try {
+      const updated = approve
+        ? await groupLinkApi.approveLinkProposal(groupId, pending.id)
+        : await groupLinkApi.rejectLinkProposal(groupId, pending.id);
+      setPending(updated.status === "PENDING" ? updated : null);
+      if (updated.status === "APPROVED") {
+        load();
+      }
+    } finally {
+      setPendingBusy(false);
+    }
   };
 
   const toggleOpen = () => {
@@ -84,23 +117,26 @@ export default function Connections({ appletKey, groupId }: { appletKey: string;
     patchRow(a.key, { preview: { ...preview, checked: { ...preview.checked, [personId]: !preview.checked[personId] } } });
   };
 
+  /** mb-14: proposes the link — gated behind unanimous approval from this group's own
+   *  members, same as every other approval-backed flow. A solo-member group still resolves
+   *  immediately. */
   const confirmLink = async (a: AppletMeta) => {
     const row = rows[a.key];
     const preview = row?.preview;
     if (!groupId || !row?.selected || !preview) return;
     patchRow(a.key, { busy: true, error: null });
     try {
-      await groupLinkApi.link(groupId, row.selected);
-      const invites = [
-        ...preview.intoCurrent.filter((m) => preview.checked[m.id]).map((m) => groupLinkApi.invite(groupId, m.email)),
-        ...preview.intoTarget.filter((m) => preview.checked[m.id]).map((m) => groupLinkApi.invite(row.selected, m.email)),
-      ];
-      // Best-effort: an individual invite failing (already pending, group at capacity)
-      // shouldn't undo the link itself, which already succeeded.
-      await Promise.allSettled(invites);
-      patchRow(a.key, { linkedGroupId: row.selected, expanded: false, busy: false, preview: null });
+      const intoCurrentEmails = preview.intoCurrent.filter((m) => preview.checked[m.id]).map((m) => m.email);
+      const intoTargetEmails = preview.intoTarget.filter((m) => preview.checked[m.id]).map((m) => m.email);
+      const proposal = await groupLinkApi.proposeLink(groupId, row.selected, intoCurrentEmails, intoTargetEmails);
+      if (proposal.status === "APPROVED") {
+        patchRow(a.key, { linkedGroupId: row.selected, expanded: false, busy: false, preview: null });
+      } else {
+        patchRow(a.key, { expanded: false, busy: false, preview: null });
+        setPending(proposal);
+      }
     } catch (e) {
-      patchRow(a.key, { busy: false, error: e instanceof ApiError ? e.message : "Could not link" });
+      patchRow(a.key, { busy: false, error: e instanceof ApiError ? e.message : "Could not propose the link" });
     }
   };
 
@@ -138,6 +174,18 @@ export default function Connections({ appletKey, groupId }: { appletKey: string;
             Every applet works on its own — link this group to another one only if you want
             its data to show up here too.
           </p>
+          {pending && (
+            <div style={{ padding: "8px 10px", borderTop: "1px solid var(--border-soft)" }}>
+              <PendingLinkProposal
+                proposal={pending}
+                targetName={pendingTargetName()}
+                haveApproved={pending.approvedByUserIds.includes(user?.id ?? "")}
+                busy={pendingBusy}
+                onApprove={() => respondToPending(true)}
+                onReject={() => respondToPending(false)}
+              />
+            </div>
+          )}
           {others.map((a) => {
             const row = rows[a.key] ?? blankRow();
             const linkedGroup = row.groups?.find((g) => g.id === row.linkedGroupId);
@@ -168,6 +216,8 @@ export default function Connections({ appletKey, groupId }: { appletKey: string;
                       Unlink
                     </button>
                   </div>
+                ) : pending ? (
+                  <p className="muted" style={{ fontSize: 12, margin: 0 }}>A link proposal is already pending for this group.</p>
                 ) : !row.expanded ? (
                   <button
                     type="button"

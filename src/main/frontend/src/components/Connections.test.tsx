@@ -6,8 +6,15 @@ import Connections from "./Connections";
 import { ApiError } from "../api/client";
 import { groupLinkApi } from "../api/groupLinks";
 
+vi.mock("../auth/AuthContext", () => ({
+  useAuth: () => ({ user: { id: "u1", name: "Current User" } }),
+}));
+
 vi.mock("../api/groupLinks", () => ({
-  groupLinkApi: { linkedGroupId: vi.fn(), myGroupsIn: vi.fn(), group: vi.fn(), link: vi.fn(), unlink: vi.fn(), invite: vi.fn() },
+  groupLinkApi: {
+    linkedGroupId: vi.fn(), myGroupsIn: vi.fn(), group: vi.fn(), unlink: vi.fn(), invite: vi.fn(),
+    proposeLink: vi.fn(), linkProposals: vi.fn(), approveLinkProposal: vi.fn(), rejectLinkProposal: vi.fn(),
+  },
 }));
 
 function renderConnections(groupId: string | null = "g1") {
@@ -26,6 +33,13 @@ describe("Connections", () => {
     vi.mocked(groupLinkApi.myGroupsIn).mockResolvedValue([]);
     vi.mocked(groupLinkApi.group).mockResolvedValue({ id: "g1", name: "Current group", createdAt: null, members: [] });
     vi.mocked(groupLinkApi.invite).mockResolvedValue(undefined);
+    vi.mocked(groupLinkApi.linkProposals).mockResolvedValue([]);
+  });
+
+  const approvedProposal = (targetGroupId: string) => ({
+    id: "prop1", groupId: "g1", targetGroupId, intoCurrentEmails: [], intoTargetEmails: [],
+    proposedByUserId: "u1", approvedByUserIds: ["u1"], groupMemberIds: ["u1"],
+    status: "APPROVED" as const, rejectedByUserId: null, createdAt: "2026-01-01T00:00:00Z", resolvedAt: "2026-01-01T00:00:00Z",
   });
 
   afterEach(() => {
@@ -75,11 +89,11 @@ describe("Connections", () => {
     expect(screen.getByRole("button", { name: "Unlink" })).toBeInTheDocument();
   });
 
-  it("selecting a group, reviewing, and confirming calls groupLinkApi.link and switches the row to linked", async () => {
+  it("selecting a group, reviewing, and confirming calls groupLinkApi.proposeLink and switches the row to linked once approved", async () => {
     vi.mocked(groupLinkApi.myGroupsIn).mockImplementation(async (key: string) =>
       key === "ordertracker" ? [{ id: "ot1", name: "Crochet Co", appletKey: "ordertracker", members: [] } as never] : []
     );
-    vi.mocked(groupLinkApi.link).mockResolvedValue(undefined);
+    vi.mocked(groupLinkApi.proposeLink).mockResolvedValue(approvedProposal("ot1"));
     const user = userEvent.setup();
     renderConnections();
     await user.click(screen.getByRole("button", { name: "Connections to other applets" }));
@@ -88,7 +102,7 @@ describe("Connections", () => {
     await user.click(screen.getByRole("button", { name: "Review & link" }));
     await user.click(await screen.findByRole("button", { name: "Confirm link" }));
 
-    await waitFor(() => expect(groupLinkApi.link).toHaveBeenCalledWith("g1", "ot1"));
+    await waitFor(() => expect(groupLinkApi.proposeLink).toHaveBeenCalledWith("g1", "ot1", [], []));
     expect(await screen.findByText("Crochet Co")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Unlink" })).toBeInTheDocument();
   });
@@ -97,7 +111,7 @@ describe("Connections", () => {
     vi.mocked(groupLinkApi.myGroupsIn).mockImplementation(async (key: string) =>
       key === "ordertracker" ? [{ id: "ot1", name: "Crochet Co", appletKey: "ordertracker", members: [] } as never] : []
     );
-    vi.mocked(groupLinkApi.link).mockRejectedValue(new ApiError(409, "That group is already linked to a business"));
+    vi.mocked(groupLinkApi.proposeLink).mockRejectedValue(new ApiError(409, "That group is already linked to a business"));
     const user = userEvent.setup();
     renderConnections();
     await user.click(screen.getByRole("button", { name: "Connections to other applets" }));
@@ -113,7 +127,7 @@ describe("Connections", () => {
     vi.mocked(groupLinkApi.myGroupsIn).mockImplementation(async (key: string) =>
       key === "ordertracker" ? [{ id: "ot1", name: "Crochet Co", appletKey: "ordertracker", members: [] } as never] : []
     );
-    vi.mocked(groupLinkApi.link).mockRejectedValue(new Error("boom"));
+    vi.mocked(groupLinkApi.proposeLink).mockRejectedValue(new Error("boom"));
     const user = userEvent.setup();
     renderConnections();
     await user.click(screen.getByRole("button", { name: "Connections to other applets" }));
@@ -122,7 +136,26 @@ describe("Connections", () => {
     await user.click(screen.getByRole("button", { name: "Review & link" }));
     await user.click(await screen.findByRole("button", { name: "Confirm link" }));
 
-    expect(await screen.findByText("Could not link")).toBeInTheDocument();
+    expect(await screen.findByText("Could not propose the link")).toBeInTheDocument();
+  });
+
+  it("shows a pending-approval state (not linked) when the proposal isn't unanimously approved yet", async () => {
+    vi.mocked(groupLinkApi.myGroupsIn).mockImplementation(async (key: string) =>
+      key === "ordertracker" ? [{ id: "ot1", name: "Crochet Co", appletKey: "ordertracker", members: [] } as never] : []
+    );
+    vi.mocked(groupLinkApi.proposeLink).mockResolvedValue({
+      ...approvedProposal("ot1"), status: "PENDING", approvedByUserIds: ["u1"], groupMemberIds: ["u1", "u2"],
+    });
+    const user = userEvent.setup();
+    renderConnections();
+    await user.click(screen.getByRole("button", { name: "Connections to other applets" }));
+    await user.click(await screen.findByRole("button", { name: "Link…" }));
+    await user.selectOptions(screen.getByLabelText("Group to link in Order Tracker"), "ot1");
+    await user.click(screen.getByRole("button", { name: "Review & link" }));
+    await user.click(await screen.findByRole("button", { name: "Confirm link" }));
+
+    expect(await screen.findByText(/Proposed linking to/)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Unlink" })).not.toBeInTheDocument();
   });
 
   it("clicking Unlink calls groupLinkApi.unlink and reverts the row to unlinked", async () => {
@@ -153,7 +186,7 @@ describe("Connections", () => {
           } as never]
         : []
     );
-    vi.mocked(groupLinkApi.link).mockResolvedValue(undefined);
+    vi.mocked(groupLinkApi.proposeLink).mockResolvedValue(approvedProposal("ot1"));
     const user = userEvent.setup();
     renderConnections();
     await user.click(screen.getByRole("button", { name: "Connections to other applets" }));
@@ -166,8 +199,7 @@ describe("Connections", () => {
     await user.click(checkbox);
     await user.click(screen.getByRole("button", { name: "Confirm link" }));
 
-    await waitFor(() => expect(groupLinkApi.link).toHaveBeenCalledWith("g1", "ot1"));
-    expect(groupLinkApi.invite).not.toHaveBeenCalled();
+    await waitFor(() => expect(groupLinkApi.proposeLink).toHaveBeenCalledWith("g1", "ot1", [], []));
   });
 
   it("the Review & link button stays disabled until a group is actually selected", async () => {

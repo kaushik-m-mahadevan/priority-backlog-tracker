@@ -60,19 +60,9 @@ public class GroupLinkService {
      *  skipped rather than failing the whole link — this is a best-effort convenience, not
      *  a guarantee every member ends up invited. */
     public GroupLink link(String groupIdA, String userId, String groupIdB, boolean inviteAllMembers) {
-        Group a = groupService.requireMember(groupIdA, userId);
-        Group b = groupService.requireMember(groupIdB, userId);
-        if (a.getAppletKey().equals(b.getAppletKey())) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Can only link groups from two different applets");
-        }
-        if (links.findByGroupIdAAndAppletKeyB(groupIdA, b.getAppletKey()).isPresent()) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT,
-                    "This group is already linked to a " + b.getAppletKey() + " group");
-        }
-        if (links.findByGroupIdBAndAppletKeyA(groupIdB, a.getAppletKey()).isPresent()) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT,
-                    "That group is already linked to a " + a.getAppletKey() + " group");
-        }
+        LinkableGroups pair = requireLinkable(groupIdA, userId, groupIdB);
+        Group a = pair.a();
+        Group b = pair.b();
         GroupLink saved;
         try {
             saved = links.save(GroupLink.builder()
@@ -91,20 +81,52 @@ public class GroupLinkService {
         return saved;
     }
 
+    /** Every validation {@link #link} enforces before actually saving a {@link GroupLink} —
+     *  pulled out so {@code GroupLinkProposalService} (mb-14) can reject an unlinkable pair
+     *  up front, at propose time, instead of only discovering it once a proposal is
+     *  unanimously approved. */
+    public LinkableGroups requireLinkable(String groupIdA, String userId, String groupIdB) {
+        Group a = groupService.requireMember(groupIdA, userId);
+        Group b = groupService.requireMember(groupIdB, userId);
+        if (a.getAppletKey().equals(b.getAppletKey())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Can only link groups from two different applets");
+        }
+        if (links.findByGroupIdAAndAppletKeyB(groupIdA, b.getAppletKey()).isPresent()) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "This group is already linked to a " + b.getAppletKey() + " group");
+        }
+        if (links.findByGroupIdBAndAppletKeyA(groupIdB, a.getAppletKey()).isPresent()) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "That group is already linked to a " + a.getAppletKey() + " group");
+        }
+        return new LinkableGroups(a, b);
+    }
+
+    public record LinkableGroups(Group a, Group b) {
+    }
+
     private void inviteMissingMembers(Group source, Group target, String actorUserId) {
-        User actorUser = users.findById(actorUserId).orElseThrow(
-                () -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
-        AuthUser actor = AuthUser.from(actorUser);
         for (UserSummary member : groupService.members(source)) {
             if (target.hasMember(member.id())) {
                 continue;
             }
-            try {
-                notificationService.createGroupInvite(target.getId(), member.email(), actor);
-            } catch (ResponseStatusException e) {
-                log.info("Skipped inviting {} to group {} during invite-all link: {}",
-                        member.id(), target.getId(), e.getReason());
-            }
+            inviteMember(target.getId(), actorUserId, member.email());
+        }
+    }
+
+    /** Best-effort single invite, shared by this class's own invite-all-members path and
+     *  {@code GroupLinkProposalService}'s applying of a curated invite list once a link
+     *  proposal is approved (mb-14) — a member an invite can't reach for a reason of their
+     *  own (a full group, an already-pending invite) is skipped rather than failing the
+     *  whole link. */
+    public void inviteMember(String groupId, String actorUserId, String email) {
+        User actorUser = users.findById(actorUserId).orElseThrow(
+                () -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+        AuthUser actor = AuthUser.from(actorUser);
+        try {
+            notificationService.createGroupInvite(groupId, email, actor);
+        } catch (ResponseStatusException e) {
+            log.info("Skipped inviting {} to group {}: {}", email, groupId, e.getReason());
         }
     }
 

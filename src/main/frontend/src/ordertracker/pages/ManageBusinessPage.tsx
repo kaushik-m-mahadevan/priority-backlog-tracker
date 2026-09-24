@@ -4,8 +4,10 @@ import { orderTrackerApi } from "../api";
 import { useBusiness } from "../BusinessContext";
 import { Creature } from "../../components/Creature";
 import { LinkInvitePreviewList } from "../../components/LinkInvitePreview";
+import { PendingLinkProposal } from "../../components/PendingLinkProposal";
 import { useLinkInvitePreview } from "../../lib/useLinkInvitePreview";
 import { formatDateTime } from "../../lib/format";
+import { useAuth } from "../../auth/AuthContext";
 import type { GroupView, PendingInvite } from "../../types";
 
 const FINANCE_APPLET_KEY = "financetracker";
@@ -15,6 +17,7 @@ const FINANCE_APPLET_KEY = "financetracker";
  *  applet key), so membership/invites reuse the same commons endpoints. */
 export default function ManageBusinessPage() {
   const { currentBusiness, currentGroupId, refresh } = useBusiness();
+  const { user } = useAuth();
   const [invite, setInvite] = useState("");
   const [renaming, setRenaming] = useState(false);
   const [renameValue, setRenameValue] = useState("");
@@ -59,6 +62,11 @@ export default function ManageBusinessPage() {
       .finally(() => setLinkLoading(false));
   }, [currentGroupId]);
 
+  useEffect(() => {
+    linkPreview.loadPending();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentGroupId]);
+
   const reviewLinkFinanceGroup = () => {
     const target = financeGroups.find((g) => g.id === selectedFinanceGroupId);
     if (!target || !currentBusiness) return;
@@ -66,10 +74,22 @@ export default function ManageBusinessPage() {
   };
 
   const confirmLinkFinanceGroup = () =>
-    linkPreview.confirm(selectedFinanceGroupId, () => {
-      setLinkedFinanceGroupId(selectedFinanceGroupId);
+    linkPreview.confirm(
+      selectedFinanceGroupId,
+      () => {
+        setLinkedFinanceGroupId(selectedFinanceGroupId);
+        setMsg("Finance group linked.");
+      },
+      () => setMsg("Link proposed — waiting for every other member to approve.")
+    );
+
+  const respondToPendingLink = async (approve: boolean) => {
+    const updated = await linkPreview.respond(approve);
+    if (updated?.status === "APPROVED") {
+      setLinkedFinanceGroupId(updated.targetGroupId);
       setMsg("Finance group linked.");
-    });
+    }
+  };
 
   const unlinkFinanceGroup = async () => {
     setBusy(true);
@@ -238,6 +258,15 @@ export default function ManageBusinessPage() {
               Unlink
             </button>
           </div>
+        ) : linkPreview.pending ? (
+          <PendingLinkProposal
+            proposal={linkPreview.pending}
+            targetName={financeGroups.find((g) => g.id === linkPreview.pending!.targetGroupId)?.name ?? "the finance group"}
+            haveApproved={linkPreview.pending.approvedByUserIds.includes(user?.id ?? "")}
+            busy={linkPreview.busy}
+            onApprove={() => respondToPendingLink(true)}
+            onReject={() => respondToPendingLink(false)}
+          />
         ) : financeGroups.length === 0 ? (
           <p className="empty">
             No Finance Tracker groups yet — create one from the Finance Tracker applet first, then come

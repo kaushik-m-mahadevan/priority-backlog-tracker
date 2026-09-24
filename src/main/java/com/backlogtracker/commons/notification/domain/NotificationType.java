@@ -21,6 +21,9 @@ public enum NotificationType {
     /** Informational: your pending archive request was auto-cancelled because a member
      *  left the group mid-approval — you can re-raise it. */
     ARCHIVE_REQUEST_INVALIDATED,
+    /** Informational (mb-14): your pending group-link proposal was auto-cancelled because
+     *  a member left the group mid-approval — you can re-propose. */
+    GROUP_LINK_INVALIDATED,
 
     // ad-4: proactive "something new needs your attention" notices — previously these 5
     // events (proposal creation, signup, password request) left the other party to
@@ -35,6 +38,9 @@ public enum NotificationType {
     ORDER_FINALIZATION_RESOLVED,
     /** Informational: another group member proposed a profit distribution. */
     PROFIT_DISTRIBUTION_PROPOSED,
+    /** Actionable (mb-14): another group member proposed linking this group to another
+     *  applet's group — approve/reject in the Connections widget. */
+    GROUP_LINK_PROPOSED,
     /** Informational (admins only): a new account is waiting for approval. */
     SIGNUP_PENDING,
     /** Informational (admins only): a password change/reset request is waiting. */

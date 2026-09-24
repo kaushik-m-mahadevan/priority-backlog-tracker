@@ -2,8 +2,10 @@ import { FormEvent, useEffect, useState } from "react";
 import { api, ApiError } from "../../api/client";
 import { Creature } from "../../components/Creature";
 import { LinkInvitePreviewList } from "../../components/LinkInvitePreview";
+import { PendingLinkProposal } from "../../components/PendingLinkProposal";
 import { useLinkInvitePreview } from "../../lib/useLinkInvitePreview";
 import { useMaterialInventory } from "../MaterialInventoryContext";
+import { useAuth } from "../../auth/AuthContext";
 import type { GroupView } from "../../types";
 
 const ORDER_TRACKER_APPLET_KEY = "ordertracker";
@@ -17,6 +19,7 @@ const ORDER_TRACKER_APPLET_KEY = "ordertracker";
  *  Finance Tracker's ledger-specific settings card. */
 export default function ManageInventoryGroupPage() {
   const { currentInventoryGroup, currentGroupId, refresh } = useMaterialInventory();
+  const { user } = useAuth();
   const [invite, setInvite] = useState("");
   const [renaming, setRenaming] = useState(false);
   const [renameValue, setRenameValue] = useState("");
@@ -44,6 +47,11 @@ export default function ManageInventoryGroupPage() {
       .finally(() => setLinkLoading(false));
   }, [currentGroupId]);
 
+  useEffect(() => {
+    linkPreview.loadPending();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentGroupId]);
+
   const reviewLinkBusiness = () => {
     const target = businesses.find((g) => g.id === selectedBusinessId);
     if (!target || !currentInventoryGroup) return;
@@ -51,10 +59,22 @@ export default function ManageInventoryGroupPage() {
   };
 
   const confirmLinkBusiness = () =>
-    linkPreview.confirm(selectedBusinessId, () => {
-      setLinkedBusinessId(selectedBusinessId);
+    linkPreview.confirm(
+      selectedBusinessId,
+      () => {
+        setLinkedBusinessId(selectedBusinessId);
+        setMsg("Business linked.");
+      },
+      () => setMsg("Link proposed — waiting for every other member to approve.")
+    );
+
+  const respondToPendingLink = async (approve: boolean) => {
+    const updated = await linkPreview.respond(approve);
+    if (updated?.status === "APPROVED") {
+      setLinkedBusinessId(updated.targetGroupId);
       setMsg("Business linked.");
-    });
+    }
+  };
 
   const unlinkBusiness = async () => {
     setBusy(true);
@@ -195,6 +215,15 @@ export default function ManageInventoryGroupPage() {
               Unlink
             </button>
           </div>
+        ) : linkPreview.pending ? (
+          <PendingLinkProposal
+            proposal={linkPreview.pending}
+            targetName={businesses.find((g) => g.id === linkPreview.pending!.targetGroupId)?.name ?? "the business"}
+            haveApproved={linkPreview.pending.approvedByUserIds.includes(user?.id ?? "")}
+            busy={linkPreview.busy}
+            onApprove={() => respondToPendingLink(true)}
+            onReject={() => respondToPendingLink(false)}
+          />
         ) : businesses.length === 0 ? (
           <p className="empty">
             No Order Tracker businesses yet — create one from the Order Tracker applet first, then come

@@ -25,11 +25,15 @@ const INFO_ONLY_TYPES = [
   "ORDER_FINALIZATION_INVALIDATED",
   "PROFIT_DISTRIBUTION_INVALIDATED",
   "ARCHIVE_REQUEST_INVALIDATED",
+  "GROUP_LINK_INVALIDATED",
   // ad-4: proactive "something new needs your attention" notices
   "COST_CONFIG_PROPOSED",
   "ORDER_FINALIZATION_PROPOSED",
   "ORDER_FINALIZATION_RESOLVED",
   "PROFIT_DISTRIBUTION_PROPOSED",
+  // mb-14: approve/reject happens in the Connections widget, not inline here (unlike
+  // GROUP_INVITE/ARCHIVE_REQUEST) — this is just the heads-up that one is waiting.
+  "GROUP_LINK_PROPOSED",
   "SIGNUP_PENDING",
   "PASSWORD_REQUEST_PENDING",
 ] as const;

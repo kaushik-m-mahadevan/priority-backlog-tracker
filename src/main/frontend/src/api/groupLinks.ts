@@ -1,5 +1,5 @@
 import { api } from "./client";
-import type { GroupView } from "../types";
+import type { GroupLinkProposalView, GroupView } from "../types";
 
 /** Thin, shared wrapper over the generic commons cross-applet linking endpoints
  *  (`/api/groups/{id}/links...`) — previously reimplemented inline, once each, in Order
@@ -19,12 +19,25 @@ export const groupLinkApi = {
    *  against a candidate group's own members. */
   group: (groupId: string) => api.get<GroupView>(`/groups/${groupId}`),
 
-  /** {@code inviteAllMembers} is the Setup Wizard's own "invite everyone outright" behaviour
-   *  (mb-23) — the manual link path here always omits it, since the linker reviews and
-   *  edits a suggested delta of invites themselves before any are sent. */
-  link: (groupId: string, otherGroupId: string) => api.post<void>(`/groups/${groupId}/links`, { groupId: otherGroupId }),
-
   unlink: (groupId: string, otherAppletKey: string) => api.delete<void>(`/groups/${groupId}/links/${otherAppletKey}`),
 
   invite: (groupId: string, to: string) => api.post<void>(`/groups/${groupId}/invites`, { to }),
+
+  /** mb-14: the manual link path — gated behind unanimous approval from `groupId`'s own
+   *  members, rather than linking outright like the Setup Wizard's own raw link call. The
+   *  returned proposal's `status` is `APPROVED` immediately for a solo-member group (the
+   *  same "lone proposer already satisfies unanimity" rule every other approval flow has),
+   *  otherwise `PENDING` until every other member approves. */
+  proposeLink: (groupId: string, targetGroupId: string, intoCurrentEmails: string[], intoTargetEmails: string[]) =>
+    api.post<GroupLinkProposalView>(`/groups/${groupId}/link-proposals`, {
+      groupId: targetGroupId, intoCurrentEmails, intoTargetEmails,
+    }),
+
+  linkProposals: (groupId: string) => api.get<GroupLinkProposalView[]>(`/groups/${groupId}/link-proposals`),
+
+  approveLinkProposal: (groupId: string, requestId: string) =>
+    api.post<GroupLinkProposalView>(`/groups/${groupId}/link-proposals/${requestId}/approve`),
+
+  rejectLinkProposal: (groupId: string, requestId: string) =>
+    api.post<GroupLinkProposalView>(`/groups/${groupId}/link-proposals/${requestId}/reject`),
 };

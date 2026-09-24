@@ -17,6 +17,25 @@ export interface GroupView {
   members: UserSummary[];
 }
 
+export type GroupLinkApprovalStatus = "PENDING" | "APPROVED" | "REJECTED" | "INVALIDATED";
+
+/** mb-14: a proposal to link the current group to another applet's group, gated behind
+ *  unanimous approval from the current group's own members. */
+export interface GroupLinkProposalView {
+  id: string;
+  groupId: string;
+  targetGroupId: string;
+  intoCurrentEmails: string[];
+  intoTargetEmails: string[];
+  proposedByUserId: string;
+  approvedByUserIds: string[];
+  groupMemberIds: string[];
+  status: GroupLinkApprovalStatus;
+  rejectedByUserId: string | null;
+  createdAt: string;
+  resolvedAt: string | null;
+}
+
 /** One outstanding invite on a group's "Pending invites" list — view-only, no cancel/
  *  revoke action yet. */
 export interface PendingInvite {
