@@ -19,8 +19,10 @@ import com.backlogtracker.commons.approval.domain.ApprovalStatus;
 import com.backlogtracker.commons.approval.event.ApprovalRequestInvalidatedEvent;
 import com.backlogtracker.commons.approval.repository.ApprovalRequestRepository;
 import com.backlogtracker.commons.approval.service.ApprovalService;
+import com.backlogtracker.commons.finance.OrderSplitLookup;
 import com.backlogtracker.commons.group.domain.Group;
 import com.backlogtracker.commons.group.service.GroupService;
+import com.backlogtracker.commons.link.service.GroupLinkService;
 import com.backlogtracker.commons.notification.domain.NotificationType;
 import com.backlogtracker.commons.notification.service.NotificationOrchestrator;
 import com.backlogtracker.commons.notification.service.NotificationService;
@@ -58,9 +60,29 @@ public class ProfitDistributionService {
     private final ApprovalService approvalService;
     private final ApprovalRequestRepository approvalRequests;
     private final GroupService groupService;
+    private final GroupLinkService groupLinkService;
+    private final List<OrderSplitLookup> orderSplitLookups;
     private final LedgerEntryService ledgerEntryService;
     private final NotificationService notificationService;
     private final NotificationOrchestrator notificationOrchestrator;
+
+    /** mb-18: pre-fills a proposal's recipient/unit split from a real linked order's own
+     *  split allocation, instead of it being re-typed by hand — the coordinator can still
+     *  edit anything this returns before proposing (same manual-override path as before). */
+    public OrderSplitLookup.OrderSplitView lookupOrderSplit(String groupId, String userId, String reference) {
+        groupService.requireMember(groupId, userId);
+        String orderGroupId = groupLinkService.linkedGroupId(groupId, userId, Group.APPLET_ORDER_TRACKER)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "Link an Order Tracker business to this group first"));
+        return orderSplitLookup()
+                .flatMap(lookup -> lookup.findByReference(orderGroupId, userId, reference))
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
+                        "No order found for reference '" + reference + "'"));
+    }
+
+    private java.util.Optional<OrderSplitLookup> orderSplitLookup() {
+        return orderSplitLookups.stream().filter(l -> Group.APPLET_ORDER_TRACKER.equals(l.appletKey())).findFirst();
+    }
 
     public List<ProfitDistributionView> list(String groupId, String userId) {
         Group group = groupService.requireMember(groupId, userId);

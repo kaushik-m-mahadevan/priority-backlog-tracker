@@ -68,6 +68,14 @@ export interface ProfitDistributionRecipientAmount {
   amount: number;
 }
 
+/** mb-18: one linked order's real split allocation, keyed by platform user id (same id
+ *  space as ProfitDistributionRecipientInput.personId) so it can be dropped straight into
+ *  the proposal form without translation. */
+export interface OrderSplitView {
+  reference: string;
+  recipients: { userId: string; unitsCompleted: number }[];
+}
+
 export interface ProfitDistributionView {
   requestId: string;
   status: ApprovalStatus;

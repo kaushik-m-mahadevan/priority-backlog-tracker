@@ -32,6 +32,8 @@ export default function ProfitSplitPage() {
   const [recipients, setRecipients] = useState<RecipientDraft[]>([blankRecipient(), blankRecipient()]);
   const [submitting, setSubmitting] = useState(false);
   const [respondingId, setRespondingId] = useState<string | null>(null);
+  const [lookingUpSplit, setLookingUpSplit] = useState(false);
+  const [lookupError, setLookupError] = useState<string | null>(null);
 
   const members = currentFinanceGroup?.members ?? [];
   const memberName = (id: string) => members.find((m) => m.id === id)?.name ?? "Unknown";
@@ -54,6 +56,7 @@ export default function ProfitSplitPage() {
     setOrderRefs([""]);
     setTotalProfit("");
     setRecipients([blankRecipient(), blankRecipient()]);
+    setLookupError(null);
     setShowForm(false);
   };
 
@@ -100,6 +103,37 @@ export default function ProfitSplitPage() {
 
   const updateOrderRef = (index: number, value: string) =>
     setOrderRefs(orderRefs.map((r, i) => (i === index ? value : r)));
+
+  /** mb-18: pre-fills recipients from a real linked order's own split allocation, instead
+   *  of requiring them re-typed by hand — still freely editable/overridable afterward. */
+  const lookUpSplit = async () => {
+    if (!currentGroupId) return;
+    const reference = orderRefs.map((r) => r.trim()).find(Boolean);
+    if (!reference) {
+      setLookupError("Enter an order reference first");
+      return;
+    }
+    setLookupError(null);
+    setLookingUpSplit(true);
+    try {
+      const split = await financeTrackerApi.lookupOrderSplit(currentGroupId, reference);
+      if (split.recipients.length === 0) {
+        setLookupError(`Order "${reference}" has no split allocation to pull in`);
+        return;
+      }
+      setRecipients(
+        split.recipients.map((r) => ({
+          personId: r.userId,
+          unitsCompleted: String(r.unitsCompleted),
+          overrideAmount: "",
+        }))
+      );
+    } catch (err) {
+      setLookupError(err instanceof Error ? err.message : "Couldn't find that order");
+    } finally {
+      setLookingUpSplit(false);
+    }
+  };
 
   const orderLabel = (refs: string[]) => (refs.length > 0 ? refs.join(", ") : "General settlement");
 
@@ -228,6 +262,16 @@ export default function ProfitSplitPage() {
                 <button type="button" onClick={() => setOrderRefs([...orderRefs, ""])}>
                   + Add order reference
                 </button>
+                <div style={{ marginTop: 8 }}>
+                  <button type="button" onClick={lookUpSplit} disabled={lookingUpSplit}>
+                    {lookingUpSplit ? "Looking up…" : "Pull split from this order"}
+                  </button>
+                  <p className="hint" style={{ marginTop: 4 }}>
+                    Fills in recipients/units below from the order's own real split allocation —
+                    still editable afterward.
+                  </p>
+                  {lookupError && <p className="hint bad" style={{ marginTop: 4 }}>{lookupError}</p>}
+                </div>
               </div>
             )}
 

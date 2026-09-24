@@ -5,6 +5,7 @@ import type {
   FinanceBusinessConfig,
   LedgerEntryView,
   MemberBalanceView,
+  OrderSplitView,
   ProfitDistributionView,
   ProposeProfitDistributionRequest,
 } from "./types";
@@ -24,6 +25,8 @@ export const financeTrackerApi = {
     api.put<FinanceBusinessConfig>(`${base(groupId)}/business-config`, { businessAccountConfigured }),
 
   profitDistributions: (groupId: string) => api.get<ProfitDistributionView[]>(`${base(groupId)}/profit-distributions`),
+  lookupOrderSplit: (groupId: string, reference: string) =>
+    api.get<OrderSplitView>(`${base(groupId)}/profit-distributions/order-split/${encodeURIComponent(reference)}`),
   proposeProfitDistribution: (groupId: string, body: ProposeProfitDistributionRequest) =>
     api.post<ProfitDistributionView>(`${base(groupId)}/profit-distributions`, body),
   approveProfitDistribution: (groupId: string, requestId: string) =>

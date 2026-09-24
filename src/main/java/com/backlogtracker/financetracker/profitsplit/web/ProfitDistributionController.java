@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.backlogtracker.commons.finance.OrderSplitLookup;
 import com.backlogtracker.commons.security.AuthUser;
 import com.backlogtracker.commons.security.RequiresUser;
 import com.backlogtracker.financetracker.profitsplit.dto.ProfitDistributionView;
@@ -37,6 +38,12 @@ public class ProfitDistributionController {
     public ProfitDistributionView get(@PathVariable String groupId, @PathVariable String requestId,
                                       @AuthenticationPrincipal AuthUser actor) {
         return profitDistributionService.get(groupId, actor.id(), requestId);
+    }
+
+    @GetMapping("/order-split/{reference}")
+    public OrderSplitLookup.OrderSplitView lookupOrderSplit(@PathVariable String groupId, @PathVariable String reference,
+                                                            @AuthenticationPrincipal AuthUser actor) {
+        return profitDistributionService.lookupOrderSplit(groupId, actor.id(), reference);
     }
 
     @PostMapping

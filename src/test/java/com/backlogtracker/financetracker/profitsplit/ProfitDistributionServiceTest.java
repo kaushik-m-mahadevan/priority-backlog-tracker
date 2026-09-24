@@ -15,9 +15,11 @@ import org.springframework.web.server.ResponseStatusException;
 
 import com.backlogtracker.commons.approval.domain.ApprovalStatus;
 import com.backlogtracker.commons.approval.repository.ApprovalRequestRepository;
+import com.backlogtracker.commons.finance.OrderSplitLookup;
 import com.backlogtracker.commons.group.domain.Group;
 import com.backlogtracker.commons.group.repository.GroupRepository;
 import com.backlogtracker.commons.group.service.GroupService;
+import com.backlogtracker.commons.link.service.GroupLinkService;
 import com.backlogtracker.commons.notification.domain.NotificationType;
 import com.backlogtracker.commons.notification.repository.NotificationRepository;
 import com.backlogtracker.commons.user.domain.AccountStatus;
@@ -31,6 +33,20 @@ import com.backlogtracker.financetracker.profitsplit.dto.ProfitDistributionView;
 import com.backlogtracker.financetracker.profitsplit.dto.ProposeProfitDistributionRequest;
 import com.backlogtracker.financetracker.profitsplit.dto.ProposeProfitDistributionRequest.RecipientInput;
 import com.backlogtracker.financetracker.profitsplit.service.ProfitDistributionService;
+import com.backlogtracker.ordertracker.customer.domain.AcquisitionChannel;
+import com.backlogtracker.ordertracker.customer.dto.CustomerView;
+import com.backlogtracker.ordertracker.customer.dto.UpsertCustomerRequest;
+import com.backlogtracker.ordertracker.customer.repository.CustomerRepository;
+import com.backlogtracker.ordertracker.customer.service.CustomerService;
+import com.backlogtracker.ordertracker.master.domain.Creator;
+import com.backlogtracker.ordertracker.master.repository.CreatorRepository;
+import com.backlogtracker.ordertracker.master.service.CreatorService;
+import com.backlogtracker.ordertracker.order.dto.CreateOrderRequest;
+import com.backlogtracker.ordertracker.order.dto.CreateOrderRequest.SplitLineInput;
+import com.backlogtracker.ordertracker.order.dto.CreateOrderRequest.VariantInput;
+import com.backlogtracker.ordertracker.order.dto.OrderView;
+import com.backlogtracker.ordertracker.order.repository.OrderRepository;
+import com.backlogtracker.ordertracker.order.service.OrderService;
 
 @SpringBootTest
 class ProfitDistributionServiceTest {
@@ -43,6 +59,13 @@ class ProfitDistributionServiceTest {
     @Autowired GroupRepository groups;
     @Autowired UserRepository users;
     @Autowired NotificationRepository notifications;
+    @Autowired GroupLinkService groupLinkService;
+    @Autowired CreatorService creatorService;
+    @Autowired CreatorRepository creators;
+    @Autowired OrderService orderService;
+    @Autowired OrderRepository orders;
+    @Autowired CustomerService customerService;
+    @Autowired CustomerRepository customers;
 
     private String coordinatorId;
     private String creatorAId;
@@ -194,6 +217,59 @@ class ProfitDistributionServiceTest {
         assertThatThrownBy(() -> profitDistributionService.propose(financeGroup.getId(), coordinatorId, proportionalRequest()))
                 .isInstanceOf(ResponseStatusException.class)
                 .hasMessageContaining("already pending");
+    }
+
+    /** mb-18: a real bulk order's split allocation, aggregated across two variants and
+     *  translated from Order Tracker's own Creator ids to the platform user ids Finance
+     *  Tracker's recipients are keyed by. */
+    @Test
+    void lookupOrderSplitAggregatesARealBulkOrdersSplitAllocationAcrossVariants() {
+        Group business = groupService.create("Profit Split Test Business", coordinatorId, Group.APPLET_ORDER_TRACKER);
+        business = groupService.addMember(business.getId(), creatorAId);
+        business = groupService.addMember(business.getId(), creatorBId);
+        groupLinkService.link(business.getId(), coordinatorId, financeGroup.getId());
+
+        Creator creatorA = creatorService.upsertMyProfile(business.getId(), creatorAId, null, "Bengaluru", 4);
+        Creator creatorB = creatorService.upsertMyProfile(business.getId(), creatorBId, null, "Chennai", 4);
+        CustomerView customer = customerService.create(business.getId(), coordinatorId,
+                new UpsertCustomerRequest("Split Test Customer", null, null, null, AcquisitionChannel.INSTAGRAM,
+                        null, null, null));
+
+        OrderView order = orderService.create(business.getId(), coordinatorId, new CreateOrderRequest(
+                customer.id(), "BULK", creatorA.getId(), "Split test coasters", null, null, null, null, List.of(), 0,
+                null, null, null, null, null, null, null, null, 0, 0,
+                List.of(
+                        new VariantInput("v1", "Sage", 5, List.of(), List.of(), List.of(), null, List.of(), 1.0, 0.5,
+                                List.of(new SplitLineInput(creatorA.getId(), 3), new SplitLineInput(creatorB.getId(), 2))),
+                        new VariantInput("v2", "Sunset", 4, List.of(), List.of(), List.of(), null, List.of(), 1.0, 0.5,
+                                List.of(new SplitLineInput(creatorA.getId(), 4)))),
+                creatorA.getId(), 0));
+
+        OrderSplitLookup.OrderSplitView split =
+                profitDistributionService.lookupOrderSplit(financeGroup.getId(), coordinatorId, order.orderNumber());
+
+        assertThat(split.recipients())
+                .extracting(OrderSplitLookup.RecipientSplit::userId, OrderSplitLookup.RecipientSplit::unitsCompleted)
+                .containsExactlyInAnyOrder(
+                        org.assertj.core.groups.Tuple.tuple(creatorAId, 7),
+                        org.assertj.core.groups.Tuple.tuple(creatorBId, 2));
+
+        orders.deleteById(order.id());
+        customers.deleteById(customer.id());
+        creators.findByGroupId(business.getId()).forEach(c -> creators.deleteById(c.getId()));
+        groups.deleteById(business.getId());
+    }
+
+    @Test
+    void lookupOrderSplitRejectsAReferenceThatDoesNotMatchAnyLinkedOrder() {
+        Group business = groupService.create("Profit Split Test Business 2", coordinatorId, Group.APPLET_ORDER_TRACKER);
+        groupLinkService.link(business.getId(), coordinatorId, financeGroup.getId());
+
+        assertThatThrownBy(() -> profitDistributionService.lookupOrderSplit(financeGroup.getId(), coordinatorId, "no-such-order"))
+                .isInstanceOf(ResponseStatusException.class)
+                .hasMessageContaining("No order found");
+
+        groups.deleteById(business.getId());
     }
 
     @Test
