@@ -23,10 +23,10 @@ import com.backlogtracker.ordertracker.order.dto.AddTimeLogEntryRequest;
 @Service
 class TimeLogService {
 
-    private static final double QUARTER_STEP_EPSILON = 1e-9;
+    private static final double MINUTE_STEP_EPSILON = 1e-9;
 
     Order.TimeLogEntry addEntry(Order order, AddTimeLogEntryRequest request, String loggedByCreatorId, Instant now) {
-        double hours = requireQuarterStepHours(request.hours());
+        double hours = requireMinuteStepHours(request.hours());
         Order.TimeLogEntry entry = Order.TimeLogEntry.builder()
                 .entryId(UUID.randomUUID().toString())
                 .stage(request.stage())
@@ -112,14 +112,17 @@ class TimeLogService {
         }
     }
 
-    private static double requireQuarterStepHours(double hours) {
+    /** mb-6: was quarter-hour (15-minute) steps only — loosened to whole-minute steps so a
+     *  genuine 10-minute task can be logged exactly, instead of rounding up to 15 or down
+     *  to 0. */
+    private static double requireMinuteStepHours(double hours) {
         if (hours <= 0) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "hours must be greater than zero");
         }
-        double quarters = hours * 4;
-        if (Math.abs(quarters - Math.round(quarters)) > QUARTER_STEP_EPSILON) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "hours must be in quarter-hour steps (e.g. 0.25, 1.5)");
+        double minutes = hours * 60;
+        if (Math.abs(minutes - Math.round(minutes)) > MINUTE_STEP_EPSILON) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "hours must be in whole-minute steps (e.g. 0.1667, 1.5)");
         }
-        return Math.round(quarters) / 4.0;
+        return Math.round(minutes) / 60.0;
     }
 }

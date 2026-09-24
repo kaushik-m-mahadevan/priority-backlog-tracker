@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { orderTrackerApi } from "../api";
 import { useBusiness } from "../BusinessContext";
 import { Section } from "../../components/Section";
+import { HoursMinutesInput } from "../../components/HoursMinutesInput";
 import { useLinkedNeedleTypes } from "../useLinkedNeedleTypes";
 import { useLinkedYarnTypes } from "../useLinkedYarnTypes";
 import { SlideToggle } from "../../components/SlideToggle";
@@ -345,9 +346,8 @@ export default function NewOrderPage() {
             placeholder={"One step per line, e.g.\nCrochet body, attach petals\nInsert safety eyes and stuff"} />
         </div>
         <div className="form-row" style={{ maxWidth: 220 }}>
-          <label htmlFor="no-research-time">Research time (hours)</label>
-          <input id="no-research-time" type="number" min={0} step={0.25} value={researchTimeHours}
-            onChange={(e) => setResearchTimeHours(Number(e.target.value))} />
+          <span className="muted" style={{ fontSize: 12, display: "block", marginBottom: 4 }}>Research time</span>
+          <HoursMinutesInput idPrefix="no-research-time" hours={researchTimeHours} onChange={setResearchTimeHours} />
         </div>
 
         </Section>
@@ -405,14 +405,12 @@ export default function NewOrderPage() {
             <h2 className="settings-section">Processes</h2>
             <div className="form-grid">
               <div className="form-row">
-                <label htmlFor="no-crafting-time">Crochet time (hours)</label>
-                <input id="no-crafting-time" type="number" min={0} step={0.25} value={craftingTimeHours}
-                  onChange={(e) => setCraftingTimeHours(Number(e.target.value))} />
+                <span className="muted" style={{ fontSize: 12, display: "block", marginBottom: 4 }}>Crochet time</span>
+                <HoursMinutesInput idPrefix="no-crafting-time" hours={craftingTimeHours} onChange={setCraftingTimeHours} />
               </div>
               <div className="form-row">
-                <label htmlFor="no-assembly-time">Assembly time (hours)</label>
-                <input id="no-assembly-time" type="number" min={0} step={0.25} value={assemblyTimeHours}
-                  onChange={(e) => setAssemblyTimeHours(Number(e.target.value))} />
+                <span className="muted" style={{ fontSize: 12, display: "block", marginBottom: 4 }}>Assembly time</span>
+                <HoursMinutesInput idPrefix="no-assembly-time" hours={assemblyTimeHours} onChange={setAssemblyTimeHours} />
               </div>
             </div>
           </>

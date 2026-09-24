@@ -12,6 +12,7 @@ import {
   type MandatoryItemDraft,
 } from "../../OrderFormFields";
 import { OrderSummaryFields } from "./OrderSummaryFields";
+import { HoursMinutesInput } from "../../../components/HoursMinutesInput";
 import type { BusinessConfig, ComponentTemplate, Customer, DeliveryTier, OrderView, PatternType, PresetOption } from "../../types";
 
 /** Extracted from OrderDetailPage.tsx (fdup-1) — fully self-contained via props, no
@@ -182,14 +183,12 @@ export function EditOrderForm({
       <h2 className="settings-section">Processes</h2>
       <div className="form-grid">
         <div className="form-row">
-          <label htmlFor="eod-crafting-time">Crochet time (hours)</label>
-          <input id="eod-crafting-time" type="number" min={0} step={0.25} value={craftingTimeHours}
-            onChange={(e) => setCraftingTimeHours(Number(e.target.value))} />
+          <span className="muted" style={{ fontSize: 12, display: "block", marginBottom: 4 }}>Crochet time</span>
+          <HoursMinutesInput idPrefix="eod-crafting-time" hours={craftingTimeHours} onChange={setCraftingTimeHours} />
         </div>
         <div className="form-row">
-          <label htmlFor="eod-assembly-time">Assembly time (hours)</label>
-          <input id="eod-assembly-time" type="number" min={0} step={0.25} value={assemblyTimeHours}
-            onChange={(e) => setAssemblyTimeHours(Number(e.target.value))} />
+          <span className="muted" style={{ fontSize: 12, display: "block", marginBottom: 4 }}>Assembly time</span>
+          <HoursMinutesInput idPrefix="eod-assembly-time" hours={assemblyTimeHours} onChange={setAssemblyTimeHours} />
         </div>
       </div>
 

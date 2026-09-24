@@ -1,3 +1,4 @@
+import { HoursMinutesInput } from "../../../components/HoursMinutesInput";
 import { DELIVERY_TIER_LABELS } from "./deliveryTiers";
 import type { Customer, DeliveryTier, PatternType } from "../../types";
 
@@ -158,15 +159,8 @@ export function OrderSummaryFields({
         />
       </div>
       <div className="form-row" style={{ maxWidth: 220 }}>
-        <label htmlFor={`${idPrefix}-research-time`}>Research time (hours)</label>
-        <input
-          id={`${idPrefix}-research-time`}
-          type="number"
-          min={0}
-          step={0.25}
-          value={researchTimeHours}
-          onChange={(e) => onResearchTimeHoursChange(Number(e.target.value))}
-        />
+        <span className="muted" style={{ fontSize: 12, display: "block", marginBottom: 4 }}>Research time</span>
+        <HoursMinutesInput idPrefix={`${idPrefix}-research-time`} hours={researchTimeHours} onChange={onResearchTimeHoursChange} />
       </div>
 
       <h2 className="settings-section">Assembly &amp; packaging</h2>

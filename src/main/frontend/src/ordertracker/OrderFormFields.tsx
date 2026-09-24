@@ -1,3 +1,4 @@
+import { HoursMinutesInput } from "../components/HoursMinutesInput";
 import type { ComponentTemplate, MaterialKind } from "./types";
 
 export interface MandatoryItemDraft {
@@ -395,16 +396,13 @@ export function ComponentsFields({
                 />
               </div>
               <div className="form-row">
-                <label htmlFor={`comp-${i}-time`} className="muted" style={{ fontSize: 11 }}>
-                  Crochet time (hours, per unit)
-                </label>
-                <input
-                  id={`comp-${i}-time`}
-                  type="number"
-                  min={0}
-                  step={0.05}
-                  value={c.craftingTimeHours}
-                  onChange={(e) => onChange(components.map((x, j) => (j === i ? { ...x, craftingTimeHours: Number(e.target.value) } : x)))}
+                <span className="muted" style={{ fontSize: 11, display: "block" }}>
+                  Crochet time (per unit)
+                </span>
+                <HoursMinutesInput
+                  idPrefix={`comp-${i}-time`}
+                  hours={c.craftingTimeHours}
+                  onChange={(h) => onChange(components.map((x, j) => (j === i ? { ...x, craftingTimeHours: h } : x)))}
                 />
               </div>
             </div>
@@ -542,25 +540,19 @@ export function VariantCardFields({
       </div>
       <div className="form-grid" style={{ marginTop: 6, maxWidth: 460 }}>
         <div className="form-row">
-          <label htmlFor={craftId}>Crochet time/unit (hours)</label>
-          <input
-            id={craftId}
-            type="number"
-            min={0}
-            step={0.1}
-            value={variant.craftingTimeHours}
-            onChange={(e) => onChange({ ...variant, craftingTimeHours: Number(e.target.value) })}
+          <span className="muted" style={{ fontSize: 12, display: "block", marginBottom: 4 }}>Crochet time/unit</span>
+          <HoursMinutesInput
+            idPrefix={craftId}
+            hours={variant.craftingTimeHours}
+            onChange={(h) => onChange({ ...variant, craftingTimeHours: h })}
           />
         </div>
         <div className="form-row">
-          <label htmlFor={assemblyId}>Assembly time/unit (hours)</label>
-          <input
-            id={assemblyId}
-            type="number"
-            min={0}
-            step={0.1}
-            value={variant.assemblyTimeHours}
-            onChange={(e) => onChange({ ...variant, assemblyTimeHours: Number(e.target.value) })}
+          <span className="muted" style={{ fontSize: 12, display: "block", marginBottom: 4 }}>Assembly time/unit</span>
+          <HoursMinutesInput
+            idPrefix={assemblyId}
+            hours={variant.assemblyTimeHours}
+            onChange={(h) => onChange({ ...variant, assemblyTimeHours: h })}
           />
         </div>
       </div>

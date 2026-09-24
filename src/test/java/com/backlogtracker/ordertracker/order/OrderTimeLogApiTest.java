@@ -182,13 +182,23 @@ class OrderTimeLogApiTest {
     }
 
     @Test
-    void rejectsHoursThatArentOnAQuarterHourStep() throws Exception {
+    void rejectsHoursThatArentOnAWholeMinuteStep() throws Exception {
+        String orderId = createIndividualOrder();
+        mvc.perform(auth(post(timeLogUrl(orderId)), token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"stage":"CRAFTING","hours":0.31}"""))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void acceptsHoursOnAWholeMinuteStepThatIsntAQuarterHour() throws Exception {
         String orderId = createIndividualOrder();
         mvc.perform(auth(post(timeLogUrl(orderId)), token)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"stage":"CRAFTING","hours":0.3}"""))
-                .andExpect(status().isBadRequest());
+                .andExpect(status().isOk());
     }
 
     @Test
