@@ -2,13 +2,13 @@ package com.backlogtracker.materialinventory.transfer.service;
 
 import java.time.Clock;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
+import java.util.UUID;
 
-import org.springframework.data.mongodb.core.FindAndModifyOptions;
-import org.springframework.data.mongodb.core.MongoOperations;
-import org.springframework.data.mongodb.core.query.Criteria;
-import org.springframework.data.mongodb.core.query.Query;
-import org.springframework.data.mongodb.core.query.Update;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
@@ -20,31 +20,40 @@ import com.backlogtracker.commons.notification.service.NotificationService;
 import com.backlogtracker.commons.web.ScopedLookup;
 import com.backlogtracker.materialinventory.QuarterStep;
 import com.backlogtracker.materialinventory.inventory.service.InventoryService;
+import com.backlogtracker.materialinventory.transfer.domain.LineStatus;
 import com.backlogtracker.materialinventory.transfer.domain.TransferRequest;
-import com.backlogtracker.materialinventory.transfer.domain.TransferStatus;
 import com.backlogtracker.materialinventory.transfer.dto.CreateTransferRequestRequest;
+import com.backlogtracker.materialinventory.transfer.dto.SendShipmentRequest;
 import com.backlogtracker.materialinventory.transfer.dto.TransferRequestView;
 import com.backlogtracker.materialinventory.transfer.repository.TransferRequestRepository;
+import com.backlogtracker.materialinventory.yarn.domain.YarnType;
 import com.backlogtracker.materialinventory.yarn.service.YarnTypeService;
 
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 
 /**
- * A targeted request for yarn from one member to another — see {@link TransferRequest}
- * for why fulfillment and completion are two separate steps. Visible business-wide
- * (design decision, same full-transparency precedent used elsewhere in this applet), but
- * only the two parties named on a request may act on it.
+ * A targeted request for yarn from one member to another, covering one or more yarn types
+ * (each its own line) — see {@link TransferRequest} for why sending and confirming receipt
+ * are two separate steps, and why a line's own status (not a single request-wide status) is
+ * what actually gates further sends. Visible business-wide (design decision, same
+ * full-transparency precedent used elsewhere in this applet), but only the requester or the
+ * target may act on any given line, matching who that action concerns.
  */
 @Service
 @RequiredArgsConstructor
-@Slf4j
 public class TransferRequestService {
 
     private static final String LINK_PATH = "/materialinventory/requests";
 
+    /** How many times {@link #send}/{@link #confirmReceived} re-read and retry after losing
+     *  an optimistic-locking race on this document (see {@code TransferRequest.version}).
+     *  Comfortably covers realistic contention (a handful of members acting on the same
+     *  request around the same time) — a losing attempt re-reads the now-current state, so
+     *  a retry that finds the real cap already reached still correctly fails as a business
+     *  rejection (400), not a swallowed race. */
+    private static final int MAX_VERSION_RETRIES = 50;
+
     private final TransferRequestRepository repository;
-    private final MongoOperations mongo;
     private final GroupService groupService;
     private final YarnTypeService yarnTypeService;
     private final InventoryService inventoryService;
@@ -67,160 +76,208 @@ public class TransferRequestService {
         if (!group.hasMember(request.targetUserId())) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "targetUserId must be a member of this inventory group");
         }
-        var yarnType = yarnTypeService.requireById(groupId, request.yarnTypeId());
-        double requestedQuantity = requireQuarterStep(request.requestedQuantity());
-        if (requestedQuantity <= 0) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "requestedQuantity must be greater than zero");
+        if (request.lines() == null || request.lines().isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "At least one yarn type is required");
+        }
+
+        List<TransferRequest.TransferLine> lines = new ArrayList<>();
+        List<String> summary = new ArrayList<>();
+        Set<String> seenYarnTypes = new HashSet<>();
+        for (CreateTransferRequestRequest.LineInput lineInput : request.lines()) {
+            if (!seenYarnTypes.add(lineInput.yarnTypeId())) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Each yarn type can only appear once per request");
+            }
+            YarnType yarnType = yarnTypeService.requireById(groupId, lineInput.yarnTypeId());
+            double quantity = QuarterStep.require(lineInput.quantity());
+            if (quantity <= 0) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "quantity must be greater than zero");
+            }
+            lines.add(TransferRequest.TransferLine.builder()
+                    .lineId(UUID.randomUUID().toString())
+                    .yarnTypeId(lineInput.yarnTypeId())
+                    .requestedQuantity(quantity)
+                    .status(LineStatus.OPEN)
+                    .shipments(new ArrayList<>())
+                    .build());
+            summary.add(quantity + " " + yarnType.getBrand() + " " + yarnType.getThickness() + " (" + yarnType.getColour() + ")");
         }
 
         TransferRequest saved = repository.save(TransferRequest.builder()
                 .groupId(groupId)
                 .requesterId(userId)
                 .targetUserId(request.targetUserId())
-                .yarnTypeId(request.yarnTypeId())
-                .requestedQuantity(requestedQuantity)
-                .fulfilledQuantity(0)
-                .status(TransferStatus.PENDING)
+                .lines(lines)
                 .createdAt(Instant.now(clock))
                 .build());
         notificationService.actionable(request.targetUserId(), NotificationType.TRANSFER_REQUEST_CREATED,
-                "Yarn request", "Someone is asking you for " + requestedQuantity + " " + yarnType.getBrand() + " "
-                        + yarnType.getThickness() + " (" + yarnType.getColour() + ").", LINK_PATH, saved.getId());
+                "Yarn request", "Someone is asking you for " + String.join(", ", summary) + ".", LINK_PATH, saved.getId());
         return TransferRequestView.of(saved);
     }
 
-    /** Only the target member — the one who actually holds the yarn — may fulfill any
-     *  amount of it, up to what's still requested and what they actually have on hand
-     *  (design decision: allow partial fulfillment, one or more installments). This moves
-     *  the given quantity out of the target's own on-hand inventory into the requester's.
-     *
-     *  <p>The "no more than requested" cap is enforced by {@link #reserveFulfillment} as a
-     *  single atomic conditional update — not a read-then-write — so two concurrent
-     *  fulfillments of the same request can never together push {@code fulfilledQuantity}
-     *  past {@code requestedQuantity}, closing the race an earlier version of this method
-     *  left open (round 4 review flagged it as needing a real database transaction to fix;
-     *  it doesn't, since {@code requestedQuantity} is never mutated after creation — that
-     *  makes "not too much left" a plain atomic range filter, the same technique
-     *  {@code InventoryService.adjustQuantity} already uses for the physical quantity
-     *  itself). The reservation runs before the physical inventory move: if the inventory
-     *  move then fails (e.g. the target's on-hand quantity changed in the interim via some
-     *  other concurrent action), the reservation is rolled back so the request's own
-     *  bookkeeping never claims more was handed over than actually was. */
-    public TransferRequestView fulfill(String groupId, String userId, String requestId, double quantity) {
+    /** Only the target — the one who actually holds the yarn — may send against a line, in
+     *  one or more installments (design decision: a target may not have everything on hand
+     *  at once, e.g. "forgot the black ones, brings them tomorrow"). Debits the target's own
+     *  on-hand immediately, same guarantee {@code InventoryService.adjustQuantity} already
+     *  enforces ("the holder can only give away what they actually have") — the yarn sits in
+     *  neither party's inventory until the requester separately confirms it arrived. */
+    public TransferRequestView send(String groupId, String userId, String requestId, String lineId, SendShipmentRequest request) {
         groupService.requireMember(groupId, userId);
-        TransferRequest request = requireOpenRequest(groupId, requestId);
-        if (!request.getTargetUserId().equals(userId)) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Only the person holding the yarn can fulfill this request");
-        }
-        double amount = requireQuarterStep(quantity);
+        double amount = QuarterStep.require(request.quantity());
         if (amount <= 0) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "quantity must be greater than zero");
         }
 
-        TransferRequest reserved = reserveFulfillment(groupId, requestId, amount, request.getRequestedQuantity());
-        try {
-            inventoryService.adjustQuantity(groupId, request.getTargetUserId(), request.getYarnTypeId(), -amount);
-            inventoryService.adjustQuantity(groupId, request.getRequesterId(), request.getYarnTypeId(), amount);
-        } catch (RuntimeException e) {
-            unreserve(groupId, requestId, amount);
-            throw e;
+        TransferRequest tr = null;
+        TransferRequest saved = null;
+        for (int attempt = 0; attempt < MAX_VERSION_RETRIES; attempt++) {
+            tr = requireById(groupId, requestId);
+            if (!tr.getTargetUserId().equals(userId)) {
+                throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Only the person holding the yarn can send against this request");
+            }
+            TransferRequest.TransferLine line = requireLine(tr, lineId);
+            if (line.getStatus() != LineStatus.OPEN) {
+                throw new ResponseStatusException(HttpStatus.CONFLICT,
+                        "This line is closed — the requester no longer wants more of this yarn type from you");
+            }
+            double remaining = line.getRequestedQuantity() - sentQuantity(line);
+            if (amount > remaining + QuarterStep.EPSILON) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "That's more than is still requested (" + remaining + " remaining)");
+            }
+
+            // Debits before any local mutation, so a rejection here (not enough on hand)
+            // leaves this request untouched — nothing to roll back.
+            inventoryService.adjustQuantity(groupId, userId, line.getYarnTypeId(), -amount);
+            line.getShipments().add(TransferRequest.Shipment.builder()
+                    .shipmentId(UUID.randomUUID().toString())
+                    .quantity(amount)
+                    .notes(blankToNull(request.notes()))
+                    .sentAt(Instant.now(clock))
+                    .build());
+            try {
+                saved = repository.save(tr);
+                break;
+            } catch (OptimisticLockingFailureException e) {
+                // The debit above already went through but this save lost the race (someone
+                // else changed the same request in between) — credit it straight back and
+                // retry against a fresh read, rather than leave yarn debited with no
+                // shipment ever recorded for it.
+                inventoryService.adjustQuantity(groupId, userId, line.getYarnTypeId(), amount);
+            }
         }
+        if (saved == null) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "This request is being updated by someone else — please retry");
+        }
+
         notificationService.resolveOneByReference(NotificationType.TRANSFER_REQUEST_CREATED, requestId, userId, true);
-        notificationService.info(request.getRequesterId(), NotificationType.TRANSFER_REQUEST_RESOLVED,
-                "Yarn request", amount + " was sent your way.", LINK_PATH);
-        return TransferRequestView.of(reserved);
+        String noteSuffix = request.notes() != null && !request.notes().isBlank() ? " — " + request.notes().trim() : "";
+        notificationService.info(tr.getRequesterId(), NotificationType.TRANSFER_REQUEST_RESOLVED,
+                "Yarn request", amount + " was sent your way" + noteSuffix + ".", LINK_PATH);
+        return TransferRequestView.of(saved);
     }
 
-    /** Atomically increments {@code fulfilledQuantity} only if doing so wouldn't exceed
-     *  {@code requestedQuantity} — the query filter itself encodes the cap
-     *  ({@code fulfilledQuantity <= requestedQuantity - amount}), so a concurrent call that
-     *  would blow the budget simply doesn't match and gets a clean rejection instead of a
-     *  lost-update race. {@code requestedQuantity} is passed in from the caller's own
-     *  already-fresh read rather than re-fetched, since it's immutable after {@link #create}
-     *  ever sets it. */
-    private TransferRequest reserveFulfillment(String groupId, String requestId, double amount, double requestedQuantity) {
-        double maxFulfilledBefore = requestedQuantity - amount + QuarterStep.EPSILON;
-        Query query = Query.query(Criteria.where("id").is(requestId).and("groupId").is(groupId)
-                .and("status").in(TransferStatus.PENDING, TransferStatus.PARTIALLY_FULFILLED)
-                .and("fulfilledQuantity").lte(maxFulfilledBefore));
-        Update update = new Update().inc("fulfilledQuantity", amount).set("status", TransferStatus.PARTIALLY_FULFILLED);
-        TransferRequest updated = mongo.findAndModify(query, update,
-                FindAndModifyOptions.options().returnNew(true), TransferRequest.class);
-        if (updated == null) {
-            // requireOpenRequest() throws its own (already-resolved) error if that's why the
-            // update above didn't match, so this message is only reached when the real cause
-            // is "not enough left".
-            TransferRequest current = requireOpenRequest(groupId, requestId);
-            double remaining = current.getRequestedQuantity() - current.getFulfilledQuantity();
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                    "That's more than is still requested (" + remaining + " remaining)");
-        }
-        return updated;
-    }
-
-    /** Compensates a successful reservation when the physical inventory move that was
-     *  supposed to follow it fails — without this, a failed transfer would still show as
-     *  partially fulfilled on the request even though no yarn actually moved. Not itself
-     *  atomic with the reservation (no real transaction backs this), but this is the rare
-     *  failure path, not the contended common case the atomic reservation above protects. */
-    /** Rolls back a reservation whose physical inventory move then failed. Also reverts
-     *  {@code status} back to PENDING when the rollback brings fulfilledQuantity back to
-     *  zero — reserveFulfillment unconditionally sets PARTIALLY_FULFILLED on every
-     *  successful reservation, so a request whose very first fulfillment attempt fails
-     *  after reserving would otherwise be stuck showing PARTIALLY_FULFILLED forever despite
-     *  zero yarn ever actually changing hands. A request that already had a real prior
-     *  partial fulfillment keeps PARTIALLY_FULFILLED, since fulfilledQuantity stays > 0. */
-    private void unreserve(String groupId, String requestId, double amount) {
-        Query query = Query.query(Criteria.where("id").is(requestId).and("groupId").is(groupId));
-        TransferRequest updated = mongo.findAndModify(query, new Update().inc("fulfilledQuantity", -amount),
-                FindAndModifyOptions.options().returnNew(true), TransferRequest.class);
-        if (updated != null && updated.getFulfilledQuantity() <= QuarterStep.EPSILON) {
-            mongo.updateFirst(query, new Update().set("status", TransferStatus.PENDING), TransferRequest.class);
-        }
-    }
-
-    /** Only the target may mark a request complete (design decision), whether or not it
-     *  was ever fully fulfilled — the receiver is the one who knows whether they're done
-     *  giving yarn out against this ask. */
-    public TransferRequestView markComplete(String groupId, String userId, String requestId) {
+    /** Only the requester may confirm a shipment arrived — the moment that specific
+     *  quantity actually credits their own inventory. Independent per shipment, so
+     *  receiving half of a request today and the rest next week are two ordinary,
+     *  separately-confirmable events. */
+    public TransferRequestView confirmReceived(String groupId, String userId, String requestId, String lineId, String shipmentId) {
         groupService.requireMember(groupId, userId);
-        TransferRequest request = requireOpenRequest(groupId, requestId);
-        if (!request.getTargetUserId().equals(userId)) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Only the person holding the yarn can complete this request");
+
+        TransferRequest tr = null;
+        TransferRequest saved = null;
+        double quantity = 0;
+        for (int attempt = 0; attempt < MAX_VERSION_RETRIES; attempt++) {
+            tr = requireById(groupId, requestId);
+            if (!tr.getRequesterId().equals(userId)) {
+                throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Only the requester can confirm a shipment received");
+            }
+            TransferRequest.TransferLine line = requireLine(tr, lineId);
+            TransferRequest.Shipment shipment = line.getShipments().stream()
+                    .filter(s -> s.getShipmentId().equals(shipmentId))
+                    .findFirst()
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Shipment not found"));
+            if (shipment.getReceivedAt() != null) {
+                throw new ResponseStatusException(HttpStatus.CONFLICT, "This shipment was already confirmed received");
+            }
+
+            quantity = shipment.getQuantity();
+            shipment.setReceivedAt(Instant.now(clock));
+            inventoryService.adjustQuantity(groupId, userId, line.getYarnTypeId(), quantity);
+            try {
+                saved = repository.save(tr);
+                break;
+            } catch (OptimisticLockingFailureException e) {
+                inventoryService.adjustQuantity(groupId, userId, line.getYarnTypeId(), -quantity);
+            }
         }
-        request.setStatus(TransferStatus.COMPLETED);
-        request.setResolvedAt(Instant.now(clock));
-        notificationService.resolveByReference(NotificationType.TRANSFER_REQUEST_CREATED, requestId, true);
-        notificationService.info(request.getRequesterId(), NotificationType.TRANSFER_REQUEST_RESOLVED,
-                "Yarn request", "Your yarn request was marked complete.", LINK_PATH);
-        return TransferRequestView.of(repository.save(request));
+        if (saved == null) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "This request is being updated by someone else — please retry");
+        }
+
+        notificationService.info(tr.getTargetUserId(), NotificationType.TRANSFER_REQUEST_RESOLVED,
+                "Yarn request", "Your shipment of " + quantity + " was confirmed received.", LINK_PATH);
+        return TransferRequestView.of(saved);
     }
 
-    /** The requester can withdraw their own ask while it's still open. */
+    /** The requester can stop expecting any more of one yarn type from this target at any
+     *  time — whether nothing was ever sent, or only part of what was asked for arrived
+     *  (design decision from real use: "I got 2 of the 5 I asked for, that's enough, I'll
+     *  get the rest elsewhere"). Never touches a shipment already sent — closing only blocks
+     *  new ones; anything already in transit stays confirmable whenever it arrives. */
+    public TransferRequestView closeLine(String groupId, String userId, String requestId, String lineId) {
+        groupService.requireMember(groupId, userId);
+        TransferRequest tr = requireById(groupId, requestId);
+        if (!tr.getRequesterId().equals(userId)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Only the requester can close a line");
+        }
+        TransferRequest.TransferLine line = requireLine(tr, lineId);
+        if (line.getStatus() == LineStatus.CLOSED) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "This line is already closed");
+        }
+        double remaining = line.getRequestedQuantity() - sentQuantity(line);
+        line.setStatus(LineStatus.CLOSED);
+        TransferRequest saved = repository.save(tr);
+
+        if (remaining > QuarterStep.EPSILON) {
+            notificationService.info(tr.getTargetUserId(), NotificationType.TRANSFER_REQUEST_RESOLVED,
+                    "Yarn request", "The remaining amount you hadn't sent yet is no longer needed.", LINK_PATH);
+        }
+        return TransferRequestView.of(saved);
+    }
+
+    /** Only when nothing has been sent anywhere on the request yet — once any shipment
+     *  exists on any line, a blanket cancel can no longer undo it, so {@link #closeLine}
+     *  per line is the only way to stop the rest. */
     public TransferRequestView cancel(String groupId, String userId, String requestId) {
         groupService.requireMember(groupId, userId);
-        TransferRequest request = requireOpenRequest(groupId, requestId);
-        if (!request.getRequesterId().equals(userId)) {
+        TransferRequest tr = requireById(groupId, requestId);
+        if (!tr.getRequesterId().equals(userId)) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Only the requester can cancel this request");
         }
-        request.setStatus(TransferStatus.CANCELLED);
-        request.setResolvedAt(Instant.now(clock));
-        notificationService.resolveByReference(NotificationType.TRANSFER_REQUEST_CREATED, requestId, false);
-        notificationService.info(request.getTargetUserId(), NotificationType.TRANSFER_REQUEST_RESOLVED,
-                "Yarn request", "A yarn request to you was withdrawn.", LINK_PATH);
-        return TransferRequestView.of(repository.save(request));
-    }
-
-    private TransferRequest requireOpenRequest(String groupId, String requestId) {
-        TransferRequest request = ScopedLookup.requireInGroup(
-                repository.findById(requestId), TransferRequest::getGroupId, groupId, "Transfer request not found");
-        if (request.getStatus() == TransferStatus.COMPLETED || request.getStatus() == TransferStatus.CANCELLED) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "This request is already " + request.getStatus());
+        boolean anythingSent = tr.getLines().stream().anyMatch(l -> !l.getShipments().isEmpty());
+        if (anythingSent) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "Some yarn has already been sent on this request — close individual lines instead");
         }
-        return request;
+        tr.getLines().forEach(l -> l.setStatus(LineStatus.CLOSED));
+        TransferRequest saved = repository.save(tr);
+        notificationService.resolveByReference(NotificationType.TRANSFER_REQUEST_CREATED, requestId, false);
+        return TransferRequestView.of(saved);
     }
 
-    private double requireQuarterStep(double quantity) {
-        return QuarterStep.require(quantity);
+    private static double sentQuantity(TransferRequest.TransferLine line) {
+        return line.getShipments().stream().mapToDouble(TransferRequest.Shipment::getQuantity).sum();
+    }
+
+    private TransferRequest requireById(String groupId, String requestId) {
+        return ScopedLookup.requireInGroup(repository.findById(requestId), TransferRequest::getGroupId, groupId, "Transfer request not found");
+    }
+
+    private static TransferRequest.TransferLine requireLine(TransferRequest tr, String lineId) {
+        return tr.getLines().stream().filter(l -> l.getLineId().equals(lineId)).findFirst()
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Line not found"));
+    }
+
+    private static String blankToNull(String s) {
+        return s == null || s.isBlank() ? null : s.trim();
     }
 }

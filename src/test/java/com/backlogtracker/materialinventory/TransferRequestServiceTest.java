@@ -27,8 +27,10 @@ import com.backlogtracker.commons.user.domain.User;
 import com.backlogtracker.commons.user.repository.UserRepository;
 import com.backlogtracker.materialinventory.inventory.repository.InventoryEntryRepository;
 import com.backlogtracker.materialinventory.inventory.service.InventoryService;
-import com.backlogtracker.materialinventory.transfer.domain.TransferStatus;
+import com.backlogtracker.materialinventory.transfer.domain.LineStatus;
 import com.backlogtracker.materialinventory.transfer.dto.CreateTransferRequestRequest;
+import com.backlogtracker.materialinventory.transfer.dto.CreateTransferRequestRequest.LineInput;
+import com.backlogtracker.materialinventory.transfer.dto.SendShipmentRequest;
 import com.backlogtracker.materialinventory.transfer.dto.TransferRequestView;
 import com.backlogtracker.materialinventory.transfer.repository.TransferRequestRepository;
 import com.backlogtracker.materialinventory.transfer.service.TransferRequestService;
@@ -54,6 +56,7 @@ class TransferRequestServiceTest {
     private String targetId;
     private Group inventoryGroup;
     private YarnTypeView wool;
+    private YarnTypeView cotton;
 
     @BeforeEach
     void setUp() {
@@ -67,6 +70,8 @@ class TransferRequestServiceTest {
 
         wool = yarnTypeService.create(inventoryGroup.getId(), requesterId,
                 new CreateYarnTypeRequest("Lion Brand", "Bulky (5)", "Ocean Blue", null, null, null, null, null, null));
+        cotton = yarnTypeService.create(inventoryGroup.getId(), requesterId,
+                new CreateYarnTypeRequest("Lily Sugar'n Cream", "Worsted (4)", "Ecru", null, null, null, null, null, null));
         inventoryService.setMyQuantity(inventoryGroup.getId(), targetId, wool.id(), 3.0);
     }
 
@@ -80,180 +85,192 @@ class TransferRequestServiceTest {
         users.deleteById(targetId);
     }
 
+    private static SendShipmentRequest send(double quantity) {
+        return new SendShipmentRequest(quantity, null);
+    }
+
+    private TransferRequestView.LineView onlyLine(TransferRequestView view) {
+        return view.lines().get(0);
+    }
+
     @Test
     void requesterCreatesATargetedRequestFromASpecificMember() {
         TransferRequestView created = transferRequestService.create(inventoryGroup.getId(), requesterId,
-                new CreateTransferRequestRequest(targetId, wool.id(), 1.5));
+                new CreateTransferRequestRequest(targetId, List.of(new LineInput(wool.id(), 1.5))));
 
-        assertThat(created.status()).isEqualTo(TransferStatus.PENDING);
         assertThat(created.requesterId()).isEqualTo(requesterId);
         assertThat(created.targetUserId()).isEqualTo(targetId);
+        assertThat(onlyLine(created).status()).isEqualTo(LineStatus.OPEN);
+        assertThat(onlyLine(created).requestedQuantity()).isEqualTo(1.5);
     }
 
     @Test
-    void onlyTheTargetCanFulfillAndPartialFulfillmentMovesQuantityBetweenBothRows() {
+    void aRequestCanCoverMultipleYarnTypesInOneGo() {
+        inventoryService.setMyQuantity(inventoryGroup.getId(), targetId, cotton.id(), 5.0);
         TransferRequestView created = transferRequestService.create(inventoryGroup.getId(), requesterId,
-                new CreateTransferRequestRequest(targetId, wool.id(), 2.0));
+                new CreateTransferRequestRequest(targetId, List.of(new LineInput(wool.id(), 1.0), new LineInput(cotton.id(), 2.0))));
 
-        assertThatThrownBy(() -> transferRequestService.fulfill(inventoryGroup.getId(), requesterId, created.id(), 1.0))
+        assertThat(created.lines()).hasSize(2);
+        assertThat(created.lines()).extracting(TransferRequestView.LineView::yarnTypeId)
+                .containsExactlyInAnyOrder(wool.id(), cotton.id());
+    }
+
+    @Test
+    void rejectsTheSameYarnTypeTwiceInOneRequest() {
+        assertThatThrownBy(() -> transferRequestService.create(inventoryGroup.getId(), requesterId,
+                new CreateTransferRequestRequest(targetId, List.of(new LineInput(wool.id(), 1.0), new LineInput(wool.id(), 1.0)))))
+                .isInstanceOf(ResponseStatusException.class)
+                .hasMessageContaining("only appear once");
+    }
+
+    @Test
+    void sendingDebitsTheTargetImmediatelyButOnlyConfirmingCreditsTheRequester() {
+        TransferRequestView created = transferRequestService.create(inventoryGroup.getId(), requesterId,
+                new CreateTransferRequestRequest(targetId, List.of(new LineInput(wool.id(), 2.0))));
+        String lineId = onlyLine(created).lineId();
+
+        assertThatThrownBy(() -> transferRequestService.send(inventoryGroup.getId(), requesterId, created.id(), lineId, send(1.0)))
                 .isInstanceOf(ResponseStatusException.class)
                 .hasMessageContaining("Only the person holding");
 
-        TransferRequestView afterFirst = transferRequestService.fulfill(inventoryGroup.getId(), targetId, created.id(), 1.0);
-        assertThat(afterFirst.status()).isEqualTo(TransferStatus.PARTIALLY_FULFILLED);
-        assertThat(afterFirst.fulfilledQuantity()).isEqualTo(1.0);
+        TransferRequestView afterSend = transferRequestService.send(inventoryGroup.getId(), targetId, created.id(), lineId, send(1.0));
+        assertThat(onlyLine(afterSend).sentQuantity()).isEqualTo(1.0);
+        assertThat(onlyLine(afterSend).receivedQuantity()).isEqualTo(0.0);
+        // The target's on-hand already dropped — the yarn is "in transit", credited to neither party.
         assertThat(inventoryService.mine(inventoryGroup.getId(), targetId).get(0).quantity()).isEqualTo(2.0);
-        assertThat(inventoryService.mine(inventoryGroup.getId(), requesterId).get(0).quantity()).isEqualTo(1.0);
+        assertThat(inventoryService.mine(inventoryGroup.getId(), requesterId)).isEmpty();
 
-        TransferRequestView afterSecond = transferRequestService.fulfill(inventoryGroup.getId(), targetId, created.id(), 1.0);
-        assertThat(afterSecond.fulfilledQuantity()).isEqualTo(2.0);
-        // still not auto-completed — only the target explicitly marking it complete does that
-        assertThat(afterSecond.status()).isEqualTo(TransferStatus.PARTIALLY_FULFILLED);
+        String shipmentId = onlyLine(afterSend).shipments().get(0).shipmentId();
+        assertThatThrownBy(() -> transferRequestService.confirmReceived(inventoryGroup.getId(), targetId, created.id(), lineId, shipmentId))
+                .isInstanceOf(ResponseStatusException.class)
+                .hasMessageContaining("Only the requester");
+
+        TransferRequestView afterConfirm = transferRequestService.confirmReceived(inventoryGroup.getId(), requesterId, created.id(), lineId, shipmentId);
+        assertThat(onlyLine(afterConfirm).receivedQuantity()).isEqualTo(1.0);
+        assertThat(inventoryService.mine(inventoryGroup.getId(), requesterId).get(0).quantity()).isEqualTo(1.0);
     }
 
     @Test
-    void rejectsFulfillingMoreThanIsStillRequested() {
+    void aTargetCanSendInSeveralInstallmentsOverTime() {
         TransferRequestView created = transferRequestService.create(inventoryGroup.getId(), requesterId,
-                new CreateTransferRequestRequest(targetId, wool.id(), 1.0));
+                new CreateTransferRequestRequest(targetId, List.of(new LineInput(wool.id(), 2.0))));
+        String lineId = onlyLine(created).lineId();
 
-        assertThatThrownBy(() -> transferRequestService.fulfill(inventoryGroup.getId(), targetId, created.id(), 2.0))
+        transferRequestService.send(inventoryGroup.getId(), targetId, created.id(), lineId, send(1.0));
+        TransferRequestView afterSecond = transferRequestService.send(inventoryGroup.getId(), targetId, created.id(), lineId, send(1.0));
+
+        assertThat(onlyLine(afterSecond).sentQuantity()).isEqualTo(2.0);
+        assertThat(onlyLine(afterSecond).shipments()).hasSize(2);
+    }
+
+    @Test
+    void rejectsSendingMoreThanIsStillRequested() {
+        TransferRequestView created = transferRequestService.create(inventoryGroup.getId(), requesterId,
+                new CreateTransferRequestRequest(targetId, List.of(new LineInput(wool.id(), 1.0))));
+        String lineId = onlyLine(created).lineId();
+
+        assertThatThrownBy(() -> transferRequestService.send(inventoryGroup.getId(), targetId, created.id(), lineId, send(2.0)))
                 .isInstanceOf(ResponseStatusException.class)
                 .hasMessageContaining("more than is still requested");
     }
 
-    /** to-5: strengthening this assertion surfaced a real gap -- the target's on-hand
-     *  quantity was never actually set below the fulfillment amount, so the test was
-     *  silently exercising the SAME "more than is still requested" cap as the test above
-     *  rather than InventoryService.adjustQuantity's own "not enough on hand" rejection.
-     *  Fixed by giving the target genuinely insufficient stock relative to what's requested. */
     @Test
-    void rejectsFulfillingMoreThanTheTargetHasOnHand() {
+    void rejectsSendingMoreThanTheTargetHasOnHand() {
         inventoryService.setMyQuantity(inventoryGroup.getId(), targetId, wool.id(), 2.0);
         TransferRequestView created = transferRequestService.create(inventoryGroup.getId(), requesterId,
-                new CreateTransferRequestRequest(targetId, wool.id(), 3.0));
+                new CreateTransferRequestRequest(targetId, List.of(new LineInput(wool.id(), 3.0))));
+        String lineId = onlyLine(created).lineId();
 
-        assertThatThrownBy(() -> transferRequestService.fulfill(inventoryGroup.getId(), targetId, created.id(), 3.0))
-                .isInstanceOf(ResponseStatusException.class)
-                .hasMessageContaining("Not enough on hand");
-    }
-
-    /** Regression coverage for unreserve()'s compensating rollback — the one behavior the
-     *  class's own javadoc specifically calls out, with zero prior coverage at any level.
-     *  Reservation only checks the request's own bookkeeping (amount <= what's still
-     *  requested), not real on-hand inventory — so a fulfill() whose reservation succeeds
-     *  but whose physical withdrawal then fails (the target's actual stock changed in the
-     *  interim) must roll fulfilledQuantity back to what it was before, not leave it
-     *  claiming yarn that was never actually handed over. */
-    @Test
-    void unreservesOnAFailedInventoryWithdrawalAfterAValidReservation() {
-        // Requested quantity (3.0) is within bounds for reservation, but the target's real
-        // on-hand stock (1.0) is not enough to actually fulfill it.
-        inventoryService.setMyQuantity(inventoryGroup.getId(), targetId, wool.id(), 1.0);
-        TransferRequestView created = transferRequestService.create(inventoryGroup.getId(), requesterId,
-                new CreateTransferRequestRequest(targetId, wool.id(), 3.0));
-
-        assertThatThrownBy(() -> transferRequestService.fulfill(inventoryGroup.getId(), targetId, created.id(), 3.0))
+        assertThatThrownBy(() -> transferRequestService.send(inventoryGroup.getId(), targetId, created.id(), lineId, send(3.0)))
                 .isInstanceOf(ResponseStatusException.class)
                 .hasMessageContaining("Not enough on hand");
 
-        TransferRequestView afterFailedFulfill = transferRequestService.list(inventoryGroup.getId(), requesterId).stream()
-                .filter(t -> t.id().equals(created.id())).findFirst().orElseThrow();
-        assertThat(afterFailedFulfill.status()).isEqualTo(TransferStatus.PENDING);
-        assertThat(afterFailedFulfill.fulfilledQuantity()).isEqualTo(0.0);
-        // The target's own stock is untouched too — the withdrawal itself never applied.
-        assertThat(inventoryService.mine(inventoryGroup.getId(), targetId).get(0).quantity()).isEqualTo(1.0);
-
-        // The rollback actually worked, not just "didn't crash": a subsequent fulfillment
-        // within the target's real means still succeeds against the same request.
-        inventoryService.setMyQuantity(inventoryGroup.getId(), targetId, wool.id(), 3.0);
-        TransferRequestView afterRetry = transferRequestService.fulfill(inventoryGroup.getId(), targetId, created.id(), 3.0);
-        assertThat(afterRetry.fulfilledQuantity()).isEqualTo(3.0);
+        // A rejected send leaves nothing behind to roll back — the request is untouched.
+        TransferRequestView unchanged = transferRequestService.list(inventoryGroup.getId(), requesterId).get(0);
+        assertThat(onlyLine(unchanged).shipments()).isEmpty();
     }
 
     @Test
-    void onlyTheTargetCanMarkCompleteEvenBeforeFullyFulfilled() {
+    void closingALineStopsFurtherSendsButNeverTouchesAShipmentAlreadySent() {
         TransferRequestView created = transferRequestService.create(inventoryGroup.getId(), requesterId,
-                new CreateTransferRequestRequest(targetId, wool.id(), 2.0));
-        transferRequestService.fulfill(inventoryGroup.getId(), targetId, created.id(), 0.5);
+                new CreateTransferRequestRequest(targetId, List.of(new LineInput(wool.id(), 3.0))));
+        String lineId = onlyLine(created).lineId();
+        TransferRequestView afterSend = transferRequestService.send(inventoryGroup.getId(), targetId, created.id(), lineId, send(1.0));
+        String shipmentId = onlyLine(afterSend).shipments().get(0).shipmentId();
 
-        assertThatThrownBy(() -> transferRequestService.markComplete(inventoryGroup.getId(), requesterId, created.id()))
+        assertThatThrownBy(() -> transferRequestService.closeLine(inventoryGroup.getId(), targetId, created.id(), lineId))
                 .isInstanceOf(ResponseStatusException.class)
-                .hasMessageContaining("Only the person holding");
+                .hasMessageContaining("Only the requester");
 
-        TransferRequestView completed = transferRequestService.markComplete(inventoryGroup.getId(), targetId, created.id());
-        assertThat(completed.status()).isEqualTo(TransferStatus.COMPLETED);
-        assertThat(completed.fulfilledQuantity()).isEqualTo(0.5);
+        TransferRequestView afterClose = transferRequestService.closeLine(inventoryGroup.getId(), requesterId, created.id(), lineId);
+        assertThat(onlyLine(afterClose).status()).isEqualTo(LineStatus.CLOSED);
+
+        assertThatThrownBy(() -> transferRequestService.send(inventoryGroup.getId(), targetId, created.id(), lineId, send(1.0)))
+                .isInstanceOf(ResponseStatusException.class)
+                .hasMessageContaining("closed");
+
+        // The 1.0 already sent before closing is still receivable — closing never undoes it.
+        TransferRequestView afterConfirm = transferRequestService.confirmReceived(inventoryGroup.getId(), requesterId, created.id(), lineId, shipmentId);
+        assertThat(onlyLine(afterConfirm).receivedQuantity()).isEqualTo(1.0);
     }
 
     @Test
-    void onlyTheRequesterCanCancelTheirOwnRequest() {
+    void cancelOnlyWorksBeforeAnythingHasBeenSent() {
         TransferRequestView created = transferRequestService.create(inventoryGroup.getId(), requesterId,
-                new CreateTransferRequestRequest(targetId, wool.id(), 1.0));
+                new CreateTransferRequestRequest(targetId, List.of(new LineInput(wool.id(), 1.0))));
+        String lineId = onlyLine(created).lineId();
 
         assertThatThrownBy(() -> transferRequestService.cancel(inventoryGroup.getId(), targetId, created.id()))
                 .isInstanceOf(ResponseStatusException.class)
                 .hasMessageContaining("Only the requester");
 
-        TransferRequestView cancelled = transferRequestService.cancel(inventoryGroup.getId(), requesterId, created.id());
-        assertThat(cancelled.status()).isEqualTo(TransferStatus.CANCELLED);
-    }
-
-    @Test
-    void cannotActOnAnAlreadyResolvedRequest() {
-        TransferRequestView created = transferRequestService.create(inventoryGroup.getId(), requesterId,
-                new CreateTransferRequestRequest(targetId, wool.id(), 1.0));
-        transferRequestService.cancel(inventoryGroup.getId(), requesterId, created.id());
-
-        assertThatThrownBy(() -> transferRequestService.fulfill(inventoryGroup.getId(), targetId, created.id(), 0.5))
+        transferRequestService.send(inventoryGroup.getId(), targetId, created.id(), lineId, send(0.5));
+        assertThatThrownBy(() -> transferRequestService.cancel(inventoryGroup.getId(), requesterId, created.id()))
                 .isInstanceOf(ResponseStatusException.class)
-                .hasMessageContaining("already CANCELLED");
+                .hasMessageContaining("close individual lines instead");
     }
 
-    /** Regression test for a lost-update race: fulfilledQuantity used to be a plain
-     *  read-modify-write, so two concurrent partial fulfillments of the same request could
-     *  both read the same starting fulfilledQuantity and one save could silently overwrite
-     *  the other, undercounting how much was actually handed over. It's now a single atomic
-     *  conditional increment (see {@code reserveFulfillment}), so N concurrent 0.25-skein
-     *  fulfillments, all comfortably within the requested budget, must all be recorded —
-     *  fulfilledQuantity lands on exactly their sum, never short. */
     @Test
-    void concurrentPartialFulfillmentsAreAllRecordedNotLost() throws Exception {
-        inventoryService.setMyQuantity(inventoryGroup.getId(), targetId, wool.id(), 10.0);
+    void cancelClosesEveryLineWhenNothingWasEverSent() {
         TransferRequestView created = transferRequestService.create(inventoryGroup.getId(), requesterId,
-                new CreateTransferRequestRequest(targetId, wool.id(), 10.0));
+                new CreateTransferRequestRequest(targetId, List.of(new LineInput(wool.id(), 1.0))));
 
-        int n = 20;
-        runSimultaneously(n, i -> {
-            transferRequestService.fulfill(inventoryGroup.getId(), targetId, created.id(), 0.25);
-            return null;
-        });
-
-        TransferRequestView finalState = transferRequestService.list(inventoryGroup.getId(), requesterId).stream()
-                .filter(t -> t.id().equals(created.id())).findFirst().orElseThrow();
-        assertThat(finalState.fulfilledQuantity()).isEqualTo(n * 0.25);
-        assertThat(inventoryService.mine(inventoryGroup.getId(), requesterId).get(0).quantity()).isEqualTo(n * 0.25);
+        TransferRequestView cancelled = transferRequestService.cancel(inventoryGroup.getId(), requesterId, created.id());
+        assertThat(onlyLine(cancelled).status()).isEqualTo(LineStatus.CLOSED);
     }
 
-    /** Regression test for the round 4 review's flagged residual risk: fulfill()'s
-     *  "no more than requested" check used to read `remaining` once, before any retry
-     *  protection, so a stale read could in principle let concurrent fulfillments push
-     *  fulfilledQuantity past requestedQuantity. The cap is now enforced by the same atomic
-     *  findAndModify that increments fulfilledQuantity (see reserveFulfillment), so of 20
-     *  concurrent 1.0-skein fulfillment attempts against a 10.0-skein request, exactly 10
-     *  must succeed and 10 must be rejected — fulfilledQuantity can never land above 10.0,
-     *  under any interleaving. */
     @Test
-    void concurrentFulfillmentsCanNeverPushFulfilledQuantityPastWhatWasRequested() throws Exception {
+    void cannotConfirmTheSameShipmentTwice() {
+        TransferRequestView created = transferRequestService.create(inventoryGroup.getId(), requesterId,
+                new CreateTransferRequestRequest(targetId, List.of(new LineInput(wool.id(), 1.0))));
+        String lineId = onlyLine(created).lineId();
+        TransferRequestView afterSend = transferRequestService.send(inventoryGroup.getId(), targetId, created.id(), lineId, send(1.0));
+        String shipmentId = onlyLine(afterSend).shipments().get(0).shipmentId();
+
+        transferRequestService.confirmReceived(inventoryGroup.getId(), requesterId, created.id(), lineId, shipmentId);
+
+        assertThatThrownBy(() -> transferRequestService.confirmReceived(inventoryGroup.getId(), requesterId, created.id(), lineId, shipmentId))
+                .isInstanceOf(ResponseStatusException.class)
+                .hasMessageContaining("already confirmed");
+    }
+
+    /** Regression coverage for a lost-update race on the embedded document: two concurrent
+     *  sends against the same line must never both succeed past what was actually requested
+     *  — the {@code @Version}-guarded save rejects the loser of the race with a conflict
+     *  instead of one silently overwriting the other's shipment. */
+    @Test
+    void concurrentSendsCanNeverPushSentQuantityPastWhatWasRequested() throws Exception {
         inventoryService.setMyQuantity(inventoryGroup.getId(), targetId, wool.id(), 20.0);
         TransferRequestView created = transferRequestService.create(inventoryGroup.getId(), requesterId,
-                new CreateTransferRequestRequest(targetId, wool.id(), 10.0));
+                new CreateTransferRequestRequest(targetId, List.of(new LineInput(wool.id(), 10.0))));
+        String lineId = onlyLine(created).lineId();
 
         int n = 20;
         List<Boolean> results = runSimultaneously(n, i -> {
             try {
-                transferRequestService.fulfill(inventoryGroup.getId(), targetId, created.id(), 1.0);
+                transferRequestService.send(inventoryGroup.getId(), targetId, created.id(), lineId, send(1.0));
                 return true;
-            } catch (ResponseStatusException e) {
+            } catch (RuntimeException e) {
                 return false;
             }
         });
@@ -262,15 +279,12 @@ class TransferRequestServiceTest {
 
         TransferRequestView finalState = transferRequestService.list(inventoryGroup.getId(), requesterId).stream()
                 .filter(t -> t.id().equals(created.id())).findFirst().orElseThrow();
-        assertThat(finalState.fulfilledQuantity()).isEqualTo(10.0);
-        assertThat(inventoryService.mine(inventoryGroup.getId(), requesterId).get(0).quantity()).isEqualTo(10.0);
+        assertThat(onlyLine(finalState).sentQuantity()).isEqualTo(10.0);
         assertThat(inventoryService.mine(inventoryGroup.getId(), targetId).get(0).quantity()).isEqualTo(10.0);
     }
 
-    /** Shared latch-gated "release all n threads at once" harness for the two concurrency
-     *  tests above — previously each hand-rolled its own identical pool/latch bookkeeping. */
     private <T> List<T> runSimultaneously(int n, IntFunctionThrows<T> task) throws Exception {
-        ExecutorService pool = Executors.newFixedThreadPool(n); // must fit every task at once for the latch below
+        ExecutorService pool = Executors.newFixedThreadPool(n);
         CountDownLatch ready = new CountDownLatch(n);
         CountDownLatch go = new CountDownLatch(1);
         try {

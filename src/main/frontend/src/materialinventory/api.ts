@@ -4,11 +4,11 @@ import type {
   CreateNeedleTypeRequest,
   CreateTransferRequestRequest,
   CreateYarnTypeRequest,
-  FulfillTransferRequest,
   InventoryEntryView,
   MaterialAssignmentView,
   NeedleInventoryEntryView,
   NeedleTypeView,
+  SendShipmentRequest,
   SetInventoryQuantityRequest,
   SetNeedleQuantityRequest,
   TransferRequestView,
@@ -37,10 +37,12 @@ export const materialInventoryApi = {
   transfers: (groupId: string) => api.get<TransferRequestView[]>(`${base(groupId)}/transfers`),
   createTransferRequest: (groupId: string, body: CreateTransferRequestRequest) =>
     api.post<TransferRequestView>(`${base(groupId)}/transfers`, body),
-  fulfillTransferRequest: (groupId: string, requestId: string, body: FulfillTransferRequest) =>
-    api.post<TransferRequestView>(`${base(groupId)}/transfers/${requestId}/fulfill`, body),
-  completeTransferRequest: (groupId: string, requestId: string) =>
-    api.post<TransferRequestView>(`${base(groupId)}/transfers/${requestId}/complete`),
+  sendShipment: (groupId: string, requestId: string, lineId: string, body: SendShipmentRequest) =>
+    api.post<TransferRequestView>(`${base(groupId)}/transfers/${requestId}/lines/${lineId}/send`, body),
+  confirmShipmentReceived: (groupId: string, requestId: string, lineId: string, shipmentId: string) =>
+    api.post<TransferRequestView>(`${base(groupId)}/transfers/${requestId}/lines/${lineId}/shipments/${shipmentId}/receive`),
+  closeTransferLine: (groupId: string, requestId: string, lineId: string) =>
+    api.post<TransferRequestView>(`${base(groupId)}/transfers/${requestId}/lines/${lineId}/close`),
   cancelTransferRequest: (groupId: string, requestId: string) =>
     api.post<TransferRequestView>(`${base(groupId)}/transfers/${requestId}/cancel`),
 

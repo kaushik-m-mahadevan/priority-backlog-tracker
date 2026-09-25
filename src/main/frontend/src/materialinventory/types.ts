@@ -85,28 +85,50 @@ export interface TransferSuggestionView {
   quantity: number;
 }
 
-export type TransferStatus = "PENDING" | "PARTIALLY_FULFILLED" | "COMPLETED" | "CANCELLED";
+export type LineStatus = "OPEN" | "CLOSED";
+
+export interface ShipmentView {
+  shipmentId: string;
+  quantity: number;
+  notes: string | null;
+  sentAt: string;
+  /** Null until the requester confirms this specific shipment physically arrived. */
+  receivedAt: string | null;
+}
+
+export interface TransferLineView {
+  lineId: string;
+  yarnTypeId: string;
+  requestedQuantity: number;
+  status: LineStatus;
+  /** Sum of every shipment's quantity on this line, sent or not yet confirmed. */
+  sentQuantity: number;
+  /** Sum of only the shipments the requester has confirmed received so far. */
+  receivedQuantity: number;
+  shipments: ShipmentView[];
+}
 
 export interface TransferRequestView {
   id: string;
   requesterId: string;
   targetUserId: string;
-  yarnTypeId: string;
-  requestedQuantity: number;
-  fulfilledQuantity: number;
-  status: TransferStatus;
+  lines: TransferLineView[];
   createdAt: string;
-  resolvedAt: string | null;
+}
+
+export interface CreateTransferRequestLineInput {
+  yarnTypeId: string;
+  quantity: number;
 }
 
 export interface CreateTransferRequestRequest {
   targetUserId: string;
-  yarnTypeId: string;
-  requestedQuantity: number;
+  lines: CreateTransferRequestLineInput[];
 }
 
-export interface FulfillTransferRequest {
+export interface SendShipmentRequest {
   quantity: number;
+  notes: string | null;
 }
 
 export type MaterialAssignmentStatus = "PENDING" | "ACCEPTED" | "REJECTED" | "CANCELLED";
