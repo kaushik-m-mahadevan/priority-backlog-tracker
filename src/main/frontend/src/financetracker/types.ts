@@ -24,6 +24,8 @@ export interface LedgerEntryView {
   /** mb-16: an optional free-text order reference a member typed in when manually entering
    *  this row — independent of `sourceRef`, which is the auto-sync idempotency key. */
   orderReference: string | null;
+  /** Free-text, editable even on a synced row (everything else on a synced row is locked). */
+  notes: string | null;
   createdByUserId: string;
   createdAt: string;
 }
@@ -35,6 +37,7 @@ export interface CreateLedgerEntryRequest {
   debit: PartyInput;
   credit: PartyInput;
   orderReference: string | null;
+  notes: string | null;
 }
 
 export interface MemberBalanceView {

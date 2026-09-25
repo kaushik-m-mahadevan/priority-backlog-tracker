@@ -140,7 +140,7 @@ export default function OrdersPage() {
                   <th>Type</th>
                   <th>Status</th>
                   <th>Completion</th>
-                  <th>Due (est.)</th>
+                  <th>Due</th>
                   <th>Payment</th>
                 </tr>
               </thead>
@@ -161,9 +161,9 @@ export default function OrdersPage() {
                     <td className="cell-completion">{o.completionPercentage.toFixed(0)}%</td>
                     <td className="cell-due">
                       <OrderDueDate
-                        iso={(o.orderType === "INDIVIDUAL" ? o.costEstimate?.computedDueDate : o.bulkDetails?.computedDueDate) ?? null}
+                        iso={o.quotedDeliveryDate ?? (o.orderType === "INDIVIDUAL" ? o.costEstimate?.computedDueDate : o.bulkDetails?.computedDueDate) ?? null}
                         status={o.status}
-                        quotedIso={o.quotedDeliveryDate}
+                        estimateIso={(o.orderType === "INDIVIDUAL" ? o.costEstimate?.computedDueDate : o.bulkDetails?.computedDueDate) ?? null}
                       />
                     </td>
                     <td className="cell-payment">
@@ -238,9 +238,9 @@ function BoardCard({
       </div>
       <div className="board-card-due">
         <OrderDueDate
-          iso={(o.orderType === "INDIVIDUAL" ? o.costEstimate?.computedDueDate : o.bulkDetails?.computedDueDate) ?? null}
+          iso={o.quotedDeliveryDate ?? (o.orderType === "INDIVIDUAL" ? o.costEstimate?.computedDueDate : o.bulkDetails?.computedDueDate) ?? null}
           status={o.status}
-          quotedIso={o.quotedDeliveryDate}
+          estimateIso={(o.orderType === "INDIVIDUAL" ? o.costEstimate?.computedDueDate : o.bulkDetails?.computedDueDate) ?? null}
         />
       </div>
       {moves.length > 0 && (

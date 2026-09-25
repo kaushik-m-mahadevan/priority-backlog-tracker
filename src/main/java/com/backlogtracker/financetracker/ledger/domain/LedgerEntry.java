@@ -59,6 +59,11 @@ public class LedgerEntry {
      *  reference the same real order without colliding. */
     private String orderReference;
 
+    /** Free-text notes a member adds after the fact — how it was paid, a tracking detail,
+     *  anything not worth its own field. Editable even on an auto-synced row (everything
+     *  else on a synced row stays locked to its Order Tracker source). */
+    private String notes;
+
     private String createdByUserId;
 
     @CreatedDate

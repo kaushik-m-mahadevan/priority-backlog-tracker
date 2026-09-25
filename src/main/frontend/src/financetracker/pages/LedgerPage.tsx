@@ -1,27 +1,16 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "../../auth/AuthContext";
 import { AsyncSection } from "../../components/AsyncSection";
-import { BillFileInput, BillPreview, LEDGER_ENTRY_OWNER_TYPE } from "../../components/BillAttachmentField";
+import { BillFileInput, BillPreview } from "../../components/BillAttachmentField";
 import BillSideBySide from "../../components/BillSideBySide";
 import { imagesApi } from "../../components/imagesApi";
+import { LEDGER_ENTRY_OWNER_TYPE } from "../../components/BillAttachmentField";
 import { formatMoney } from "../../lib/format";
 import { financeTrackerApi } from "../api";
 import { useFinanceGroup } from "../FinanceGroupContext";
-import type { ExternalPartySuggestion, LedgerEntryView, MemberBalanceView, PartyInput, PartyType } from "../types";
-
-type PartyDraft = { type: PartyType; userId: string; displayName: string };
-
-const blankParty = (defaultUserId = ""): PartyDraft => ({ type: "MEMBER", userId: defaultUserId, displayName: "" });
-
-function toPartyInput(draft: PartyDraft): PartyInput | null {
-  if (draft.type === "MEMBER") {
-    return draft.userId ? { type: "MEMBER", userId: draft.userId, displayName: null } : null;
-  }
-  if (draft.type === "BUSINESS") {
-    return { type: "BUSINESS", userId: null, displayName: null };
-  }
-  return draft.displayName.trim() ? { type: draft.type, userId: null, displayName: draft.displayName.trim() } : null;
-}
+import LedgerEntryDetailModal from "../LedgerEntryDetailModal";
+import { PartyPicker, blankPartyDraft, toPartyInput, type PartyDraft } from "../PartyPicker";
+import type { ExternalPartySuggestion, LedgerEntryView, MemberBalanceView, PartyType } from "../types";
 
 /** ad-1: one unified double-entry ledger, replacing the earlier separate Expenses/Income
  *  pages — every row is exactly one Debit party and one Credit party, never a split (see
@@ -41,10 +30,12 @@ export default function LedgerPage() {
   const [amount, setAmount] = useState("");
   const [date, setDate] = useState("");
   const [orderReference, setOrderReference] = useState("");
-  const [debit, setDebit] = useState<PartyDraft>(blankParty());
-  const [credit, setCredit] = useState<PartyDraft>(blankParty(user?.id ?? ""));
+  const [notes, setNotes] = useState("");
+  const [debit, setDebit] = useState<PartyDraft>(blankPartyDraft());
+  const [credit, setCredit] = useState<PartyDraft>(blankPartyDraft(user?.id ?? ""));
   const [submitting, setSubmitting] = useState(false);
   const [billFile, setBillFile] = useState<File | null>(null);
+  const [viewing, setViewing] = useState<LedgerEntryView | null>(null);
 
   const members = currentFinanceGroup?.members ?? [];
   const memberName = (id: string | null) => members.find((m) => m.id === id)?.name ?? "Unknown";
@@ -73,9 +64,10 @@ export default function LedgerPage() {
     setDescription("");
     setAmount("");
     setDate("");
-    setDebit(blankParty());
-    setCredit(blankParty(user?.id ?? ""));
+    setDebit(blankPartyDraft());
+    setCredit(blankPartyDraft(user?.id ?? ""));
     setOrderReference("");
+    setNotes("");
     setBillFile(null);
   };
 
@@ -104,6 +96,7 @@ export default function LedgerPage() {
         debit: debitInput,
         credit: creditInput,
         orderReference: orderReference.trim() || null,
+        notes: notes.trim() || null,
       });
       const uploadWarning = await imagesApi.uploadIfAny(currentGroupId, LEDGER_ENTRY_OWNER_TYPE, created.id, billFile, "Ledger entry logged");
       if (uploadWarning) setError(uploadWarning);
@@ -128,56 +121,6 @@ export default function LedgerPage() {
     if (p.type === "BUSINESS") return "Business Account";
     return p.displayName ?? "—";
   };
-
-  const partyPicker = (draft: PartyDraft, setDraft: (d: PartyDraft) => void, idPrefix: string) => (
-    <div className="form-row">
-      <label htmlFor={`${idPrefix}-type`}>{idPrefix === "debit" ? "Debit (who paid)" : "Credit (who received)"}</label>
-      <select
-        id={`${idPrefix}-type`}
-        value={draft.type}
-        onChange={(e) => setDraft({ ...draft, type: e.target.value as PartyType })}
-      >
-        <option value="MEMBER">A member</option>
-        {businessAccountEnabled && <option value="BUSINESS">Business Account</option>}
-        <option value="CUSTOMER">Customer (name)</option>
-        <option value="EXTERNAL">Someone else (name)</option>
-      </select>
-      {draft.type === "MEMBER" && (
-        <select
-          aria-label={`${idPrefix} member`}
-          value={draft.userId}
-          onChange={(e) => setDraft({ ...draft, userId: e.target.value })}
-          style={{ marginTop: 6 }}
-        >
-          <option value="">Select…</option>
-          {members.map((m) => (
-            <option key={m.id} value={m.id}>
-              {m.id === user?.id ? "You" : m.name}
-            </option>
-          ))}
-        </select>
-      )}
-      {(draft.type === "CUSTOMER" || draft.type === "EXTERNAL") && (
-        <>
-          <input
-            aria-label={`${idPrefix} name`}
-            placeholder="Name"
-            value={draft.displayName}
-            onChange={(e) => setDraft({ ...draft, displayName: e.target.value })}
-            style={{ marginTop: 6 }}
-            list={draft.type === "EXTERNAL" ? `${idPrefix}-external-suggestions` : undefined}
-          />
-          {draft.type === "EXTERNAL" && (
-            <datalist id={`${idPrefix}-external-suggestions`}>
-              {suggestions.map((s) => (
-                <option key={s.displayName} value={s.displayName} />
-              ))}
-            </datalist>
-          )}
-        </>
-      )}
-    </div>
-  );
 
   return (
     <div>
@@ -218,8 +161,26 @@ export default function LedgerPage() {
           </div>
 
           <div className="form-grid">
-            {partyPicker(debit, setDebit, "debit")}
-            {partyPicker(credit, setCredit, "credit")}
+            <PartyPicker
+              draft={debit}
+              setDraft={setDebit}
+              idPrefix="ledger-debit"
+              label="Debit (who paid)"
+              members={members}
+              currentUserId={user?.id}
+              businessAccountEnabled={businessAccountEnabled}
+              suggestions={suggestions}
+            />
+            <PartyPicker
+              draft={credit}
+              setDraft={setCredit}
+              idPrefix="ledger-credit"
+              label="Credit (who received)"
+              members={members}
+              currentUserId={user?.id}
+              businessAccountEnabled={businessAccountEnabled}
+              suggestions={suggestions}
+            />
           </div>
 
           <div className="form-row">
@@ -238,6 +199,12 @@ export default function LedgerPage() {
                 ? "Required for a payment involving a customer — a plain note, not a live lookup."
                 : "Ties this row to a specific order for your own reference — a plain note, not a live lookup."}
             </p>
+          </div>
+
+          <div className="form-row">
+            <label htmlFor="ledger-notes">Notes (optional)</label>
+            <textarea id="ledger-notes" value={notes} onChange={(e) => setNotes(e.target.value)}
+              placeholder="How it was paid, a tracking detail, anything worth remembering later" />
           </div>
 
           <BillFileInput id="ledger-bill" editingId={null} onChange={setBillFile} />
@@ -265,7 +232,14 @@ export default function LedgerPage() {
             </thead>
             <tbody>
               {entries.map((e) => (
-                <tr key={e.id}>
+                <tr
+                  key={e.id}
+                  className="row-clickable"
+                  onClick={() => setViewing(e)}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(ev) => (ev.key === "Enter" || ev.key === " ") && setViewing(e)}
+                >
                   <td className="cell-subtitle">{new Date(e.date).toLocaleDateString()}</td>
                   <td className="cell-title">
                     {e.description}
@@ -278,7 +252,15 @@ export default function LedgerPage() {
                   <td className="cell-subtitle">{partyLabel(e.debit)}</td>
                   <td className="cell-subtitle">{partyLabel(e.credit)}</td>
                   <td>
-                    <button type="button" className="linkbtn" aria-label={`Remove: ${e.description}`} onClick={() => removeEntry(e)}>
+                    <button
+                      type="button"
+                      className="linkbtn"
+                      aria-label={`Remove: ${e.description}`}
+                      onClick={(ev) => {
+                        ev.stopPropagation();
+                        removeEntry(e);
+                      }}
+                    >
                       remove
                     </button>
                   </td>
@@ -288,6 +270,23 @@ export default function LedgerPage() {
           </table>
         </div>
       </AsyncSection>
+
+      {viewing && currentGroupId && (
+        <LedgerEntryDetailModal
+          entry={viewing}
+          groupId={currentGroupId}
+          members={members}
+          currentUserId={user?.id}
+          businessAccountEnabled={businessAccountEnabled}
+          suggestions={suggestions}
+          memberName={memberName}
+          onClose={() => setViewing(null)}
+          onSaved={() => {
+            setViewing(null);
+            load();
+          }}
+        />
+      )}
     </div>
   );
 }

@@ -16,7 +16,8 @@ public record CreateLedgerEntryRequest(
         @NotNull @Positive BigDecimal amount,
         @NotNull @Valid PartyInput debit,
         @NotNull @Valid PartyInput credit,
-        String orderReference) {
+        String orderReference,
+        String notes) {
 
     public record PartyInput(@NotNull PartyType type, String userId, String displayName) {
     }

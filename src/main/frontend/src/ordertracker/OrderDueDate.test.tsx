@@ -46,4 +46,22 @@ describe("OrderDueDate", () => {
     expect(screen.getByText("—")).toBeInTheDocument();
     expect(container.querySelector(".bang")).not.toBeInTheDocument();
   });
+
+  it("flags a future quoted date when the internal estimate has drifted later than it", () => {
+    const { container } = render(
+      <OrderDueDate iso="2026-06-20T00:00:00Z" status="IN_PROGRESS" estimateIso="2026-07-01T00:00:00Z" />,
+    );
+    expect(container.querySelector(".bang")).toBeInTheDocument();
+    expect(container.querySelector(".bang")).toHaveAttribute(
+      "title",
+      "The internal estimate is now later than the date quoted to the customer",
+    );
+  });
+
+  it("does not flag when the internal estimate lands on or before the quoted date", () => {
+    const { container } = render(
+      <OrderDueDate iso="2026-06-20T00:00:00Z" status="IN_PROGRESS" estimateIso="2026-06-18T00:00:00Z" />,
+    );
+    expect(container.querySelector(".bang")).not.toBeInTheDocument();
+  });
 });

@@ -169,7 +169,7 @@ public class ProfitDistributionService {
                     amount,
                     new PartyInput(PartyType.BUSINESS, null, null),
                     new PartyInput(PartyType.MEMBER, personId, null),
-                    orderReferences.isEmpty() ? null : label));
+                    orderReferences.isEmpty() ? null : label, null));
         }
     }
 

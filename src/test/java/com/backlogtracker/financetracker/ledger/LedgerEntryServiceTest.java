@@ -80,7 +80,7 @@ class LedgerEntryServiceTest {
     @Test
     void createsARealDebitCreditEntry() {
         var request = new CreateLedgerEntryRequest(null, "Yarn restock", new BigDecimal("2400.00"),
-                business(), member(aliceId), null);
+                business(), member(aliceId), null, null);
 
         LedgerEntryView created = ledgerEntryService.create(financeGroup.getId(), aliceId, request);
 
@@ -99,10 +99,10 @@ class LedgerEntryServiceTest {
     void aManuallyEnteredOrderReferenceIsTrimmedAndBlankNormalizesToNull() {
         LedgerEntryView tagged = ledgerEntryService.create(financeGroup.getId(), aliceId,
                 new CreateLedgerEntryRequest(null, "Yarn for a specific order", new BigDecimal("300.00"),
-                        business(), member(aliceId), "  Order #94561842000001  "));
+                        business(), member(aliceId), "  Order #94561842000001  ", null));
         LedgerEntryView blank = ledgerEntryService.create(financeGroup.getId(), aliceId,
                 new CreateLedgerEntryRequest(null, "No order tie-in", new BigDecimal("50.00"),
-                        business(), member(aliceId), "   "));
+                        business(), member(aliceId), "   ", null));
 
         assertThat(tagged.orderReference()).isEqualTo("Order #94561842000001");
         assertThat(blank.orderReference()).isNull();
@@ -112,7 +112,7 @@ class LedgerEntryServiceTest {
     void aMemberToMemberEntryIsARealPersonToPersonTransaction() {
         // No more shared-split construct: Bob paying Alice back is its own real entry.
         var request = new CreateLedgerEntryRequest(null, "Bob repaid Alice for shared supplies",
-                new BigDecimal("300.00"), member(bobId), member(aliceId), null);
+                new BigDecimal("300.00"), member(bobId), member(aliceId), null, null);
 
         LedgerEntryView created = ledgerEntryService.create(financeGroup.getId(), bobId, request);
 
@@ -123,7 +123,7 @@ class LedgerEntryServiceTest {
     @Test
     void deletingAnEntryRemovesItFromTheLedger() {
         LedgerEntryView created = ledgerEntryService.create(financeGroup.getId(), aliceId,
-                new CreateLedgerEntryRequest(null, "Typo'd entry", new BigDecimal("100.00"), business(), member(aliceId), null));
+                new CreateLedgerEntryRequest(null, "Typo'd entry", new BigDecimal("100.00"), business(), member(aliceId), null, null));
 
         ledgerEntryService.delete(financeGroup.getId(), aliceId, created.id());
 
@@ -133,7 +133,7 @@ class LedgerEntryServiceTest {
     @Test
     void deletingAnEntryFromAnotherGroupIsRejected() {
         LedgerEntryView created = ledgerEntryService.create(financeGroup.getId(), aliceId,
-                new CreateLedgerEntryRequest(null, "Original", new BigDecimal("100.00"), business(), member(aliceId), null));
+                new CreateLedgerEntryRequest(null, "Original", new BigDecimal("100.00"), business(), member(aliceId), null, null));
         Group otherGroup = groupService.create("Other Finance Group", aliceId, Group.APPLET_FINANCE_TRACKER);
 
         try {
@@ -148,7 +148,7 @@ class LedgerEntryServiceTest {
     @Test
     void rejectsAMemberPartyThatIsNotAGroupMember() {
         var request = new CreateLedgerEntryRequest(null, "Outsider", new BigDecimal("100.00"),
-                business(), member("not-a-member"), null);
+                business(), member("not-a-member"), null, null);
 
         assertThatThrownBy(() -> ledgerEntryService.create(financeGroup.getId(), aliceId, request))
                 .isInstanceOf(ResponseStatusException.class)
@@ -158,7 +158,7 @@ class LedgerEntryServiceTest {
     @Test
     void rejectsACustomerOrExternalPartyWithNoDisplayName() {
         var request = new CreateLedgerEntryRequest(null, "Missing name", new BigDecimal("100.00"),
-                customer(""), member(aliceId), null);
+                customer(""), member(aliceId), null, null);
 
         assertThatThrownBy(() -> ledgerEntryService.create(financeGroup.getId(), aliceId, request))
                 .isInstanceOf(ResponseStatusException.class)
@@ -169,10 +169,10 @@ class LedgerEntryServiceTest {
     void balancesAreLiveCreditsMinusDebitsPerMember() {
         // Business owes Alice 2400 (she fronted it): Debit BUSINESS, Credit Alice.
         ledgerEntryService.create(financeGroup.getId(), aliceId,
-                new CreateLedgerEntryRequest(null, "Yarn restock", new BigDecimal("2400.00"), business(), member(aliceId), null));
+                new CreateLedgerEntryRequest(null, "Yarn restock", new BigDecimal("2400.00"), business(), member(aliceId), null, null));
         // Alice pays Bob back 300: Debit Alice, Credit Bob.
         ledgerEntryService.create(financeGroup.getId(), aliceId,
-                new CreateLedgerEntryRequest(null, "Repay Bob", new BigDecimal("300.00"), member(aliceId), member(bobId), null));
+                new CreateLedgerEntryRequest(null, "Repay Bob", new BigDecimal("300.00"), member(aliceId), member(bobId), null, null));
 
         var balances = ledgerEntryService.balances(financeGroup.getId(), aliceId).stream()
                 .collect(java.util.stream.Collectors.toMap(b -> b.userId(), b -> b));
@@ -186,7 +186,7 @@ class LedgerEntryServiceTest {
         // Debit CUSTOMER, Credit BUSINESS — a plain sale, no member involved at all.
         ledgerEntryService.create(financeGroup.getId(), aliceId,
                 new CreateLedgerEntryRequest(null, "Order payment", new BigDecimal("1500.00"),
-                        customer("Priya Sharma"), business(), "Order #94561842000001"));
+                        customer("Priya Sharma"), business(), "Order #94561842000001", null));
 
         assertThat(ledgerEntryService.balances(financeGroup.getId(), aliceId)).isEmpty();
     }
@@ -194,11 +194,11 @@ class LedgerEntryServiceTest {
     @Test
     void externalSuggestionsAreSortedByHowOftenEachNameWasUsed() {
         ledgerEntryService.create(financeGroup.getId(), aliceId,
-                new CreateLedgerEntryRequest(null, "Yarn supplier A", new BigDecimal("100.00"), business(), external("Acme Yarns"), null));
+                new CreateLedgerEntryRequest(null, "Yarn supplier A", new BigDecimal("100.00"), business(), external("Acme Yarns"), null, null));
         ledgerEntryService.create(financeGroup.getId(), aliceId,
-                new CreateLedgerEntryRequest(null, "Yarn supplier A again", new BigDecimal("50.00"), business(), external("Acme Yarns"), null));
+                new CreateLedgerEntryRequest(null, "Yarn supplier A again", new BigDecimal("50.00"), business(), external("Acme Yarns"), null, null));
         ledgerEntryService.create(financeGroup.getId(), aliceId,
-                new CreateLedgerEntryRequest(null, "One-off supplier", new BigDecimal("20.00"), business(), external("Rare Threads"), null));
+                new CreateLedgerEntryRequest(null, "One-off supplier", new BigDecimal("20.00"), business(), external("Rare Threads"), null, null));
 
         var suggestions = ledgerEntryService.externalSuggestions(financeGroup.getId(), aliceId);
 
@@ -206,5 +206,38 @@ class LedgerEntryServiceTest {
         assertThat(suggestions.get(0).displayName()).isEqualTo("Acme Yarns");
         assertThat(suggestions.get(0).useCount()).isEqualTo(2);
         assertThat(suggestions.get(1).displayName()).isEqualTo("Rare Threads");
+    }
+
+    @Test
+    void updateFullyEditsAManualEntryIncludingNotes() {
+        LedgerEntryView created = ledgerEntryService.create(financeGroup.getId(), aliceId,
+                new CreateLedgerEntryRequest(null, "Original", new BigDecimal("100.00"), business(), member(aliceId), null, null));
+
+        LedgerEntryView updated = ledgerEntryService.update(financeGroup.getId(), aliceId, created.id(),
+                new CreateLedgerEntryRequest(null, "Corrected description", new BigDecimal("125.00"),
+                        business(), member(bobId), null, "Paid in two installments"));
+
+        assertThat(updated.description()).isEqualTo("Corrected description");
+        assertThat(updated.amount()).isEqualByComparingTo("125.00");
+        assertThat(updated.credit().userId()).isEqualTo(bobId);
+        assertThat(updated.notes()).isEqualTo("Paid in two installments");
+    }
+
+    @Test
+    void updateOnASyncedEntryOnlyChangesNotes() {
+        LedgerEntryView created = ledgerEntryService.create(financeGroup.getId(), aliceId,
+                new CreateLedgerEntryRequest(null, "Original", new BigDecimal("100.00"), business(), member(aliceId), null, null));
+        var synced = entries.findById(created.id()).orElseThrow();
+        synced.setSourceRef("some-order:some-payment");
+        entries.save(synced);
+
+        LedgerEntryView updated = ledgerEntryService.update(financeGroup.getId(), aliceId, created.id(),
+                new CreateLedgerEntryRequest(null, "Attempted description change", new BigDecimal("999.00"),
+                        member(bobId), member(aliceId), null, "Tracking: AWB123"));
+
+        assertThat(updated.description()).isEqualTo("Original");
+        assertThat(updated.amount()).isEqualByComparingTo("100.00");
+        assertThat(updated.debit().type()).isEqualTo(PartyType.BUSINESS);
+        assertThat(updated.notes()).isEqualTo("Tracking: AWB123");
     }
 }

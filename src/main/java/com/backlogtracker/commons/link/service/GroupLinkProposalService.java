@@ -41,6 +41,17 @@ public class GroupLinkProposalService {
 
     private static final String KIND_PREFIX = "grouplink:";
 
+    /** There's no standalone "review this link proposal" route — approving/rejecting only
+     *  happens inside the Connections widget embedded in each applet's own header, so the
+     *  best a notification's linkPath can do is land the recipient on that applet's own
+     *  main page where Connections is reachable. */
+    private static final Map<String, String> APPLET_LANDING_PATH = Map.of(
+            "backlogtracker", "/backlog",
+            "ordertracker", "/ordertracker/orders",
+            "financetracker", "/financetracker/ledger",
+            "materialinventory", "/materialinventory/requests",
+            "productcatalog", "/productcatalog");
+
     private final ApprovalService approvalService;
     private final GroupService groupService;
     private final GroupLinkService groupLinkService;
@@ -62,7 +73,7 @@ public class GroupLinkProposalService {
         } else {
             notificationOrchestrator.notifyOtherMembersActionable(group, userId, NotificationType.GROUP_LINK_PROPOSED,
                     "Group link", "A proposal to link this group to another applet's group is waiting for your approval — "
-                            + "approve or reject it in Connections.", null, approval.getId());
+                            + "approve or reject it in Connections.", APPLET_LANDING_PATH.get(group.getAppletKey()), approval.getId());
         }
         return view(approval, group);
     }

@@ -323,14 +323,14 @@ public class DemoDataSeeder implements ApplicationRunner {
 
         ledgerEntryService.create(financeGroupId, alex.getId(), new CreateLedgerEntryRequest(
                 null, "Yarn restock — coral cotton + grey acrylic", new BigDecimal("2400"),
-                new PartyInput(PartyType.BUSINESS, null, null), new PartyInput(PartyType.MEMBER, alex.getId(), null), null));
+                new PartyInput(PartyType.BUSINESS, null, null), new PartyInput(PartyType.MEMBER, alex.getId(), null), null, null));
         ledgerEntryService.create(financeGroupId, priya.getId(), new CreateLedgerEntryRequest(
                 null, "Packaging boxes (50 pack)", new BigDecimal("850"),
-                new PartyInput(PartyType.BUSINESS, null, null), new PartyInput(PartyType.MEMBER, priya.getId(), null), null));
+                new PartyInput(PartyType.BUSINESS, null, null), new PartyInput(PartyType.MEMBER, priya.getId(), null), null, null));
         ledgerEntryService.create(financeGroupId, alex.getId(), new CreateLedgerEntryRequest(
                 null, "Advance for wedding favour order", new BigDecimal("3000"),
                 new PartyInput(PartyType.CUSTOMER, null, "Pooja Desai"), new PartyInput(PartyType.BUSINESS, null, null),
-                "Wedding favour coasters (set of 8)"));
+                "Wedding favour coasters (set of 8)", null));
 
         log.info("Demo data: seeded Order Tracker (3 creators, 3 customers, 4 orders — one with components, "
                 + "3 component templates), Product Catalog (2 colorways), and Finance Tracker (3 ledger entries)");

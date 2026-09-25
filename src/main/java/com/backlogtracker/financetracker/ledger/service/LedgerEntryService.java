@@ -43,14 +43,7 @@ public class LedgerEntryService {
         Group group = groupService.requireMember(groupId, userId);
         LedgerEntry.Party debit = validateParty(group, request.debit());
         LedgerEntry.Party credit = validateParty(group, request.credit());
-        boolean orderReferenceBlank = request.orderReference() == null || request.orderReference().isBlank();
-        // A payment involving a customer is money moving against a specific order — leaving
-        // it untied would make the ledger untraceable back to the order it actually belongs
-        // to, unlike a plain member/business/external transaction (rent, supplies, ...).
-        if (orderReferenceBlank && (debit.getType() == PartyType.CUSTOMER || credit.getType() == PartyType.CUSTOMER)) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                    "Order reference is required for a payment involving a customer");
-        }
+        requireOrderReferenceIfCustomer(debit, credit, request.orderReference());
         LedgerEntry entry = LedgerEntry.builder()
                 .groupId(groupId)
                 .date(request.date() == null ? clock.instant() : request.date())
@@ -58,10 +51,50 @@ public class LedgerEntryService {
                 .amount(request.amount())
                 .debit(debit)
                 .credit(credit)
-                .orderReference(orderReferenceBlank ? null : request.orderReference().trim())
+                .orderReference(blankToNull(request.orderReference()))
+                .notes(blankToNull(request.notes()))
                 .createdByUserId(userId)
                 .build();
         return LedgerEntryView.of(entries.save(entry));
+    }
+
+    /** Full edit for a manually-entered row (description/amount/parties/order
+     *  reference/notes, exactly what {@link #create} accepts). A row synced from an Order
+     *  Tracker payment ({@code sourceRef} set) stays locked to its source everywhere except
+     *  {@code notes} — editing anything else here would silently drift it from the real
+     *  payment it mirrors, the same reason its delete doesn't reach back to Order Tracker
+     *  either. */
+    public LedgerEntryView update(String groupId, String userId, String entryId, CreateLedgerEntryRequest request) {
+        Group group = groupService.requireMember(groupId, userId);
+        LedgerEntry entry = requireById(groupId, entryId);
+        if (entry.getSourceRef() == null) {
+            LedgerEntry.Party debit = validateParty(group, request.debit());
+            LedgerEntry.Party credit = validateParty(group, request.credit());
+            requireOrderReferenceIfCustomer(debit, credit, request.orderReference());
+            entry.setDate(request.date() == null ? entry.getDate() : request.date());
+            entry.setDescription(request.description().trim());
+            entry.setAmount(request.amount());
+            entry.setDebit(debit);
+            entry.setCredit(credit);
+            entry.setOrderReference(blankToNull(request.orderReference()));
+        }
+        entry.setNotes(blankToNull(request.notes()));
+        return LedgerEntryView.of(entries.save(entry));
+    }
+
+    private static void requireOrderReferenceIfCustomer(LedgerEntry.Party debit, LedgerEntry.Party credit, String orderReference) {
+        // A payment involving a customer is money moving against a specific order — leaving
+        // it untied would make the ledger untraceable back to the order it actually belongs
+        // to, unlike a plain member/business/external transaction (rent, supplies, ...).
+        boolean blank = orderReference == null || orderReference.isBlank();
+        if (blank && (debit.getType() == PartyType.CUSTOMER || credit.getType() == PartyType.CUSTOMER)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Order reference is required for a payment involving a customer");
+        }
+    }
+
+    private static String blankToNull(String s) {
+        return s == null || s.isBlank() ? null : s.trim();
     }
 
     /** Manual entries and auto-synced ones alike (design decision: this stays a simple

@@ -164,7 +164,7 @@ class CrossAppletSearchServiceTest {
 
         ledgerEntryService.create(finance.getId(), userId, new CreateLedgerEntryRequest(
                 null, "Yarn reimbursement for order #1", new BigDecimal("450.00"),
-                new PartyInput(PartyType.BUSINESS, null, null), new PartyInput(PartyType.MEMBER, userId, null), null));
+                new PartyInput(PartyType.BUSINESS, null, null), new PartyInput(PartyType.MEMBER, userId, null), null, null));
 
         List<SearchResult> results = searchService.search(business.getId(), userId, "reimbursement");
 

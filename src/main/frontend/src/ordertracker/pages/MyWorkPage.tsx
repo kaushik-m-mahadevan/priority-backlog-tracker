@@ -153,9 +153,9 @@ export default function MyWorkPage() {
                   <td className="cell-completion">{o.completionPercentage.toFixed(0)}%</td>
                   <td className="cell-due">
                     <OrderDueDate
-                      iso={(o.orderType === "INDIVIDUAL" ? o.costEstimate?.computedDueDate : o.bulkDetails?.computedDueDate) ?? null}
+                      iso={o.quotedDeliveryDate ?? (o.orderType === "INDIVIDUAL" ? o.costEstimate?.computedDueDate : o.bulkDetails?.computedDueDate) ?? null}
                       status={o.status}
-                      quotedIso={o.quotedDeliveryDate}
+                      estimateIso={(o.orderType === "INDIVIDUAL" ? o.costEstimate?.computedDueDate : o.bulkDetails?.computedDueDate) ?? null}
                     />
                   </td>
                 </tr>

@@ -16,6 +16,8 @@ export const financeTrackerApi = {
   ledgerEntries: (groupId: string) => api.get<LedgerEntryView[]>(`${base(groupId)}/ledger`),
   logLedgerEntry: (groupId: string, body: CreateLedgerEntryRequest) =>
     api.post<LedgerEntryView>(`${base(groupId)}/ledger`, body),
+  updateLedgerEntry: (groupId: string, entryId: string, body: CreateLedgerEntryRequest) =>
+    api.put<LedgerEntryView>(`${base(groupId)}/ledger/${entryId}`, body),
   deleteLedgerEntry: (groupId: string, entryId: string) => api.delete<void>(`${base(groupId)}/ledger/${entryId}`),
   balances: (groupId: string) => api.get<MemberBalanceView[]>(`${base(groupId)}/ledger/balances`),
   externalSuggestions: (groupId: string) => api.get<ExternalPartySuggestion[]>(`${base(groupId)}/ledger/external-suggestions`),
