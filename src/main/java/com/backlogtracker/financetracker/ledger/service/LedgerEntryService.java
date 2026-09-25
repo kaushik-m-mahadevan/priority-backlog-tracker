@@ -167,6 +167,7 @@ public class LedgerEntryService {
                 .debit(toParty(event.debit()))
                 .credit(toParty(event.credit()))
                 .sourceRef(event.sourceRef())
+                .orderReference(event.orderReference())
                 .createdByUserId(userId)
                 .build());
     }

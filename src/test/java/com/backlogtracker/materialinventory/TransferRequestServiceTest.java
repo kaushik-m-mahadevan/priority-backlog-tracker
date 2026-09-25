@@ -116,6 +116,20 @@ class TransferRequestServiceTest {
     }
 
     @Test
+    void rejectsCreatingARequestAgainstSomeoneWhoDoesntHaveEnough() {
+        assertThatThrownBy(() -> transferRequestService.create(inventoryGroup.getId(), requesterId,
+                new CreateTransferRequestRequest(targetId, List.of(new LineInput(cotton.id(), 1.0)))))
+                .isInstanceOf(ResponseStatusException.class)
+                .hasMessageContaining("only has 0.0 on hand");
+
+        inventoryService.setMyQuantity(inventoryGroup.getId(), targetId, cotton.id(), 0.5);
+        assertThatThrownBy(() -> transferRequestService.create(inventoryGroup.getId(), requesterId,
+                new CreateTransferRequestRequest(targetId, List.of(new LineInput(cotton.id(), 1.0)))))
+                .isInstanceOf(ResponseStatusException.class)
+                .hasMessageContaining("only has 0.5 on hand");
+    }
+
+    @Test
     void rejectsTheSameYarnTypeTwiceInOneRequest() {
         assertThatThrownBy(() -> transferRequestService.create(inventoryGroup.getId(), requesterId,
                 new CreateTransferRequestRequest(targetId, List.of(new LineInput(wool.id(), 1.0), new LineInput(wool.id(), 1.0)))))
@@ -176,10 +190,12 @@ class TransferRequestServiceTest {
 
     @Test
     void rejectsSendingMoreThanTheTargetHasOnHand() {
-        inventoryService.setMyQuantity(inventoryGroup.getId(), targetId, wool.id(), 2.0);
+        // Raised while the target genuinely had enough (3.0) — their real stock then drops
+        // before they get around to sending, same as any real gap between asking and giving.
         TransferRequestView created = transferRequestService.create(inventoryGroup.getId(), requesterId,
                 new CreateTransferRequestRequest(targetId, List.of(new LineInput(wool.id(), 3.0))));
         String lineId = onlyLine(created).lineId();
+        inventoryService.setMyQuantity(inventoryGroup.getId(), targetId, wool.id(), 2.0);
 
         assertThatThrownBy(() -> transferRequestService.send(inventoryGroup.getId(), targetId, created.id(), lineId, send(3.0)))
                 .isInstanceOf(ResponseStatusException.class)

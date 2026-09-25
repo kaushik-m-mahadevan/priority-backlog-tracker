@@ -92,6 +92,17 @@ public class TransferRequestService {
             if (quantity <= 0) {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "quantity must be greater than zero");
             }
+            // Prevents raising a request against someone who plainly doesn't have it — the
+            // real "not enough on hand" guard still lives in send() (their stock can change
+            // between now and then), this is just stopping the obviously pointless ask up
+            // front (design decision from real use: don't let me ask someone with 0 skeins
+            // for 1).
+            double targetHas = inventoryService.quantityOf(groupId, request.targetUserId(), lineInput.yarnTypeId());
+            if (targetHas + QuarterStep.EPSILON < quantity) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        yarnType.getBrand() + " " + yarnType.getThickness() + " (" + yarnType.getColour() + "): "
+                                + "that member only has " + targetHas + " on hand, not enough for this request");
+            }
             lines.add(TransferRequest.TransferLine.builder()
                     .lineId(UUID.randomUUID().toString())
                     .yarnTypeId(lineInput.yarnTypeId())

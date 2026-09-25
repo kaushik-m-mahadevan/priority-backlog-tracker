@@ -661,7 +661,8 @@ public class OrderService {
                     (refund ? "Refund — " : "Payment — ") + (order.getItemName() == null ? order.getOrderNumber() : order.getItemName()),
                     amount,
                     refund ? receiver : customer,
-                    refund ? customer : receiver);
+                    refund ? customer : receiver,
+                    order.getOrderNumber());
             consumer.onPaymentRecorded(financeGroupId, userId, event);
         });
     }

@@ -73,6 +73,11 @@ class PaymentSyncApiTest extends OrderApiTestSupport {
         assertThat(entry.get("debit").get("type").asText()).isEqualTo("CUSTOMER");
         assertThat(entry.get("credit").get("type").asText()).isEqualTo("MEMBER");
         assertThat(entry.get("sourceRef").asText()).startsWith(orderId + ":");
+
+        String orderBody = mvc.perform(auth(get("/api/ordertracker/groups/" + groupId + "/orders/" + orderId), token))
+                .andReturn().getResponse().getContentAsString();
+        String orderNumber = mapper.readTree(orderBody).get("orderNumber").asText();
+        assertThat(entry.get("orderReference").asText()).isEqualTo(orderNumber);
     }
 
     @Test

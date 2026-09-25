@@ -9,7 +9,7 @@ import java.time.Instant;
  * delivery can safely retry against.
  */
 public record PaymentSyncEvent(String sourceRef, Instant date, String description, double amount,
-                               PartyRef debit, PartyRef credit) {
+                               PartyRef debit, PartyRef credit, String orderReference) {
 
     /** {@code kind} is one of "MEMBER" ({@code userId} set), "BUSINESS" (neither set), or
      *  "CUSTOMER"/"EXTERNAL" ({@code displayName} set). */

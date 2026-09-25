@@ -3,7 +3,7 @@ import { useAuth } from "../../auth/AuthContext";
 import { formatDateTime } from "../../lib/format";
 import { materialInventoryApi } from "../api";
 import { useMaterialInventory } from "../MaterialInventoryContext";
-import type { TransferLineView, TransferRequestView, YarnTypeView } from "../types";
+import type { InventoryEntryView, TransferLineView, TransferRequestView, YarnTypeView } from "../types";
 
 type DraftLine = { yarnTypeId: string; quantity: string };
 type NewRequestDraft = { targetUserId: string; lines: DraftLine[] };
@@ -25,6 +25,7 @@ export default function RequestsPage() {
   const { user } = useAuth();
   const [requests, setRequests] = useState<TransferRequestView[]>([]);
   const [yarnTypes, setYarnTypes] = useState<YarnTypeView[]>([]);
+  const [inventory, setInventory] = useState<InventoryEntryView[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
@@ -42,15 +43,45 @@ export default function RequestsPage() {
   const load = () => {
     if (!currentGroupId) return;
     setLoading(true);
-    Promise.all([materialInventoryApi.transfers(currentGroupId), materialInventoryApi.yarnTypes(currentGroupId)])
-      .then(([reqs, types]) => {
+    Promise.all([
+      materialInventoryApi.transfers(currentGroupId),
+      materialInventoryApi.yarnTypes(currentGroupId),
+      materialInventoryApi.inventory(currentGroupId),
+    ])
+      .then(([reqs, types, inv]) => {
         setRequests(reqs);
         setYarnTypes(types);
+        setInventory(inv);
       })
       .finally(() => setLoading(false));
   };
 
   useEffect(load, [currentGroupId]);
+
+  const quantityOf = (userId: string, yarnTypeId: string) =>
+    inventory.find((e) => e.userId === userId && e.yarnTypeId === yarnTypeId)?.quantity ?? 0;
+
+  /** Who could actually fulfill every yarn type currently drafted, most-stocked-overall
+   *  first — a real availability check (not just a display hint), so the "Ask" list never
+   *  offers someone who plainly doesn't have enough of something already in the draft. */
+  const eligibleTargets = () => {
+    const needed = draft.lines.filter((l) => l.yarnTypeId && Number(l.quantity) > 0);
+    return members
+      .filter((m) => m.id !== user?.id)
+      .filter((m) => needed.every((l) => quantityOf(m.id, l.yarnTypeId) + QUARTER_EPSILON >= Number(l.quantity)))
+      .sort((a, b) => {
+        const totalFor = (id: string) => needed.reduce((sum, l) => sum + quantityOf(id, l.yarnTypeId), 0);
+        return totalFor(b.id) - totalFor(a.id);
+      });
+  };
+
+  /** Availability hint shown under a single yarn-type line, regardless of the other lines
+   *  in the draft — someone might be a great fit for this one yarn type even if they can't
+   *  cover everything in the request. */
+  const availabilityFor = (yarnTypeId: string) =>
+    members
+      .filter((m) => m.id !== user?.id && quantityOf(m.id, yarnTypeId) > QUARTER_EPSILON)
+      .sort((a, b) => quantityOf(b.id, yarnTypeId) - quantityOf(a.id, yarnTypeId));
 
   const isLineActive = (l: TransferLineView) => l.status === "OPEN" || l.shipments.some((s) => s.receivedAt === null);
   const isRequestActive = (r: TransferRequestView) => r.lines.some(isLineActive);
@@ -254,7 +285,63 @@ export default function RequestsPage() {
 
         {showForm && (
           <form onSubmit={submitRequest} style={{ marginTop: 12 }}>
-            <div className="form-row">
+            <p className="hint" style={{ marginTop: 0 }}>
+              Pick what you need first — who you can ask depends on who actually has it.
+            </p>
+            {draft.lines.map((line, i) => {
+              const available = line.yarnTypeId ? availabilityFor(line.yarnTypeId) : [];
+              return (
+                <div key={i} style={{ marginTop: i === 0 ? 0 : 12, paddingTop: i === 0 ? 0 : 12, borderTop: i === 0 ? undefined : "1px solid var(--border-soft)" }}>
+                  <div className="form-grid">
+                    <div className="form-row">
+                      <label htmlFor={`req-yarn-${i}`}>For</label>
+                      <select id={`req-yarn-${i}`} value={line.yarnTypeId}
+                        onChange={(e) => setDraftLine(i, { yarnTypeId: e.target.value })} required>
+                        <option value="">Select…</option>
+                        {yarnTypes.map((y) => (
+                          <option key={y.id} value={y.id}>
+                            {y.brand} — {y.thickness}, {y.colour}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="form-row">
+                      <label htmlFor={`req-qty-${i}`}>Quantity</label>
+                      <div className="toolbar">
+                        <input
+                          id={`req-qty-${i}`}
+                          type="number"
+                          min={0.25}
+                          step={0.25}
+                          value={line.quantity}
+                          onChange={(e) => setDraftLine(i, { quantity: e.target.value })}
+                          required
+                        />
+                        {draft.lines.length > 1 && (
+                          <button type="button" className="ghost" onClick={() => removeDraftLine(i)} aria-label="Remove this yarn type">
+                            ✕
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                  {line.yarnTypeId && (
+                    <p className="muted" style={{ fontSize: 12, marginTop: 4 }}>
+                      {available.length === 0
+                        ? "No one else in this group has any of this yarn type."
+                        : "Available: " + available.map((m) => `${memberName(m.id)} (${quantityOf(m.id, line.yarnTypeId)})`).join(", ")}
+                    </p>
+                  )}
+                </div>
+              );
+            })}
+            <div className="toolbar" style={{ marginTop: 8 }}>
+              <button type="button" className="ghost" onClick={addDraftLine}>
+                + Another yarn type
+              </button>
+            </div>
+
+            <div className="form-row" style={{ marginTop: 12 }}>
               <label htmlFor="req-target">Ask</label>
               <select
                 id="req-target"
@@ -263,52 +350,17 @@ export default function RequestsPage() {
                 required
               >
                 <option value="">Select…</option>
-                {members.filter((m) => m.id !== user?.id).map((m) => (
+                {eligibleTargets().map((m) => (
                   <option key={m.id} value={m.id}>
                     {m.name}
                   </option>
                 ))}
               </select>
-            </div>
-
-            {draft.lines.map((line, i) => (
-              <div className="form-grid" key={i} style={{ marginTop: 8 }}>
-                <div className="form-row">
-                  <label htmlFor={`req-yarn-${i}`}>For</label>
-                  <select id={`req-yarn-${i}`} value={line.yarnTypeId} onChange={(e) => setDraftLine(i, { yarnTypeId: e.target.value })} required>
-                    <option value="">Select…</option>
-                    {yarnTypes.map((y) => (
-                      <option key={y.id} value={y.id}>
-                        {y.brand} — {y.thickness}, {y.colour}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div className="form-row">
-                  <label htmlFor={`req-qty-${i}`}>Quantity</label>
-                  <div className="toolbar">
-                    <input
-                      id={`req-qty-${i}`}
-                      type="number"
-                      min={0.25}
-                      step={0.25}
-                      value={line.quantity}
-                      onChange={(e) => setDraftLine(i, { quantity: e.target.value })}
-                      required
-                    />
-                    {draft.lines.length > 1 && (
-                      <button type="button" className="ghost" onClick={() => removeDraftLine(i)} aria-label="Remove this yarn type">
-                        ✕
-                      </button>
-                    )}
-                  </div>
-                </div>
-              </div>
-            ))}
-            <div className="toolbar" style={{ marginTop: 8 }}>
-              <button type="button" className="ghost" onClick={addDraftLine}>
-                + Another yarn type
-              </button>
+              {eligibleTargets().length === 0 && draft.lines.some((l) => l.yarnTypeId && Number(l.quantity) > 0) && (
+                <p className="hint bad" style={{ marginTop: 4 }}>
+                  No one in this group currently has enough of everything above.
+                </p>
+              )}
             </div>
 
             <div className="toolbar" style={{ marginTop: 12 }}>
