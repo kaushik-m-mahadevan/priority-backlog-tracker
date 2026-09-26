@@ -230,9 +230,13 @@ public class DemoDataSeeder implements ApplicationRunner {
         groupLinkService.link(groupId, test123, otGroupId);
         groupLinkService.link(groupId, test123, ftGroupId);
         groupLinkService.link(groupId, test123, miGroupId);
+        groupLinkService.link(groupId, test123, pcGroupId);
         groupLinkService.link(otGroupId, test123, ftGroupId);
         groupLinkService.link(otGroupId, test123, miGroupId);
+        groupLinkService.link(otGroupId, test123, pcGroupId);
         groupLinkService.link(ftGroupId, test123, miGroupId);
+        groupLinkService.link(ftGroupId, test123, pcGroupId);
+        groupLinkService.link(miGroupId, test123, pcGroupId);
 
         // Back-date every group's own creation stamp so the workspace reads as
         // long-established rather than freshly bootstrapped at seed time.
