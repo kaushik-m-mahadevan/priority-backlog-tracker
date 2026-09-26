@@ -29,10 +29,16 @@ import com.backlogtracker.commons.user.domain.AccountStatus;
 import com.backlogtracker.commons.user.domain.Role;
 import com.backlogtracker.commons.user.domain.User;
 import com.backlogtracker.commons.user.repository.UserRepository;
+import com.backlogtracker.commons.link.service.GroupLinkService;
+import com.backlogtracker.financetracker.ledger.domain.LedgerEntry;
 import com.backlogtracker.financetracker.ledger.domain.PartyType;
 import com.backlogtracker.financetracker.ledger.dto.CreateLedgerEntryRequest;
 import com.backlogtracker.financetracker.ledger.dto.CreateLedgerEntryRequest.PartyInput;
 import com.backlogtracker.financetracker.ledger.service.LedgerEntryService;
+import com.backlogtracker.materialinventory.inventory.service.InventoryService;
+import com.backlogtracker.materialinventory.yarn.dto.CreateYarnTypeRequest;
+import com.backlogtracker.materialinventory.yarn.dto.YarnTypeView;
+import com.backlogtracker.materialinventory.yarn.service.YarnTypeService;
 import com.backlogtracker.ordertracker.customer.domain.AcquisitionChannel;
 import com.backlogtracker.ordertracker.customer.dto.CustomerView;
 import com.backlogtracker.ordertracker.customer.dto.UpsertCustomerRequest;
@@ -91,6 +97,9 @@ public class DemoDataSeeder implements ApplicationRunner {
     private final OrderService orderService;
     private final ColorwayService colorwayService;
     private final LedgerEntryService ledgerEntryService;
+    private final GroupLinkService groupLinkService;
+    private final YarnTypeService yarnTypeService;
+    private final InventoryService inventoryService;
 
     @Override
     public void run(ApplicationArguments args) {
@@ -208,8 +217,29 @@ public class DemoDataSeeder implements ApplicationRunner {
                 com.backlogtracker.commons.group.domain.Group.APPLET_FINANCE_TRACKER);
         String pcGroupId = seedAppletGroup("Founders", allFounders,
                 com.backlogtracker.commons.group.domain.Group.APPLET_PRODUCT_CATALOG);
+        String miGroupId = seedAppletGroup("Founders", allFounders,
+                com.backlogtracker.commons.group.domain.Group.APPLET_MATERIAL_INVENTORY);
 
         seedOrderTrackerCatalogAndFinance(otGroupId, ftGroupId, pcGroupId, test123, alex, priya, sam);
+        seedMaterialInventory(miGroupId, alex, priya, sam);
+
+        // The founders have been running this as one connected setup for months, not four
+        // separately-created workspaces — link every pairing so Order Tracker's payment
+        // sync, Material Inventory's reservation lookups, and cross-applet notifications all
+        // resolve immediately, without anyone having to run the "link a group" flow by hand.
+        groupLinkService.link(groupId, test123, otGroupId);
+        groupLinkService.link(groupId, test123, ftGroupId);
+        groupLinkService.link(groupId, test123, miGroupId);
+        groupLinkService.link(otGroupId, test123, ftGroupId);
+        groupLinkService.link(otGroupId, test123, miGroupId);
+        groupLinkService.link(ftGroupId, test123, miGroupId);
+
+        // Back-date every group's own creation stamp so the workspace reads as
+        // long-established rather than freshly bootstrapped at seed time.
+        Instant establishedAt = now.minus(140, ChronoUnit.DAYS);
+        mongo.updateFirst(new Query(Criteria.where("_id").in(groupId, otGroupId, ftGroupId, pcGroupId, miGroupId)),
+                new Update().set("createdAt", establishedAt),
+                com.backlogtracker.commons.group.domain.Group.class);
     }
 
     private String seedAppletGroup(String name, List<String> memberIds, String appletKey) {
@@ -321,19 +351,80 @@ public class DemoDataSeeder implements ApplicationRunner {
                 alexCreator.getId(), 0));
         orderService.updateStatus(groupId, alex.getId(), bulkOrder.id(), new UpdateOrderStatusRequest(OrderStatus.CONFIRMED, null));
 
+        // A handful of older entries first, so the ledger reads as an ongoing history
+        // rather than something that started this week.
         ledgerEntryService.create(financeGroupId, alex.getId(), new CreateLedgerEntryRequest(
-                null, "Yarn restock — coral cotton + grey acrylic", new BigDecimal("2400"),
+                Instant.now().minus(96, ChronoUnit.DAYS), "Initial yarn + needle stock-up", new BigDecimal("6200"),
                 new PartyInput(PartyType.BUSINESS, null, null), new PartyInput(PartyType.MEMBER, alex.getId(), null), null, null));
+        ledgerEntryService.create(financeGroupId, sam.getId(), new CreateLedgerEntryRequest(
+                Instant.now().minus(70, ChronoUnit.DAYS), "Ravelry pattern licenses (bulk)", new BigDecimal("1200"),
+                new PartyInput(PartyType.BUSINESS, null, null), new PartyInput(PartyType.MEMBER, sam.getId(), null), null, null));
         ledgerEntryService.create(financeGroupId, priya.getId(), new CreateLedgerEntryRequest(
-                null, "Packaging boxes (50 pack)", new BigDecimal("850"),
+                Instant.now().minus(42, ChronoUnit.DAYS), "Packaging boxes (50 pack)", new BigDecimal("850"),
                 new PartyInput(PartyType.BUSINESS, null, null), new PartyInput(PartyType.MEMBER, priya.getId(), null), null, null));
         ledgerEntryService.create(financeGroupId, alex.getId(), new CreateLedgerEntryRequest(
-                null, "Advance for wedding favour order", new BigDecimal("3000"),
+                Instant.now().minus(18, ChronoUnit.DAYS), "Yarn restock — coral cotton + grey acrylic", new BigDecimal("2400"),
+                new PartyInput(PartyType.BUSINESS, null, null), new PartyInput(PartyType.MEMBER, alex.getId(), null), null, null));
+        ledgerEntryService.create(financeGroupId, alex.getId(), new CreateLedgerEntryRequest(
+                Instant.now().minus(3, ChronoUnit.DAYS), "Advance for wedding favour order", new BigDecimal("3000"),
                 new PartyInput(PartyType.CUSTOMER, null, "Pooja Desai"), new PartyInput(PartyType.BUSINESS, null, null),
                 "Wedding favour coasters (set of 8)", null));
 
         log.info("Demo data: seeded Order Tracker (3 creators, 3 customers, 4 orders — one with components, "
-                + "3 component templates), Product Catalog (2 colorways), and Finance Tracker (3 ledger entries)");
+                + "3 component templates), Product Catalog (2 colorways), and Finance Tracker (5 ledger entries)");
+    }
+
+    /** Material Inventory — canonical yarn types matching what Order Tracker's sample orders
+     *  already call for, plus each founder's on-hand stock. Quantities are deliberately
+     *  uneven (some members at 0 for a given yarn, some at/under the 1-skein low-stock
+     *  threshold) so the transfer-suggestion flow (mb-36) has real gaps to suggest across
+     *  immediately, without needing to be set up by hand first. */
+    private void seedMaterialInventory(String miGroupId, User alex, User priya, User sam) {
+        YarnTypeView coral = yarnTypeService.create(miGroupId, alex.getId(), new CreateYarnTypeRequest(
+                "Vardhman", "DK", "Coral", "100% cotton", 50.0, 85.0, "4mm", null, 65.0));
+        YarnTypeView grey = yarnTypeService.create(miGroupId, sam.getId(), new CreateYarnTypeRequest(
+                "Ganga", "Worsted", "Grey", "acrylic", 100.0, 180.0, "5mm", null, 90.0));
+        YarnTypeView brown = yarnTypeService.create(miGroupId, alex.getId(), new CreateYarnTypeRequest(
+                "Vardhman", "DK", "Brown", "100% cotton", 50.0, 85.0, "4mm", null, 65.0));
+        YarnTypeView white = yarnTypeService.create(miGroupId, priya.getId(), new CreateYarnTypeRequest(
+                "Vardhman", "DK", "White", "100% cotton", 50.0, 85.0, "4mm", null, 60.0));
+        YarnTypeView yellow = yarnTypeService.create(miGroupId, priya.getId(), new CreateYarnTypeRequest(
+                "Vardhman", "DK", "Yellow", "100% cotton", 50.0, 85.0, "4mm", null, 60.0));
+        YarnTypeView sage = yarnTypeService.create(miGroupId, sam.getId(), new CreateYarnTypeRequest(
+                "Vardhman", "DK", "Sage Green", "100% cotton", 50.0, 85.0, "4mm",
+                "Matches the Sage Meadow colorway", 65.0));
+
+        // (holder, yarn, quantity in skeins, days since last touched)
+        record Stock(User holder, YarnTypeView yarn, double quantity, int updatedDaysAgo) {
+        }
+        List<Stock> stock = List.of(
+                new Stock(alex, coral, 3.5, 4),
+                new Stock(priya, coral, 0.0, 0),   // out — will need a transfer from Alex
+                new Stock(sam, coral, 1.0, 12),
+                new Stock(alex, brown, 2.0, 9),
+                new Stock(priya, brown, 0.75, 26),
+                new Stock(sam, brown, 6.0, 3),
+                new Stock(alex, white, 1.0, 33),   // low stock, untouched a while — stale
+                new Stock(priya, white, 2.5, 5),
+                new Stock(priya, yellow, 3.0, 5),
+                new Stock(sam, yellow, 1.5, 15),
+                new Stock(alex, sage, 4.0, 7),
+                new Stock(sam, sage, 2.0, 20),
+                new Stock(priya, grey, 5.0, 45),   // stale — nobody's touched Priya's grey in a month+
+                new Stock(sam, grey, 2.5, 2));
+        for (Stock s : stock) {
+            if (s.quantity() == 0.0) {
+                continue; // nothing to set — the absence itself is the point (see Coral/Priya above)
+            }
+            inventoryService.setMyQuantity(miGroupId, s.holder().getId(), s.yarn().id(), s.quantity());
+            mongo.updateFirst(new Query(Criteria.where("groupId").is(miGroupId)
+                            .and("userId").is(s.holder().getId()).and("yarnTypeId").is(s.yarn().id())),
+                    new Update().set("updatedAt", Instant.now().minus(s.updatedDaysAgo(), ChronoUnit.DAYS)),
+                    com.backlogtracker.materialinventory.inventory.domain.InventoryEntry.class);
+        }
+
+        log.info("Demo data: seeded Material Inventory (6 yarn types, {} on-hand entries across 3 members)",
+                stock.stream().filter(s -> s.quantity() > 0).count());
     }
 
     private User ensureUser(String name, String email, String code) {
