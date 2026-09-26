@@ -299,6 +299,34 @@ class TransferRequestServiceTest {
         assertThat(inventoryService.mine(inventoryGroup.getId(), targetId).get(0).quantity()).isEqualTo(10.0);
     }
 
+    /** Round 5 review: closeLine/cancel used to do a single unretried {@code repository.save},
+     *  so a version conflict surfaced as a raw {@link org.springframework.dao.OptimisticLockingFailureException}
+     *  (an unhandled 500) instead of the same friendly 409 send/confirmReceived already give.
+     *  Races the exact same closeLine call against itself so every losing attempt must hit
+     *  the real business rule ("already closed") through a {@link ResponseStatusException},
+     *  never the raw locking exception leaking out unmapped. */
+    @Test
+    void concurrentCloseLineCallsNeverLeakARawOptimisticLockingException() throws Exception {
+        inventoryService.setMyQuantity(inventoryGroup.getId(), targetId, wool.id(), 20.0);
+        TransferRequestView created = transferRequestService.create(inventoryGroup.getId(), requesterId,
+                new CreateTransferRequestRequest(targetId, List.of(new LineInput(wool.id(), 10.0))));
+        String lineId = onlyLine(created).lineId();
+
+        int n = 20;
+        List<Object> results = runSimultaneously(n, i -> {
+            try {
+                return transferRequestService.closeLine(inventoryGroup.getId(), requesterId, created.id(), lineId);
+            } catch (ResponseStatusException e) {
+                return e;
+            }
+        });
+        long succeeded = results.stream().filter(r -> r instanceof TransferRequestView).count();
+        long businessConflicts = results.stream()
+                .filter(r -> r instanceof ResponseStatusException e && e.getStatusCode().value() == 409).count();
+        assertThat(succeeded).isEqualTo(1);
+        assertThat(businessConflicts).isEqualTo(n - 1);
+    }
+
     private <T> List<T> runSimultaneously(int n, IntFunctionThrows<T> task) throws Exception {
         ExecutorService pool = Executors.newFixedThreadPool(n);
         CountDownLatch ready = new CountDownLatch(n);

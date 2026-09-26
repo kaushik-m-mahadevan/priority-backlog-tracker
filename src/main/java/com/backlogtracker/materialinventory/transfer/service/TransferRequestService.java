@@ -236,17 +236,34 @@ public class TransferRequestService {
      *  new ones; anything already in transit stays confirmable whenever it arrives. */
     public TransferRequestView closeLine(String groupId, String userId, String requestId, String lineId) {
         groupService.requireMember(groupId, userId);
-        TransferRequest tr = requireById(groupId, requestId);
-        if (!tr.getRequesterId().equals(userId)) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Only the requester can close a line");
+
+        TransferRequest tr = null;
+        TransferRequest saved = null;
+        double remaining = 0;
+        // Round 5 review: unlike send/confirmReceived, this never touches inventory before
+        // saving, so a lost race just needs a fresh re-read and re-apply — no compensating
+        // credit/debit to undo first.
+        for (int attempt = 0; attempt < MAX_VERSION_RETRIES; attempt++) {
+            tr = requireById(groupId, requestId);
+            if (!tr.getRequesterId().equals(userId)) {
+                throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Only the requester can close a line");
+            }
+            TransferRequest.TransferLine line = requireLine(tr, lineId);
+            if (line.getStatus() == LineStatus.CLOSED) {
+                throw new ResponseStatusException(HttpStatus.CONFLICT, "This line is already closed");
+            }
+            remaining = line.getRequestedQuantity() - sentQuantity(line);
+            line.setStatus(LineStatus.CLOSED);
+            try {
+                saved = repository.save(tr);
+                break;
+            } catch (OptimisticLockingFailureException e) {
+                // retry against a fresh read
+            }
         }
-        TransferRequest.TransferLine line = requireLine(tr, lineId);
-        if (line.getStatus() == LineStatus.CLOSED) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "This line is already closed");
+        if (saved == null) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "This request is being updated by someone else — please retry");
         }
-        double remaining = line.getRequestedQuantity() - sentQuantity(line);
-        line.setStatus(LineStatus.CLOSED);
-        TransferRequest saved = repository.save(tr);
 
         if (remaining > QuarterStep.EPSILON) {
             notificationService.info(tr.getTargetUserId(), NotificationType.TRANSFER_REQUEST_RESOLVED,
@@ -260,17 +277,29 @@ public class TransferRequestService {
      *  per line is the only way to stop the rest. */
     public TransferRequestView cancel(String groupId, String userId, String requestId) {
         groupService.requireMember(groupId, userId);
-        TransferRequest tr = requireById(groupId, requestId);
-        if (!tr.getRequesterId().equals(userId)) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Only the requester can cancel this request");
+
+        TransferRequest saved = null;
+        for (int attempt = 0; attempt < MAX_VERSION_RETRIES; attempt++) {
+            TransferRequest tr = requireById(groupId, requestId);
+            if (!tr.getRequesterId().equals(userId)) {
+                throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Only the requester can cancel this request");
+            }
+            boolean anythingSent = tr.getLines().stream().anyMatch(l -> !l.getShipments().isEmpty());
+            if (anythingSent) {
+                throw new ResponseStatusException(HttpStatus.CONFLICT,
+                        "Some yarn has already been sent on this request — close individual lines instead");
+            }
+            tr.getLines().forEach(l -> l.setStatus(LineStatus.CLOSED));
+            try {
+                saved = repository.save(tr);
+                break;
+            } catch (OptimisticLockingFailureException e) {
+                // retry against a fresh read
+            }
         }
-        boolean anythingSent = tr.getLines().stream().anyMatch(l -> !l.getShipments().isEmpty());
-        if (anythingSent) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT,
-                    "Some yarn has already been sent on this request — close individual lines instead");
+        if (saved == null) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "This request is being updated by someone else — please retry");
         }
-        tr.getLines().forEach(l -> l.setStatus(LineStatus.CLOSED));
-        TransferRequest saved = repository.save(tr);
         notificationService.resolveByReference(NotificationType.TRANSFER_REQUEST_CREATED, requestId, false);
         return TransferRequestView.of(saved);
     }
