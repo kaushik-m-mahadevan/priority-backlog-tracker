@@ -78,7 +78,7 @@ export function MaterialsSection({
           </div>
           <div className="card">
             <h2>Packaging</h2>
-            <div className="row"><span className="k">Cost</span><span className="v">{order.packaging?.cost != null ? formatMoney(order.packaging.cost) : "₹0.00"}</span></div>
+            <div className="row"><span className="k">Cost</span><span className="v">{formatMoney(order.packaging?.cost ?? 0)}</span></div>
             <div className="row"><span className="k">Time</span><span className="v">{order.packaging?.timeHours ?? 0}h</span></div>
           </div>
         </div>
@@ -251,7 +251,7 @@ export function MaterialsSection({
             </div>
             <div>
               <h2>Packaging</h2>
-              <div className="row"><span className="k">Cost</span><span className="v">{v.packaging?.cost != null ? formatMoney(v.packaging.cost) : "₹0.00"}</span></div>
+              <div className="row"><span className="k">Cost</span><span className="v">{formatMoney(v.packaging?.cost ?? 0)}</span></div>
               <div className="row"><span className="k">Time</span><span className="v">{v.packaging?.timeHours ?? 0}h</span></div>
             </div>
           </div>
