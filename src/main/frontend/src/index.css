@@ -2023,9 +2023,16 @@ input[aria-invalid="true"] {
   .tabbar button {
     color: var(--text-dim);
     display: flex;
+    align-items: center;
+    justify-content: center;
     padding: 6px;
     background: none;
     border: none;
+    /* 44x44 minimum tappable area (ui-9's own rule, missed here in round 4 — round 5
+       review found the primary mobile nav for Backlog Tracker/Order Tracker was still a
+       cramped ~34x34) — grown via min-width/height around the glyph, matching .iconbtn. */
+    min-width: 44px;
+    min-height: 44px;
   }
   .tabbar a.active,
   .tabbar button.active {
