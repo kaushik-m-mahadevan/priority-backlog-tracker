@@ -60,4 +60,50 @@ describe("useSwipe", () => {
     act(() => result.current.onTouchEnd());
     expect(result.current.offset).toBe(0);
   });
+
+  /** Round 5 review: a card inside a horizontally-scrollable ancestor (the Kanban board)
+   *  used to fire a swipe callback even when the drag was actually just scrolling the
+   *  board to reach an off-screen column. Builds one shared scrollable ancestor + card so
+   *  the hook's ref (captured at touch-start) points at the same element touch-move later
+   *  mutates — a fresh element per call would never look like "the same ancestor scrolled". */
+  function cardInScrollableAncestor() {
+    const scrollParent = document.createElement("div");
+    Object.defineProperty(scrollParent, "scrollWidth", { value: 1000, configurable: true });
+    Object.defineProperty(scrollParent, "clientWidth", { value: 300, configurable: true });
+    let scrollLeft = 0;
+    Object.defineProperty(scrollParent, "scrollLeft", {
+      get: () => scrollLeft, set: (v) => { scrollLeft = v; }, configurable: true,
+    });
+    const card = document.createElement("div");
+    scrollParent.appendChild(card);
+    document.body.appendChild(scrollParent);
+    return { card, setScrollLeft: (v: number) => { scrollLeft = v; } };
+  }
+  function touchOn(card: Element, clientX: number): React.TouchEvent {
+    return { touches: [{ clientX }], currentTarget: card } as unknown as React.TouchEvent;
+  }
+
+  it("aborts the gesture (no offset, no callback) once the scrollable ancestor actually scrolls", () => {
+    const onSwipeLeft = vi.fn();
+    const onSwipeRight = vi.fn();
+    const { card, setScrollLeft } = cardInScrollableAncestor();
+    const { result } = renderHook(() => useSwipe(onSwipeLeft, onSwipeRight));
+    act(() => result.current.onTouchStart(touchOn(card, 200)));
+    setScrollLeft(40); // the board actually scrolled between start and this move
+    act(() => result.current.onTouchMove(touchOn(card, 120)));
+    expect(result.current.offset).toBe(0);
+    act(() => result.current.onTouchEnd());
+    expect(onSwipeLeft).not.toHaveBeenCalled();
+    expect(onSwipeRight).not.toHaveBeenCalled();
+  });
+
+  it("still swipes normally when the scrollable ancestor's scrollLeft never moves", () => {
+    const onSwipeLeft = vi.fn();
+    const { card } = cardInScrollableAncestor();
+    const { result } = renderHook(() => useSwipe(onSwipeLeft));
+    act(() => result.current.onTouchStart(touchOn(card, 200)));
+    act(() => result.current.onTouchMove(touchOn(card, 120)));
+    act(() => result.current.onTouchEnd());
+    expect(onSwipeLeft).toHaveBeenCalledTimes(1);
+  });
 });
