@@ -181,6 +181,30 @@ class CrossAppletSearchServiceTest {
     }
 
     @Test
+    void aLinkedGroupTheCallerIsntAMemberOfIsSilentlySkippedNotACrash() {
+        // Round 5 review: linked groups routinely have non-identical membership (invite-all
+        // is best-effort, GroupLinkService.inviteMissingMembers) — or a member simply leaves
+        // one side later. A caller who's a member of the origin group but not the linked one
+        // used to blow up the whole search with an uncaught 403 from the linked provider's
+        // own requireMember check. Set up the link while userId is (briefly) a member of
+        // both sides — link() requires that — then drop userId from finance's membership to
+        // reproduce the drifted-membership state.
+        OrderView order = seedOrder("Sunset Coral Tote Bag");
+        Group finance = groupService.create("Search Finance 3", outsiderId, Group.APPLET_FINANCE_TRACKER);
+        finance.getMemberIds().add(userId);
+        groups.save(finance);
+        groupLinkService.link(business.getId(), userId, finance.getId());
+        finance.getMemberIds().remove(userId);
+        groups.save(finance);
+
+        List<SearchResult> results = searchService.search(business.getId(), userId, "coral tote");
+
+        assertThat(results).anySatisfy(r -> assertThat(r.id()).isEqualTo(order.id()));
+
+        groups.deleteById(finance.getId());
+    }
+
+    @Test
     void searchingFromTheFinanceSideAlsoFindsTheLinkedBusinessesOrders() {
         OrderView order = seedOrder("Sunset Coral Tote Bag");
         Group finance = groupService.create("Search Finance 2", userId, Group.APPLET_FINANCE_TRACKER);

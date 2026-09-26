@@ -6,12 +6,14 @@ import java.util.Map;
 import java.util.function.Function;
 
 import org.springframework.stereotype.Service;
+import org.springframework.web.server.ResponseStatusException;
 
 import com.backlogtracker.commons.group.domain.Group;
 import com.backlogtracker.commons.group.service.GroupService;
 import com.backlogtracker.commons.link.service.GroupLinkService;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * ad-5: one search box scoped to "the current business plus whatever it's linked to" —
@@ -22,6 +24,7 @@ import lombok.RequiredArgsConstructor;
  */
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class CrossAppletSearchService {
 
     private static final int MIN_QUERY_LENGTH = 2;
@@ -47,8 +50,20 @@ public class CrossAppletSearchService {
             if (other.appletKey().equals(group.getAppletKey())) {
                 continue;
             }
-            groupLinkService.linkedGroupId(groupId, userId, other.appletKey())
-                    .ifPresent(linkedGroupId -> results.addAll(other.search(linkedGroupId, userId, query)));
+            groupLinkService.linkedGroupId(groupId, userId, other.appletKey()).ifPresent(linkedGroupId -> {
+                try {
+                    results.addAll(other.search(linkedGroupId, userId, query));
+                } catch (ResponseStatusException e) {
+                    // Real, ordinary topology: a linked group's membership isn't required to
+                    // match the origin group's (invite-all is best-effort, per
+                    // GroupLinkService's own inviteMissingMembers). A caller who isn't a
+                    // member of the linked group simply gets no results from that applet,
+                    // not a broken search — round 5 review found this crashing the whole
+                    // request with an uncaught 403 instead.
+                    log.debug("Skipping {} results for group {}: caller {} isn't a member",
+                            other.appletKey(), linkedGroupId, userId);
+                }
+            });
         }
         return results;
     }
