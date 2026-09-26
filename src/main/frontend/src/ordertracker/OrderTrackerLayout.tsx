@@ -49,7 +49,7 @@ function MoreTab() {
 }
 
 export default function OrderTrackerLayout() {
-  const { loading, currentGroupId } = useBusiness();
+  const { loading, currentBusiness, currentGroupId } = useBusiness();
   const { status: gateStatus, refresh: refreshGate } = useSetupGate(currentGroupId);
   // The chooser must stay reachable even while the current business is mid-wizard or
   // mid-profile-gate — otherwise creating a new business (which selects it immediately)
@@ -82,6 +82,7 @@ export default function OrderTrackerLayout() {
         }
         extraMenuLinks={[{ to: "/ordertracker/businesses", label: "Switch business" }]}
         groupId={currentGroupId}
+        groupName={currentBusiness?.name}
       />
 
       <div className="container">

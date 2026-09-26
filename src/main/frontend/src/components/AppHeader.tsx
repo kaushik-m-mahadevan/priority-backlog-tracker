@@ -18,6 +18,7 @@ export default function AppHeader({
   extraMenuLinks,
   appletKey,
   groupId,
+  groupName,
 }: {
   /** Decorative glyph shown before the applet name, e.g. "◆", "✂", "⚙", "◇". */
   appletIcon?: string;
@@ -37,6 +38,13 @@ export default function AppHeader({
   appletKey?: string;
   /** The currently-selected group/business/etc. in this applet, if any. */
   groupId?: string | null;
+  /** The currently-selected group/business's own name — with the switcher moved out of
+   *  the header into the account menu (ui-1), nothing otherwise showed which one of
+   *  possibly several groups is actually active on screen right now. Shown as a small
+   *  badge next to the applet name, present on every page of every applet since they all
+   *  share this header. Omitted wherever `groupId` is (no group selected yet, or a shell
+   *  with no single current group). */
+  groupName?: string | null;
 }) {
   // Published as a CSS var (ui-10) so a page-level sticky element (e.g. the order
   // detail action bar) can sit exactly below this bar regardless of applet — some
@@ -70,6 +78,7 @@ export default function AppHeader({
             {appletName}
           </span>
         ))}
+      {groupName && <span className="current-group-badge">{groupName}</span>}
       {navLinks}
       <span className="spacer" />
       {rightSlot}

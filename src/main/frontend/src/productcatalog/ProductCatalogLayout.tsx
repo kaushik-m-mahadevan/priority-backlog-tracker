@@ -4,7 +4,7 @@ import CatalogGroupsPage from "./pages/CatalogGroupsPage";
 import { useProductCatalog } from "./ProductCatalogContext";
 
 export default function ProductCatalogLayout() {
-  const { loading, currentGroupId } = useProductCatalog();
+  const { loading, currentCatalogGroup, currentGroupId } = useProductCatalog();
 
   return (
     <div className="app">
@@ -24,6 +24,7 @@ export default function ProductCatalogLayout() {
         }
         extraMenuLinks={[{ to: "/productcatalog/groups", label: "Switch catalog group" }]}
         groupId={currentGroupId}
+        groupName={currentCatalogGroup?.name}
       />
 
       <div className="container">

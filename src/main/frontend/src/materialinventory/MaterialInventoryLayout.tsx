@@ -4,7 +4,7 @@ import InventoryGroupsPage from "./pages/InventoryGroupsPage";
 import { useMaterialInventory } from "./MaterialInventoryContext";
 
 export default function MaterialInventoryLayout() {
-  const { loading, currentGroupId } = useMaterialInventory();
+  const { loading, currentInventoryGroup, currentGroupId } = useMaterialInventory();
 
   return (
     <div className="app">
@@ -26,6 +26,7 @@ export default function MaterialInventoryLayout() {
         }
         extraMenuLinks={[{ to: "/materialinventory/groups", label: "Switch inventory group" }]}
         groupId={currentGroupId}
+        groupName={currentInventoryGroup?.name}
       />
 
       <div className="container">

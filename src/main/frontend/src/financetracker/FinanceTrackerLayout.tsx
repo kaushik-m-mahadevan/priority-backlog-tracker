@@ -4,7 +4,7 @@ import FinanceGroupsPage from "./pages/FinanceGroupsPage";
 import { useFinanceGroup } from "./FinanceGroupContext";
 
 export default function FinanceTrackerLayout() {
-  const { loading, currentGroupId } = useFinanceGroup();
+  const { loading, currentFinanceGroup, currentGroupId } = useFinanceGroup();
 
   return (
     <div className="app">
@@ -26,6 +26,7 @@ export default function FinanceTrackerLayout() {
         }
         extraMenuLinks={[{ to: "/financetracker/groups", label: "Switch finance group" }]}
         groupId={currentGroupId}
+        groupName={currentFinanceGroup?.name}
       />
 
       <div className="container">

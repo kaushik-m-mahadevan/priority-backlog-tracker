@@ -220,12 +220,41 @@ label {
 .nav-links {
   display: flex;
   gap: 4px;
+  /* The one thing in a tight header (.nav is nowrap) allowed to actually shrink/scroll —
+     min-width:0 overrides flexbox's default content-based floor so this can go below its
+     natural width instead of squeezing the brand/group-name badge next to it. */
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: thin;
 }
 .nav .brand {
   font-weight: 700;
   margin-right: 18px;
   white-space: nowrap;
   color: var(--accent);
+}
+/* Shows which of possibly several groups/businesses is currently active — the switcher
+   itself lives in the account menu (ui-1), so without this nothing on screen said which
+   one you're looking at. */
+.current-group-badge {
+  margin-right: 14px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: var(--bg-elev-2);
+  color: var(--text-dim);
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 220px;
+  /* A flex item with overflow:hidden otherwise gets min-width:0 and can be squeezed to
+     near-nothing by its nowrap siblings (an applet-specific nav-links list, in a header
+     already tight enough that ui-1 moved the group switcher out of it entirely) — pin
+     this to its own natural width up to max-width and let .nav-links give way instead,
+     since which group you're looking at matters more than every nav link staying visible
+     without scrolling. */
+  flex-shrink: 0;
 }
 .nav a {
   padding: 6px 12px;
@@ -333,6 +362,12 @@ label {
   }
   .nav .brand {
     margin-right: 6px;
+  }
+  .current-group-badge {
+    margin-right: 6px;
+    padding: 2px 8px;
+    font-size: 12px;
+    max-width: 110px;
   }
   .nav {
     padding: 12px 10px;

@@ -18,7 +18,7 @@ const GROVE_ROUTES = [
 
 export default function Layout() {
   const { shown, setShown } = useDock();
-  const { currentGroupId } = useGroups();
+  const { currentGroup, currentGroupId } = useGroups();
   const pathname = useLocation().pathname;
   const onDashboard = pathname === "/backlog";
   const withGrove = GROVE_ROUTES.includes(pathname);
@@ -40,6 +40,7 @@ export default function Layout() {
           { to: "/backlog/archive", label: "Completed" },
         ]}
         groupId={currentGroupId}
+        groupName={currentGroup?.name}
       />
 
       {/* Only the "show panels" affordance floats off the edge — nothing to show when
