@@ -4,9 +4,10 @@ import { Creature } from "../../components/Creature";
 import { LinkInvitePreviewList } from "../../components/LinkInvitePreview";
 import { PendingLinkProposal } from "../../components/PendingLinkProposal";
 import { useLinkInvitePreview } from "../../lib/useLinkInvitePreview";
+import { formatDateTime } from "../../lib/format";
 import { useProductCatalog } from "../ProductCatalogContext";
 import { useAuth } from "../../auth/AuthContext";
-import type { GroupView } from "../../types";
+import type { GroupView, PendingInvite } from "../../types";
 
 const ORDER_TRACKER_APPLET_KEY = "ordertracker";
 
@@ -30,7 +31,15 @@ export default function ManageCatalogGroupPage() {
   const [businesses, setBusinesses] = useState<GroupView[]>([]);
   const [selectedBusinessId, setSelectedBusinessId] = useState("");
   const [linkLoading, setLinkLoading] = useState(true);
+  const [pendingInvites, setPendingInvites] = useState<PendingInvite[]>([]);
   const linkPreview = useLinkInvitePreview(currentGroupId);
+
+  const loadPendingInvites = () => {
+    if (!currentGroupId) return;
+    api.get<PendingInvite[]>(`/groups/${currentGroupId}/invites`).then(setPendingInvites);
+  };
+
+  useEffect(loadPendingInvites, [currentGroupId]);
 
   useEffect(() => {
     if (!currentGroupId) return;
@@ -129,6 +138,7 @@ export default function ManageCatalogGroupPage() {
       await api.post(`/groups/${currentGroupId}/invites`, { to });
       setInvite("");
       setMsg(`Invite sent to ${to}.`);
+      loadPendingInvites();
     } catch (e) {
       setErr(e instanceof ApiError ? e.message : "Could not send the invite");
     } finally {
@@ -197,6 +207,22 @@ export default function ManageCatalogGroupPage() {
             Invite
           </button>
         </form>
+
+        {pendingInvites.length > 0 && (
+          <div style={{ marginTop: 12 }}>
+            <p className="muted" style={{ fontSize: 13, marginBottom: 6 }}>
+              Pending invites
+            </p>
+            <div className="kv">
+              {pendingInvites.map((inv) => (
+                <span className="chip" key={inv.id}>
+                  {inv.invitedDisplay}
+                  <span className="muted"> — invited by {inv.invitedByName}, {formatDateTime(inv.createdAt)}</span>
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="card">

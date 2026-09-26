@@ -20,6 +20,8 @@ import org.springframework.data.mongodb.core.query.Update;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 
+import com.backlogtracker.backlogtracker.config.repository.ConfigHistoryRepository;
+import com.backlogtracker.backlogtracker.config.repository.ConfigRepository;
 import com.backlogtracker.backlogtracker.item.domain.EffortEstimate;
 import com.backlogtracker.backlogtracker.item.domain.EffortUnit;
 import com.backlogtracker.backlogtracker.item.domain.Item;
@@ -38,12 +40,23 @@ class InsightsApiTest {
     @Autowired ItemRepository items;
     @Autowired MongoOperations mongo;
     @Autowired GroupRepository groups;
+    @Autowired ConfigRepository configRepo;
+    @Autowired ConfigHistoryRepository historyRepo;
 
     private String token;
     private String groupId;
 
+    /** Several tests below read config-driven thresholds/weights (staleThresholdDays,
+     *  buriedThresholdDays, priorityValues), and hotPriorityCountFollowsConfiguredWeightsNotHardcodedNames
+     *  permanently adds an "Urgent" priority to the shared AppConfig singleton via the real
+     *  API — round 6 review finding: without resetting it, that mutation (or one left behind
+     *  by a different @SpringBootTest class, e.g. RoleAccessTest's staleThresholdDays=10)
+     *  leaks into whichever test runs next in the same JVM/Mongo instance. getConfig()
+     *  reseeds clean defaults the moment the doc is missing, so a plain deleteAll() is enough. */
     @BeforeEach
     void setUp() throws Exception {
+        configRepo.deleteAll();
+        historyRepo.deleteAll();
         items.deleteAll();
         token = AuthTestSupport.devToken(mvc, mapper);
         groups.deleteAll();

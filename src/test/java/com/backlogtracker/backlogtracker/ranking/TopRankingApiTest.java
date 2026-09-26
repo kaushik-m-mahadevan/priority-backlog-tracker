@@ -14,6 +14,8 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 
+import com.backlogtracker.backlogtracker.config.repository.ConfigHistoryRepository;
+import com.backlogtracker.backlogtracker.config.repository.ConfigRepository;
 import com.backlogtracker.backlogtracker.item.repository.ItemRepository;
 import com.backlogtracker.commons.group.repository.GroupRepository;
 import com.backlogtracker.support.AuthTestSupport;
@@ -27,12 +29,23 @@ class TopRankingApiTest {
     @Autowired ObjectMapper mapper;
     @Autowired ItemRepository items;
     @Autowired GroupRepository groups;
+    @Autowired ConfigRepository configRepo;
+    @Autowired ConfigHistoryRepository historyRepo;
 
     private String token;
     private String groupId;
 
+    /** priorityFactor is computed against the shared AppConfig singleton's priorityValues
+     *  (max-normalized) — round 6 review finding: another @SpringBootTest class (e.g.
+     *  InsightsApiTest adding an "Urgent":10 priority) can leave that singleton mutated for
+     *  whichever test runs next in the same JVM/Mongo, silently changing what "Critical"
+     *  normalizes to here. Resetting it (getConfig() reseeds clean defaults the moment the
+     *  doc is missing) keeps this test's own assumptions (Critical → 1.0) honest regardless
+     *  of what ran before it. */
     @BeforeEach
     void setUp() throws Exception {
+        configRepo.deleteAll();
+        historyRepo.deleteAll();
         items.deleteAll();
         token = AuthTestSupport.devToken(mvc, mapper);
         groups.deleteAll();

@@ -6,9 +6,10 @@ import { PendingLinkProposal } from "../../components/PendingLinkProposal";
 import { Switch } from "../../components/Switch";
 import { useAuth } from "../../auth/AuthContext";
 import { useLinkInvitePreview } from "../../lib/useLinkInvitePreview";
+import { formatDateTime } from "../../lib/format";
 import { financeTrackerApi } from "../api";
 import { useFinanceGroup } from "../FinanceGroupContext";
-import type { GroupView } from "../../types";
+import type { GroupView, PendingInvite } from "../../types";
 
 const ORDER_TRACKER_APPLET_KEY = "ordertracker";
 
@@ -33,7 +34,15 @@ export default function ManageFinanceGroupPage() {
   const [linkLoading, setLinkLoading] = useState(true);
   const [businessAccountConfigured, setBusinessAccountConfigured] = useState(false);
   const [backfillResult, setBackfillResult] = useState<string | null>(null);
+  const [pendingInvites, setPendingInvites] = useState<PendingInvite[]>([]);
   const linkPreview = useLinkInvitePreview(currentGroupId);
+
+  const loadPendingInvites = () => {
+    if (!currentGroupId) return;
+    api.get<PendingInvite[]>(`/groups/${currentGroupId}/invites`).then(setPendingInvites);
+  };
+
+  useEffect(loadPendingInvites, [currentGroupId]);
 
   useEffect(() => {
     if (!currentGroupId) return;
@@ -155,6 +164,7 @@ export default function ManageFinanceGroupPage() {
       await api.post(`/groups/${currentGroupId}/invites`, { to });
       setInvite("");
       setMsg(`Invite sent to ${to}.`);
+      loadPendingInvites();
     } catch (e) {
       setErr(e instanceof ApiError ? e.message : "Could not send the invite");
     } finally {
@@ -223,6 +233,22 @@ export default function ManageFinanceGroupPage() {
             Invite
           </button>
         </form>
+
+        {pendingInvites.length > 0 && (
+          <div style={{ marginTop: 12 }}>
+            <p className="muted" style={{ fontSize: 13, marginBottom: 6 }}>
+              Pending invites
+            </p>
+            <div className="kv">
+              {pendingInvites.map((inv) => (
+                <span className="chip" key={inv.id}>
+                  {inv.invitedDisplay}
+                  <span className="muted"> — invited by {inv.invitedByName}, {formatDateTime(inv.createdAt)}</span>
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="card">
