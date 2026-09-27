@@ -30,6 +30,12 @@ export default function OrdersPage() {
   const [actionError, setActionError] = useState<string | null>(null);
   const [moving, setMoving] = useState<string | null>(null);
   const [cancelling, setCancelling] = useState<OrderView | null>(null);
+  // Board columns sit side-by-side needing horizontal scroll on wide screens, but stack
+  // vertically on a phone (round 6 review: side-scrolling "feels unnatural" there) — each
+  // stacked column can then be collapsed independently to cut down how far you scroll to
+  // see, say, Pending after checking In Progress. Collapse state only matters in the
+  // stacked layout; toggling it is a no-op visually on a wide screen.
+  const [collapsedColumns, setCollapsedColumns] = useState<Set<string>>(new Set());
 
   const load = () => {
     setLoading(true);
@@ -105,24 +111,42 @@ export default function OrdersPage() {
           <div className="board">
             {BOARD_COLUMNS.map((col) => {
               const cardsInColumn = boardVisible.filter((o) => columnOf(o.status) === col);
+              const collapsed = collapsedColumns.has(col);
               return (
-                <div key={col} className="board-column">
-                  <div className="board-column-head">
-                    <span>{COLUMN_LABELS[col]}</span>
+                <div key={col} className={`board-column${collapsed ? " collapsed" : ""}`}>
+                  <button
+                    type="button"
+                    className="board-column-head"
+                    aria-expanded={!collapsed}
+                    onClick={() =>
+                      setCollapsedColumns((prev) => {
+                        const next = new Set(prev);
+                        if (next.has(col)) next.delete(col);
+                        else next.add(col);
+                        return next;
+                      })
+                    }
+                  >
+                    <span>
+                      <span className="board-column-chevron" aria-hidden="true">{collapsed ? "▸" : "▾"}</span>
+                      {" "}{COLUMN_LABELS[col]}
+                    </span>
                     <span className="board-column-count">{cardsInColumn.length}</span>
-                  </div>
-                  <div className="board-column-body">
-                    {cardsInColumn.map((o) => (
-                      <BoardCard
-                        key={o.id}
-                        order={o}
-                        customerName={customerName(o.customerId)}
-                        moving={moving === o.id}
-                        onMove={move}
-                        onSwipeCancel={() => setCancelling(o)}
-                      />
-                    ))}
-                  </div>
+                  </button>
+                  {!collapsed && (
+                    <div className="board-column-body">
+                      {cardsInColumn.map((o) => (
+                        <BoardCard
+                          key={o.id}
+                          order={o}
+                          customerName={customerName(o.customerId)}
+                          moving={moving === o.id}
+                          onMove={move}
+                          onSwipeCancel={() => setCancelling(o)}
+                        />
+                      ))}
+                    </div>
+                  )}
                 </div>
               );
             })}

@@ -760,10 +760,26 @@ tr:last-child td {
   padding: 2px 4px 10px;
   border-bottom: 1px solid var(--border-soft);
   margin-bottom: 10px;
+  /* Now a <button> (round 6: every column is collapsible, not just stacked-on-mobile) —
+     reset it back to looking like the plain row it always was. */
+  width: 100%;
+  background: none;
+  border-left: none;
+  border-right: none;
+  border-top: none;
+  color: inherit;
+  font-family: inherit;
+  cursor: pointer;
+  text-align: left;
 }
 .board-column-count {
   color: var(--text-dim);
   font-weight: 500;
+}
+.board-column-chevron {
+  display: inline-block;
+  width: 1em;
+  color: var(--text-dim);
 }
 .board-column-body {
   display: flex;
@@ -802,6 +818,21 @@ tr:last-child td {
   width: 100%;
   font-size: 12px;
   margin-top: 2px;
+}
+
+/* Round 6 review: 3 columns at 260px min-width need ~810px+ to sit side by side without
+   scrolling — below that (any phone, most tablets in portrait) side-scrolling felt
+   unnatural, so columns stack full-width and vertically instead; each one collapses via
+   its own header button to keep the page from being three full lists deep at once. */
+@media (max-width: 900px) {
+  .board {
+    flex-direction: column;
+    overflow-x: visible;
+  }
+  .board-column {
+    min-width: 0;
+    width: 100%;
+  }
 }
 
 .badge {
@@ -2140,6 +2171,35 @@ a.applet-card:hover {
 .applet-card.is-disabled {
   opacity: 0.5;
   cursor: default;
+}
+/* Round 6 review: one full-width card per applet meant scrolling to see all of them on a
+   phone, even though there are only 6-7. A tighter icon grid with the description dropped
+   fits all of them on one screen instead, matching a home-screen app-launcher shape. */
+@media (max-width: 640px) {
+  .launcher {
+    padding: 28px 14px;
+  }
+  .applet-grid {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+  }
+  .applet-card {
+    padding: 14px 6px;
+  }
+  .applet-card .applet-icon {
+    width: 40px;
+    height: 40px;
+    font-size: 19px;
+    margin-bottom: 4px;
+  }
+  .applet-card h2 {
+    margin: 0;
+    font-size: 12.5px;
+    line-height: 1.25;
+  }
+  .applet-card p {
+    display: none;
+  }
 }
 
 /* ---------- image gallery (shared, commons.image-backed) ---------- */
