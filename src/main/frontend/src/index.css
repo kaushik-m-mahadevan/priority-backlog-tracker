@@ -216,6 +216,12 @@ label {
   top: 0;
   z-index: 20;
   flex-wrap: nowrap;
+  /* Reported on a real Samsung device: this bar's own background stopped short of the
+     true screen edge at the phone's default browser zoom, revealing the page's darker
+     background in the gap — a block element should fill its container's width by
+     default, but pinning it explicitly costs nothing and directly guards against
+     whatever viewport-width miscalculation caused the gap. */
+  width: 100%;
 }
 .nav-links {
   display: flex;
