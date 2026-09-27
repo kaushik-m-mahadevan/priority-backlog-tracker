@@ -70,12 +70,12 @@ export default function AppHeader({
         (appletHref ? (
           <Link to={appletHref} className="brand">
             {appletIcon ? `${appletIcon} ` : ""}
-            {appletName}
+            <span className="brand-name">{appletName}</span>
           </Link>
         ) : (
           <span className="brand">
             {appletIcon ? `${appletIcon} ` : ""}
-            {appletName}
+            <span className="brand-name">{appletName}</span>
           </span>
         ))}
       {groupName && <span className="current-group-badge">{groupName}</span>}

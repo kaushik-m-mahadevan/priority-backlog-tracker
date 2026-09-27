@@ -222,6 +222,18 @@ label {
      default, but pinning it explicitly costs nothing and directly guards against
      whatever viewport-width miscalculation caused the gap. */
   width: 100%;
+  /* Real root cause of the above (found via the on-device diagnostic, round 6): below
+     760px .nav-links is display:none, so nothing in this row can shrink to absorb a
+     content deficit — icon + brand + group badge + search + Connections + Bell + the
+     account menu genuinely need more than 360px on a narrow phone, and with no
+     overflow-x set, that overflow doesn't just clip visually: it grows
+     document.documentElement.scrollWidth for the WHOLE PAGE, which is what was corrupting
+     .tabbar's (position:fixed;left:0;right:0) own width/position elsewhere. This is a
+     hard backstop so a header content overflow can never again leak out and break fixed
+     positioning anywhere else on the page — see the mobile media query below for the
+     actual fix to the deficit itself (letting the group badge shrink again once
+     .nav-links isn't there to do it instead). */
+  overflow-x: hidden;
 }
 .nav-links {
   display: flex;
@@ -370,14 +382,32 @@ label {
     margin-right: 6px;
   }
   .current-group-badge {
-    margin-right: 6px;
-    padding: 2px 8px;
+    margin-right: 4px;
+    padding: 2px 6px;
     font-size: 12px;
     max-width: 110px;
+    /* Below this width .nav-links is display:none (see above), so it's no longer there to
+       give way instead of this badge — nothing else in the row can shrink either (icons
+       are already at their minimum), so this has to be the one that yields here, or the
+       row overflows the header (see .nav's overflow-x:hidden comment for what that broke). */
+    flex-shrink: 1;
+    min-width: 0;
   }
   .nav {
-    padding: 12px 10px;
-    gap: 4px;
+    padding: 12px 8px;
+    gap: 2px;
+  }
+}
+/* Real-device follow-up (round 6): even after the fixes above, a 360px-wide phone (a
+   narrower breakpoint than the 375px this was checked at before) still has a genuine
+   content deficit — icon + brand text + group badge + search + Connections + Bell +
+   account menu simply don't fit, and letting the group badge alone absorb it shrank it to
+   an unreadable sliver. The applet's icon already identifies which app you're in without
+   its name spelled out too, so drop the name specifically (not the icon) to free real
+   room for the badge instead of taking it from the newer, more informative feature. */
+@media (max-width: 400px) {
+  .brand-name {
+    display: none;
   }
 }
 
