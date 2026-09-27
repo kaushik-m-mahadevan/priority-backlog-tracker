@@ -4,6 +4,7 @@ import { BrowserRouter } from "react-router-dom";
 import { AuthProvider } from "./auth/AuthContext";
 import { ThemeProvider } from "./theme/ThemeContext";
 import App from "./App";
+import { ViewportDebugBadge } from "./components/ViewportDebugBadge";
 import "./index.css";
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
@@ -11,6 +12,9 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
     <ThemeProvider>
       <BrowserRouter>
         <AuthProvider>
+          {/* TEMPORARY (round 6 device diagnostic) — remove once the real-device
+              header/tabbar mismatch is diagnosed. */}
+          <ViewportDebugBadge />
           <App />
         </AuthProvider>
       </BrowserRouter>
