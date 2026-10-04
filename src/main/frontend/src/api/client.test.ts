@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { api, ApiError, getToken, setToken } from "./client";
+import { api, ApiError, getToken, setSessionRejectedHandler, setToken } from "./client";
 
 describe("token storage", () => {
   afterEach(() => {
@@ -49,6 +49,23 @@ describe("api.request (via the api.* verbs)", () => {
       text: async () => (body === undefined ? "" : JSON.stringify(body)),
     };
   }
+
+  it("tells the app its session was rejected on a 401 that carried a token, but not for a bad login", async () => {
+    const handler = vi.fn();
+    setSessionRejectedHandler(handler);
+    try {
+      (fetch as ReturnType<typeof vi.fn>).mockResolvedValue(mockResponse(401, { message: "nope" }));
+
+      await expect(api.post("/auth/login", {})).rejects.toBeInstanceOf(ApiError);
+      expect(handler).not.toHaveBeenCalled(); // no token sent: just wrong credentials
+
+      setToken("expired");
+      await expect(api.get("/items")).rejects.toBeInstanceOf(ApiError);
+      expect(handler).toHaveBeenCalledTimes(1);
+    } finally {
+      setSessionRejectedHandler(null);
+    }
+  });
 
   it("prefixes the path with /api and omits Authorization when there's no token", async () => {
     (fetch as ReturnType<typeof vi.fn>).mockResolvedValue(mockResponse(200, { ok: true }));

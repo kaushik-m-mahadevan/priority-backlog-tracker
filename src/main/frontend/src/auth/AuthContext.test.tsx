@@ -86,6 +86,22 @@ describe("useAuth", () => {
     expect(getToken()).toBeNull();
   });
 
+  it("logout() also tells the server so the session's logout time is recorded", async () => {
+    vi.mocked(api.post).mockResolvedValue({ token: "new-token", user: user() });
+    const { result } = renderHook(() => useAuth(), { wrapper: AuthProvider });
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    await act(async () => {
+      await result.current.login("ann@example.com", "pw");
+    });
+
+    act(() => {
+      result.current.logout();
+    });
+
+    expect(api.post).toHaveBeenCalledWith("/auth/logout");
+    expect(result.current.notice).toBeNull();
+  });
+
   it("refresh() re-fetches /auth/me and updates the user", async () => {
     setToken("token");
     vi.mocked(api.get).mockResolvedValue(user());

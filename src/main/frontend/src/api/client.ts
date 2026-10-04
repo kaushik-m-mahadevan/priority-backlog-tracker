@@ -17,6 +17,15 @@ export function setToken(token: string | null) {
   }
 }
 
+let onSessionRejected: (() => void) | null = null;
+
+/** Called when the server rejects a request that carried a token (the session timed out or
+ *  was ended elsewhere), so the app can drop back to the login screen instead of every page
+ *  showing its own "request failed". Not called for a bad login: that sends no token. */
+export function setSessionRejectedHandler(handler: (() => void) | null) {
+  onSessionRejected = handler;
+}
+
 export class ApiError extends Error {
   status: number;
   constructor(status: number, message: string) {
@@ -41,6 +50,10 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
 
   const text = await res.text();
   const data = text ? JSON.parse(text) : undefined;
+
+  if (res.status === 401 && token) {
+    onSessionRejected?.();
+  }
 
   if (!res.ok) {
     const message =

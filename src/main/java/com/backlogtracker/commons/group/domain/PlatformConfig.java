@@ -34,6 +34,10 @@ public class PlatformConfig {
     /** Applet key -&gt; max groups a user may belong to for that applet. Missing/0 = unlimited. */
     private Map<String, Integer> maxGroupsPerApplet;
 
+    /** Minutes without activity before a login session is closed. Null (documents saved
+     *  before this field existed) means {@code SessionService.DEFAULT_TIMEOUT_MINUTES}. */
+    private Integer sessionTimeoutMinutes;
+
     public static PlatformConfig defaults() {
         Map<String, Integer> caps = new LinkedHashMap<>();
         caps.put(Group.APPLET_BACKLOG_TRACKER, 5);

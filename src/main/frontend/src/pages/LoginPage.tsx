@@ -5,7 +5,7 @@ import { api, ApiError } from "../api/client";
 import PasswordInput from "../components/PasswordInput";
 
 export default function LoginPage() {
-  const { login } = useAuth();
+  const { login, notice } = useAuth();
   const nav = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -55,6 +55,11 @@ export default function LoginPage() {
           Sign in to continue
         </p>
         <div className="card">
+          {notice && !error && (
+            <div className="hint" role="status">
+              {notice}
+            </div>
+          )}
           {error && <div className="error">{error}</div>}
 
           {forgot ? (

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { api, ApiError } from "../api/client";
 import { capitalize } from "../lib/format";
+import SessionsCard from "./SessionsCard";
 
 interface Row {
   id: string;
@@ -172,6 +173,8 @@ export default function AdminPage() {
           ))}
         </div>
       </div>
+
+      <SessionsCard />
     </div>
   );
 }
