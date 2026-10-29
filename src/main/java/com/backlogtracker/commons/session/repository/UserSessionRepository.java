@@ -15,4 +15,6 @@ public interface UserSessionRepository extends MongoRepository<UserSession, Stri
     List<UserSession> findByUserIdOrderByLoginAtDesc(String userId, Pageable pageable);
 
     List<UserSession> findByLogoutAtIsNullAndLastActivityAtBefore(Instant cutoff);
+
+    List<UserSession> findByLogoutAtIsNullAndLoginAtBefore(Instant cutoff);
 }

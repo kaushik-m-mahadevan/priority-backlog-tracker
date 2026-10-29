@@ -10,7 +10,7 @@ interface SessionRow {
   loginAt: string | null;
   lastActivityAt: string | null;
   logoutAt: string | null;
-  logoutReason: "SIGN_OUT" | "INACTIVITY_TIMEOUT" | null;
+  logoutReason: "SIGN_OUT" | "INACTIVITY_TIMEOUT" | "TOKEN_EXPIRED" | null;
   active: boolean;
   durationSeconds: number | null;
 }
@@ -26,6 +26,7 @@ export function formatDuration(seconds: number | null): string {
 const REASON_LABEL: Record<string, string> = {
   SIGN_OUT: "Signed out",
   INACTIVITY_TIMEOUT: "Timed out (inactive)",
+  TOKEN_EXPIRED: "Login expired",
 };
 
 /** Admin Console: who logged in and out when, plus the inactivity timeout that ends a
@@ -62,7 +63,11 @@ export default function SessionsCard() {
       });
       setSaved(res.timeoutMinutes);
       setTimeoutValue(String(res.timeoutMinutes));
-      setMsg("Timeout saved. It applies to everyone, including people already signed in.");
+      setMsg(
+        res.timeoutMinutes === 0
+          ? "Automatic sign-out is off. People stay signed in until they sign out or their login expires."
+          : "Timeout saved. It applies to everyone, including people already signed in.",
+      );
     } catch (ex) {
       setErr(ex instanceof ApiError ? ex.message : "Could not save");
     }
@@ -78,13 +83,13 @@ export default function SessionsCard() {
         <input
           id="session-timeout"
           type="number"
-          min={1}
+          min={0}
           max={1440}
           style={{ width: 90 }}
           value={timeout}
           onChange={(e) => setTimeoutValue(e.target.value)}
         />
-        <span className="muted">minutes without activity</span>
+        <span className="muted">minutes without activity (0 = never)</span>
         <button className="primary" type="submit" disabled={!changed}>
           Save
         </button>

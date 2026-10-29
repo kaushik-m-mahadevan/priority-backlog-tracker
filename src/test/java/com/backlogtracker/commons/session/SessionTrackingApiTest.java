@@ -183,6 +183,38 @@ class SessionTrackingApiTest {
     }
 
     @Test
+    void withTheTimeoutOffAnIdleSessionStaysSignedInAndTheSweepLeavesItAlone() throws Exception {
+        sessionService.setTimeoutMinutes(0);
+        String token = jwt.issue(member);
+        UserSession s = onlySessionOf(member);
+        backdateActivity(s, Duration.ofHours(5));
+
+        sessionService.closeExpired();
+        mvc.perform(get("/api/auth/me").header("Authorization", bearer(token))).andExpect(status().isOk());
+        mvc.perform(get("/api/auth/session-policy").header("Authorization", bearer(token)))
+                .andExpect(jsonPath("$.timeoutMinutes").value(0));
+
+        assertThat(sessions.findById(s.getId()).orElseThrow().getLogoutAt()).isNull();
+    }
+
+    @Test
+    void withTheTimeoutOffAnAbandonedSessionIsStillClosedOnceItsTokenHasLapsed() {
+        sessionService.setTimeoutMinutes(0);
+        jwt.issue(member);
+        UserSession s = onlySessionOf(member);
+        s.setLoginAt(Instant.now().minus(Duration.ofHours(30)));
+        s.setLastActivityAt(Instant.now().minus(Duration.ofHours(29)));
+        sessions.save(s);
+        Instant lastSeen = sessions.findById(s.getId()).orElseThrow().getLastActivityAt();
+
+        sessionService.closeExpired();
+
+        UserSession closed = sessions.findById(s.getId()).orElseThrow();
+        assertThat(closed.getLogoutReason()).isEqualTo(LogoutReason.TOKEN_EXPIRED);
+        assertThat(closed.getLogoutAt()).isEqualTo(lastSeen);
+    }
+
+    @Test
     void aTokenIssuedWithoutASessionClaimIsRejected() throws Exception {
         String legacy = io.jsonwebtoken.Jwts.builder().subject(member.getId())
                 .expiration(java.util.Date.from(Instant.now().plusSeconds(600)))
@@ -223,7 +255,10 @@ class SessionTrackingApiTest {
         mvc.perform(get("/api/auth/session-policy").header("Authorization", bearer(memberToken)))
                 .andExpect(jsonPath("$.timeoutMinutes").value(30));
         mvc.perform(put("/api/admin/session-policy").contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"timeoutMinutes\":0}").header("Authorization", bearer(adminToken)))
+                        .content("{\"timeoutMinutes\":-1}").header("Authorization", bearer(adminToken)))
+                .andExpect(status().isBadRequest());
+        mvc.perform(put("/api/admin/session-policy").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"timeoutMinutes\":1441}").header("Authorization", bearer(adminToken)))
                 .andExpect(status().isBadRequest());
         mvc.perform(put("/api/admin/session-policy").contentType(MediaType.APPLICATION_JSON)
                         .content("{\"timeoutMinutes\":30}").header("Authorization", bearer(memberToken)))
