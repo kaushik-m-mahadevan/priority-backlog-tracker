@@ -189,6 +189,10 @@ Java runtime — build `./mvnw -DskipTests clean package`, start
 
 The `prod` profile (`application-prod.yml`) excludes the embedded MongoDB, disables
 demo-data and the local-bootstrap admin, and runs `ProdSanityCheck` which fails fast on
-a `test123` secret. Free instances sleep after ~15 min idle (≈1 min cold start); while
-someone has a tab open the SPA pings `/actuator/health` every few minutes to hold it
-awake (`VITE_KEEPALIVE=off` at build time disables that).
+a `test123` secret. Free instances sleep after ~15 min idle (≈1 min cold start). Two
+things hold one awake: the server pings its own public URL (`RENDER_EXTERNAL_URL`, which
+Render sets) every 10 minutes, so it stays up with nobody on the site
+(`KEEPALIVE_ENABLED=false` turns that off); and while someone has a tab open the SPA
+pings `/actuator/health` too (`VITE_KEEPALIVE=off` at build time disables that). The
+self-ping can only prevent a sleep, not wake a sleeping service — open the site once after a
+deploy and it keeps itself up from then on.

@@ -41,6 +41,13 @@ management:
         enabled: true
 
 app:
+  keepalive:
+    # Render sets RENDER_EXTERNAL_URL (the service's public https URL) on its web services;
+    # when present the app pings its own /actuator/health through it every 10 minutes so
+    # the free tier doesn't sleep after ~15 idle minutes. Unset locally, so it does nothing
+    # there. KEEPALIVE_ENABLED=false turns it off without a code change.
+    url: ${RENDER_EXTERNAL_URL:}
+    enabled: ${KEEPALIVE_ENABLED:true}
   jwt:
     secret: ${JWT_SECRET:test123}
     expiration-minutes: ${JWT_EXPIRATION_MINUTES:1440}
